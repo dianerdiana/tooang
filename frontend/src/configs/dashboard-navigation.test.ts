@@ -46,7 +46,7 @@ describe('buildDashboardNavigation', () => {
     ]);
     const navigation = buildDashboardNavigation({ user: user({ placeMemberships: [selectedPlace] }), selectedPlace });
 
-    expect(itemLabels(navigation, 'place')).toEqual(['Orders', 'Dining Tables', 'Business Hours']);
+    expect(itemLabels(navigation, 'place')).toEqual(['Orders', 'Dining Tables', 'Business Hours', 'Members']);
     expect(itemLabels(navigation, 'platform')).toEqual([]);
   });
 
