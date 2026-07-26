@@ -21,14 +21,7 @@ import type { AuthenticatedUser, PlaceMembership } from '@/types/user-data.type'
 
 export const dashboardRoutePermissions = {
   place: {
-    orders: [
-      PERMISSION.ORDER_READ,
-      PERMISSION.ORDER_CANCEL,
-      PERMISSION.ORDER_CONFIRM,
-      PERMISSION.ORDER_PREPARE,
-      PERMISSION.ORDER_READY,
-      PERMISSION.ORDER_COMPLETE,
-    ],
+    orders: [PERMISSION.ORDER_READ],
     menu: [PERMISSION.MENU_CREATE, PERMISSION.MENU_UPDATE, PERMISSION.MENU_DELETE],
     diningTables: [PERMISSION.TABLE_READ, PERMISSION.TABLE_CREATE, PERMISSION.TABLE_UPDATE, PERMISSION.TABLE_DELETE],
     businessHours: [PERMISSION.PLACE_READ, PERMISSION.PLACE_UPDATE],
