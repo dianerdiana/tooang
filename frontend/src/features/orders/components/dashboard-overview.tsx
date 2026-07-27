@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { Skeleton } from '@/components/ui/skeleton';
-import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { formatCurrency } from '@/utils/format-currency';
@@ -28,43 +28,20 @@ import { formatTimeAgo } from '@/utils/format-time-ago.util';
 import type { AuthenticatedUser, PlaceMembership } from '@/types/user-data.type';
 
 import { orderListQueryOptions } from '../queries/order-list.query';
-import {
-  FULFILLMENT_TYPE,
-  type FulfillmentType,
-  ORDER_STATUS,
-  type OrderStatus,
-  type OrderSummary,
-} from '../types/order.type';
+import { FULFILLMENT_TYPE, type FulfillmentType, ORDER_STATUS, type OrderSummary } from '../types/order.type';
 import { combineOrderTotals, getOrderTotal, resolveOverviewOrderScope } from '../utils/dashboard-overview';
+
+import { OrderStatusBadge } from './order-status-badge';
 
 type DashboardOverviewProps = {
   user: AuthenticatedUser;
   selectedPlace: PlaceMembership | null;
 };
 
-const statusPresentation: Record<OrderStatus, { label: string; tone: StatusBadgeTone }> = {
-  PENDING: { label: 'Pending', tone: 'warning' },
-  CONFIRMED: { label: 'Confirmed', tone: 'primary' },
-  PREPARING: { label: 'Preparing', tone: 'primary' },
-  READY: { label: 'Ready', tone: 'success' },
-  COMPLETED: { label: 'Completed', tone: 'success' },
-  CANCELLED: { label: 'Cancelled', tone: 'destructive' },
-  EXPIRED: { label: 'Expired', tone: 'neutral' },
-};
-
 const fulfillmentLabels: Record<FulfillmentType, string> = {
   [FULFILLMENT_TYPE.DINE_IN]: 'Dine in',
   [FULFILLMENT_TYPE.TAKEAWAY]: 'Takeaway',
 };
-
-function OrderStatusBadge({ status }: { status: OrderStatus }) {
-  const presentation = statusPresentation[status];
-  return (
-    <StatusBadge tone={presentation.tone} showDot>
-      {presentation.label}
-    </StatusBadge>
-  );
-}
 
 function PlaceOverviewContext({ membership }: { membership: PlaceMembership }) {
   const blockers = [
@@ -264,7 +241,7 @@ function DashboardOverview({ user, selectedPlace }: DashboardOverviewProps) {
     </Button>
   ) : selectedPlace ? (
     <Button asChild variant='outline' size='sm'>
-      <Link to='/dashboard/orders' search={{ placeId: selectedPlace.placeId }}>
+      <Link to='/dashboard/orders' search={{ placeId: selectedPlace.placeId, page: 1, limit: 20 }}>
         View all orders
       </Link>
     </Button>
