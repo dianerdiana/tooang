@@ -1,26 +1,32 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { DashboardPlaceholderPage } from '@/components/layouts/dashboard-placeholder-page';
-
-import { dashboardRoutePermissions } from '@/configs/dashboard-navigation';
+import { OrderQueuePage } from '@/features/orders/components/order-queue-page';
+import { parseOrderQueueSearch } from '@/features/orders/schemas/order-list.schema';
 
 import { requirePlaceDashboardRoute } from '@/utils/auth/dashboard-route-access';
 
+import { PERMISSION } from '@/types/permission.type';
+
 export const Route = createFileRoute('/dashboard/orders')({
-  beforeLoad: ({ context }) =>
-    requirePlaceDashboardRoute(context.selectedPlace, dashboardRoutePermissions.place.orders),
+  validateSearch: parseOrderQueueSearch,
+  beforeLoad: ({ context }) => requirePlaceDashboardRoute(context.selectedPlace, [PERMISSION.ORDER_READ]),
   head: () => ({ meta: [{ title: 'Orders | Tooang' }] }),
   component: OrdersRoute,
 });
 
 function OrdersRoute() {
   const { selectedPlace } = Route.useRouteContext();
-  const search = Route.useSearch();
+  const filters = Route.useSearch();
+  const navigate = Route.useNavigate();
+
+  if (!selectedPlace) return null;
+
   return (
-    <DashboardPlaceholderPage
-      title='Orders'
-      description={`Manage orders for ${selectedPlace?.place.name}.`}
-      search={search}
+    <OrderQueuePage
+      placeId={selectedPlace.placeId}
+      placeName={selectedPlace.place.name}
+      filters={filters}
+      onFiltersChange={(nextFilters) => void navigate({ search: nextFilters })}
     />
   );
 }
