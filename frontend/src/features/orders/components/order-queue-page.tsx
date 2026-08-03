@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { RefreshCwIcon, ShoppingBagIcon } from 'lucide-react';
+import { EyeIcon, RefreshCwIcon, ShoppingBagIcon } from 'lucide-react';
 
 import { PageHeader } from '@/components/layouts/page-header';
 import { SectionCard } from '@/components/layouts/section-card';
@@ -27,6 +27,7 @@ import {
   type OrderSummary,
 } from '../types/order.type';
 
+import { OrderDetailDrawer } from './order-detail-drawer';
 import { OrderStatusBadge, orderStatusPresentation } from './order-status-badge';
 
 type OrderQueuePageProps = {
@@ -73,7 +74,13 @@ function attentionClassName(status: OrderStatus) {
   return orderStatusPresentation[status].attentionClassName;
 }
 
-function OrderQueueResults({ orders }: { orders: OrderSummary[] }) {
+function OrderQueueResults({
+  orders,
+  onViewOrder,
+}: {
+  orders: OrderSummary[];
+  onViewOrder: (orderId: string) => void;
+}) {
   return (
     <>
       <div className='space-y-3 md:hidden' aria-label='Operational orders'>
@@ -99,6 +106,9 @@ function OrderQueueResults({ orders }: { orders: OrderSummary[] }) {
                 <OrderReceivedTime createdAt={order.createdAt} />
               </dd>
             </dl>
+            <Button type='button' variant='outline' className='w-full' onClick={() => onViewOrder(order.orderId)}>
+              <EyeIcon aria-hidden /> View order
+            </Button>
           </article>
         ))}
       </div>
@@ -112,6 +122,7 @@ function OrderQueueResults({ orders }: { orders: OrderSummary[] }) {
               <TableHead>Fulfillment</TableHead>
               <TableHead className='text-right'>Subtotal</TableHead>
               <TableHead className='text-right'>Received</TableHead>
+              <TableHead className='text-right'>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -129,6 +140,11 @@ function OrderQueueResults({ orders }: { orders: OrderSummary[] }) {
                 <TableCell className='text-right'>
                   <OrderReceivedTime createdAt={order.createdAt} />
                 </TableCell>
+                <TableCell className='text-right'>
+                  <Button type='button' variant='ghost' size='sm' onClick={() => onViewOrder(order.orderId)}>
+                    <EyeIcon aria-hidden /> View
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -139,6 +155,7 @@ function OrderQueueResults({ orders }: { orders: OrderSummary[] }) {
 }
 
 function OrderQueuePage({ placeId, placeName, filters, onFiltersChange }: OrderQueuePageProps) {
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const params = useMemo(
     () => ({
       page: filters.page,
@@ -229,7 +246,7 @@ function OrderQueuePage({ placeId, placeName, filters, onFiltersChange }: OrderQ
               }
             />
           ) : (
-            <OrderQueueResults orders={query.data?.orders ?? []} />
+            <OrderQueueResults orders={query.data?.orders ?? []} onViewOrder={setSelectedOrderId} />
           )}
 
           {!query.isPending && query.data && (
@@ -245,6 +262,7 @@ function OrderQueuePage({ placeId, placeName, filters, onFiltersChange }: OrderQ
           )}
         </div>
       </SectionCard>
+      <OrderDetailDrawer placeId={placeId} orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />
     </>
   );
 }
