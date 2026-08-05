@@ -32,7 +32,10 @@ describe('operational order queue presentation', () => {
 
   it('renders supported summary fields without mutation controls', () => {
     const markup = renderToStaticMarkup(
-      <OrderQueueResults orders={[order('PENDING', 'PENDING'), order('READY', 'READY')]} />,
+      <OrderQueueResults
+        orders={[order('PENDING', 'PENDING'), order('READY', 'READY')]}
+        onViewOrder={() => undefined}
+      />,
     );
 
     expect(markup).toContain('Customer PENDING');
@@ -40,7 +43,7 @@ describe('operational order queue presentation', () => {
     expect(markup).toContain('45.000');
     expect(markup).toContain('border-warning/60');
     expect(markup).toContain('border-success/60');
-    expect(markup).not.toContain('<button');
+    expect(markup).toContain('View order');
     expect(markup).not.toContain('Confirm order');
     expect(markup).not.toContain('Complete order');
   });
