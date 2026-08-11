@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const apiMock = vi.hoisted(() => ({
   get: vi.fn(),
+  patch: vi.fn(),
 }));
 
 vi.mock('@/configs/api-config', () => ({ api: apiMock }));
@@ -20,6 +21,7 @@ const response = {
 describe('ordersService', () => {
   beforeEach(() => {
     apiMock.get.mockReset();
+    apiMock.patch.mockReset();
     apiMock.get.mockResolvedValue(response);
   });
 
@@ -48,6 +50,35 @@ describe('ordersService', () => {
       message: 'Orders unavailable',
       code: 'APPLICATION_ERROR',
       isNetworkError: false,
+    });
+  });
+
+  it('gets protected operational detail without using public verification', async () => {
+    const order = { orderId: 'order/1', status: 'PENDING' };
+    apiMock.get.mockResolvedValueOnce({
+      data: { error: false, message: 'Order retrieved', data: { order } },
+    });
+
+    await expect(ordersService.getForPlace('place/1', 'order/1')).resolves.toEqual(order);
+    expect(apiMock.get).toHaveBeenCalledWith('/places/place%2F1/orders/order%2F1');
+    expect(apiMock.get.mock.calls[0]?.[0]).not.toContain('order-verifications');
+  });
+
+  it('transitions through the authenticated place endpoint with the exact input', async () => {
+    const order = { orderId: 'order-1', status: 'CANCELLED' };
+    apiMock.patch.mockResolvedValueOnce({
+      data: { error: false, message: 'Order status updated', data: { order } },
+    });
+
+    await expect(
+      ordersService.transitionForPlace('place-1', 'order-1', {
+        status: 'CANCELLED',
+        cancellationReason: 'Kitchen closed',
+      }),
+    ).resolves.toEqual(order);
+    expect(apiMock.patch).toHaveBeenCalledWith('/places/place-1/orders/order-1/status', {
+      status: 'CANCELLED',
+      cancellationReason: 'Kitchen closed',
     });
   });
 });
