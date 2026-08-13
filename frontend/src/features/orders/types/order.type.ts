@@ -48,4 +48,35 @@ export type OrderListResult = {
   meta: ApiPaginationMeta;
 };
 
+export type OrderItemSnapshot = {
+  menuItemId: string;
+  itemName: string;
+  itemType: 'FOOD' | 'DRINK';
+  unitPrice: number;
+  quantity: number;
+  note: string | null;
+  lineTotal: number;
+};
+
+export type OrderDetail = OrderSummary & {
+  customerNote: string | null;
+  cancellationReason: string | null;
+  diningTable: { tableId: string | null; name: string } | null;
+  confirmedAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  items: OrderItemSnapshot[];
+};
+
+export type OperationalOrderTransitionTarget =
+  | typeof ORDER_STATUS.CONFIRMED
+  | typeof ORDER_STATUS.PREPARING
+  | typeof ORDER_STATUS.READY
+  | typeof ORDER_STATUS.COMPLETED
+  | typeof ORDER_STATUS.CANCELLED;
+
+export type OperationalOrderStatusInput =
+  | { status: Exclude<OperationalOrderTransitionTarget, typeof ORDER_STATUS.CANCELLED> }
+  | { status: typeof ORDER_STATUS.CANCELLED; cancellationReason?: string | null };
+
 export type OrderListScope = { kind: 'place'; placeId: string } | { kind: 'platform' };
