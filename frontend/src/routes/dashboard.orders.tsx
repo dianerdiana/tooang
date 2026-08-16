@@ -23,6 +23,7 @@ function OrdersRoute() {
 
   return (
     <OrderQueuePage
+      key={selectedPlace.placeId}
       placeId={selectedPlace.placeId}
       placeName={selectedPlace.place.name}
       filters={filters}
