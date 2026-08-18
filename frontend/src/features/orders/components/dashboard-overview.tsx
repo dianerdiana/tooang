@@ -235,7 +235,7 @@ function DashboardOverview({ user, selectedPlace }: DashboardOverviewProps) {
 
   const viewAllOrders = isPlatform ? (
     <Button asChild variant='outline' size='sm'>
-      <Link to='/dashboard/platform/orders' search={{}}>
+      <Link to='/dashboard/platform/orders' search={{ page: 1, limit: 20 }}>
         View all orders
       </Link>
     </Button>
