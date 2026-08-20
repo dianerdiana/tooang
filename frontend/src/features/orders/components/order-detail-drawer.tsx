@@ -30,14 +30,15 @@ import { cn } from '@/utils/utils';
 
 import { PERMISSION } from '@/types/permission.type';
 
-import { placeOrderDetailQueryOptions } from '../queries/order-detail.query';
-import { usePlaceOrderTransitionMutation } from '../queries/order-transition.mutation';
+import { orderDetailQueryOptions } from '../queries/order-detail.query';
+import { useScopedOrderTransitionMutation } from '../queries/order-transition.mutation';
 import {
   FULFILLMENT_TYPE,
   type OperationalOrderStatusInput,
   type OperationalOrderTransitionTarget,
   ORDER_STATUS,
   type OrderDetail,
+  type OrderDetailScope,
   type OrderStatus,
 } from '../types/order.type';
 
@@ -388,10 +389,11 @@ function detailError(error: unknown) {
   return error.message;
 }
 
-function OrderDetailContent({ placeId, orderId }: { placeId: string; orderId: string }) {
+function OrderDetailContent({ scope, orderId }: { scope: OrderDetailScope; orderId: string }) {
   const ability = useAppAbility();
-  const query = useQuery(placeOrderDetailQueryOptions(placeId, orderId));
-  const mutation = usePlaceOrderTransitionMutation(placeId, orderId);
+  const query = useQuery(orderDetailQueryOptions(scope, orderId));
+  const transitionPlaceId = scope.kind === 'place' ? scope.placeId : (query.data?.place.placeId ?? '');
+  const mutation = useScopedOrderTransitionMutation(scope, transitionPlaceId, orderId);
   const [notice, setNotice] = useState<string>();
   const [actionError, setActionError] = useState<string>();
 
@@ -408,11 +410,11 @@ function OrderDetailContent({ placeId, orderId }: { placeId: string; orderId: st
   }
 
   const permissions: OrderTransitionPermissions = {
-    canConfirm: canAtPlace(ability, placeId, PERMISSION.ORDER_CONFIRM),
-    canPrepare: canAtPlace(ability, placeId, PERMISSION.ORDER_PREPARE),
-    canMarkReady: canAtPlace(ability, placeId, PERMISSION.ORDER_READY),
-    canComplete: canAtPlace(ability, placeId, PERMISSION.ORDER_COMPLETE),
-    canCancel: canAtPlace(ability, placeId, PERMISSION.ORDER_CANCEL),
+    canConfirm: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_CONFIRM),
+    canPrepare: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_PREPARE),
+    canMarkReady: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_READY),
+    canComplete: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_COMPLETE),
+    canCancel: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_CANCEL),
   };
 
   const transition = async (input: OperationalOrderStatusInput) => {
@@ -460,11 +462,11 @@ function OrderDetailContent({ placeId, orderId }: { placeId: string; orderId: st
 }
 
 function OrderDetailDrawer({
-  placeId,
+  scope,
   orderId,
   onClose,
 }: {
-  placeId: string;
+  scope: OrderDetailScope;
   orderId: string | null;
   onClose: () => void;
 }) {
@@ -479,7 +481,13 @@ function OrderDetailDrawer({
       description='Authenticated operational data and available lifecycle actions.'
       contentClassName='sm:max-w-xl'
     >
-      {orderId && <OrderDetailContent key={`${placeId}:${orderId}`} placeId={placeId} orderId={orderId} />}
+      {orderId && (
+        <OrderDetailContent
+          key={`${scope.kind}:${scope.kind === 'place' ? scope.placeId : 'global'}:${orderId}`}
+          scope={scope}
+          orderId={orderId}
+        />
+      )}
     </ResponsiveDrawer>
   );
 }
