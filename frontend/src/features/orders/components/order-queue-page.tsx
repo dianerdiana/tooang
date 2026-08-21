@@ -77,9 +77,11 @@ function attentionClassName(status: OrderStatus) {
 function OrderQueueResults({
   orders,
   onViewOrder,
+  showPlace = false,
 }: {
   orders: OrderSummary[];
   onViewOrder: (orderId: string) => void;
+  showPlace?: boolean;
 }) {
   return (
     <>
@@ -97,6 +99,12 @@ function OrderQueueResults({
               <OrderStatusBadge status={order.status} />
             </div>
             <dl className='grid grid-cols-2 gap-x-4 gap-y-2 text-sm'>
+              {showPlace && (
+                <>
+                  <dt className='text-muted-foreground'>Place</dt>
+                  <dd className='truncate text-right'>{order.place.name}</dd>
+                </>
+              )}
               <dt className='text-muted-foreground'>Fulfillment</dt>
               <dd className='truncate text-right'>{fulfillmentLabel(order)}</dd>
               <dt className='text-muted-foreground'>Subtotal</dt>
@@ -119,6 +127,7 @@ function OrderQueueResults({
             <TableRow>
               <TableHead>Order</TableHead>
               <TableHead>Status</TableHead>
+              {showPlace && <TableHead>Place</TableHead>}
               <TableHead>Fulfillment</TableHead>
               <TableHead className='text-right'>Subtotal</TableHead>
               <TableHead className='text-right'>Received</TableHead>
@@ -135,6 +144,7 @@ function OrderQueueResults({
                 <TableCell>
                   <OrderStatusBadge status={order.status} />
                 </TableCell>
+                {showPlace && <TableCell className='max-w-52 truncate'>{order.place.name}</TableCell>}
                 <TableCell>{fulfillmentLabel(order)}</TableCell>
                 <TableCell className='text-right font-medium tabular-nums'>{formatCurrency(order.subtotal)}</TableCell>
                 <TableCell className='text-right'>
@@ -262,9 +272,22 @@ function OrderQueuePage({ placeId, placeName, filters, onFiltersChange }: OrderQ
           )}
         </div>
       </SectionCard>
-      <OrderDetailDrawer placeId={placeId} orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />
+      <OrderDetailDrawer
+        scope={{ kind: 'place', placeId }}
+        orderId={selectedOrderId}
+        onClose={() => setSelectedOrderId(null)}
+      />
     </>
   );
 }
 
-export { fulfillmentLabel, OrderQueuePage, OrderQueueResults, OrderReceivedTime };
+export {
+  type FulfillmentFilter,
+  fulfillmentLabel,
+  fulfillmentOptions,
+  OrderQueuePage,
+  OrderQueueResults,
+  OrderReceivedTime,
+  type StatusFilter,
+  statusOptions,
+};
