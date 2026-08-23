@@ -54,4 +54,16 @@ describe('operational order queue presentation', () => {
     expect(fulfillmentLabel(takeaway)).toBe('Takeaway');
     expect(fulfillmentLabel(order('CONFIRMED', 'DINEIN'))).toBe('Dine in · Table 4');
   });
+
+  it('includes place identity only for global results', () => {
+    const placeResult = renderToStaticMarkup(
+      <OrderQueueResults orders={[order('READY', 'GLOBAL')]} onViewOrder={() => undefined} />,
+    );
+    const globalResult = renderToStaticMarkup(
+      <OrderQueueResults orders={[order('READY', 'GLOBAL')]} onViewOrder={() => undefined} showPlace />,
+    );
+
+    expect(placeResult).not.toContain('Warung Tooang');
+    expect(globalResult).toContain('Warung Tooang');
+  });
 });
