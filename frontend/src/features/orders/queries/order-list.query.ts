@@ -5,11 +5,12 @@ import type { OrderListParams, OrderListScope } from '../types/order.type';
 
 export const ORDER_REFRESH_INTERVAL = 30_000;
 
-const normalizedParams = (params: OrderListParams) => ({
+const normalizedParams = (scope: OrderListScope | null, params: OrderListParams) => ({
   page: params.page ?? 1,
   limit: params.limit ?? 20,
   ...(params.status ? { status: params.status } : {}),
   ...(params.fulfillmentType ? { fulfillmentType: params.fulfillmentType } : {}),
+  ...(scope?.kind === 'platform' && params.placeId ? { placeId: params.placeId } : {}),
 });
 
 export const orderListQueryKey = (scope: OrderListScope | null, params: OrderListParams) =>
@@ -18,7 +19,7 @@ export const orderListQueryKey = (scope: OrderListScope | null, params: OrderLis
     'list',
     scope?.kind ?? 'disabled',
     scope?.kind === 'place' ? scope.placeId : null,
-    normalizedParams(params),
+    normalizedParams(scope, params),
   ] as const;
 
 export const orderListQueryOptions = (scope: OrderListScope | null, params: OrderListParams) =>
@@ -26,7 +27,7 @@ export const orderListQueryOptions = (scope: OrderListScope | null, params: Orde
     queryKey: orderListQueryKey(scope, params),
     queryFn: () => {
       if (!scope) throw new Error('An order-list scope is required');
-      return ordersService.list(scope, normalizedParams(params));
+      return ordersService.list(scope, normalizedParams(scope, params));
     },
     enabled: scope !== null,
     staleTime: 15_000,
