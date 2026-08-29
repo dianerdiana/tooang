@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { orderDetailKeys, placeOrderDetailQueryOptions } from './order-detail.query';
-import { placeOrderListKey } from './order-transition.mutation';
+import { orderDetailKeys, orderDetailQueryKey, placeOrderDetailQueryOptions } from './order-detail.query';
+import { placeOrderListKey, platformOrderListKey } from './order-transition.mutation';
 
 describe('operational order detail query keys', () => {
   it('isolates order details by place and order', () => {
@@ -22,7 +22,15 @@ describe('operational order detail query keys', () => {
     expect(placeOrderDetailQueryOptions('place-a', 'order-1').enabled).toBe(true);
   });
 
+  it('keeps platform detail keys separate from place detail keys', () => {
+    expect(orderDetailQueryKey({ kind: 'platform' }, 'order-1')).toEqual(['orders', 'detail', 'platform', 'order-1']);
+    expect(orderDetailQueryKey({ kind: 'platform' }, 'order-1')).not.toEqual(
+      orderDetailQueryKey({ kind: 'place', placeId: 'place-a' }, 'order-1'),
+    );
+  });
+
   it('targets every list variant for one place when refreshing', () => {
     expect(placeOrderListKey('place-a')).toEqual(['orders', 'list', 'place', 'place-a']);
+    expect(platformOrderListKey()).toEqual(['orders', 'list', 'platform']);
   });
 });
