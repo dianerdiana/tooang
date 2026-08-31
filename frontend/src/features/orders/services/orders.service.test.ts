@@ -37,9 +37,14 @@ describe('ordersService', () => {
   });
 
   it('uses the global orders endpoint for platform scope', async () => {
-    await ordersService.list({ kind: 'platform' }, { page: 1, limit: 5 });
+    await ordersService.list(
+      { kind: 'platform' },
+      { page: 1, limit: 5, placeId: '00000000-0000-4000-8000-000000000001' },
+    );
 
-    expect(apiMock.get).toHaveBeenCalledWith('/orders', { params: { page: 1, limit: 5 } });
+    expect(apiMock.get).toHaveBeenCalledWith('/orders', {
+      params: { page: 1, limit: 5, placeId: '00000000-0000-4000-8000-000000000001' },
+    });
   });
 
   it('normalizes API failures for callers', async () => {
@@ -62,6 +67,16 @@ describe('ordersService', () => {
     await expect(ordersService.getForPlace('place/1', 'order/1')).resolves.toEqual(order);
     expect(apiMock.get).toHaveBeenCalledWith('/places/place%2F1/orders/order%2F1');
     expect(apiMock.get.mock.calls[0]?.[0]).not.toContain('order-verifications');
+  });
+
+  it('gets protected global detail from the global endpoint', async () => {
+    const order = { orderId: 'order/1', status: 'READY' };
+    apiMock.get.mockResolvedValueOnce({
+      data: { error: false, message: 'Order retrieved', data: { order } },
+    });
+
+    await expect(ordersService.getGlobal('order/1')).resolves.toEqual(order);
+    expect(apiMock.get).toHaveBeenCalledWith('/orders/order%2F1');
   });
 
   it('transitions through the authenticated place endpoint with the exact input', async () => {

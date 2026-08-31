@@ -56,6 +56,15 @@ export const ordersService = {
     }
   },
 
+  async getGlobal(orderId: string): Promise<OrderDetail> {
+    try {
+      const response = await api.get<ApiResponse<{ order: OrderDetail }>>(`/orders/${encodeURIComponent(orderId)}`);
+      return unwrapApiResponse(response.data).order;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
   async transitionForPlace(placeId: string, orderId: string, input: OperationalOrderStatusInput): Promise<OrderDetail> {
     try {
       const response = await api.patch<OperationalOrderStatusInput, ApiResponse<{ order: OrderDetail }>>(

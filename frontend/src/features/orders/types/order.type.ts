@@ -41,6 +41,7 @@ export type OrderListParams = {
   limit?: number;
   status?: OrderStatus;
   fulfillmentType?: FulfillmentType;
+  placeId?: string;
 };
 
 export type OrderListResult = {
@@ -80,3 +81,5 @@ export type OperationalOrderStatusInput =
   | { status: typeof ORDER_STATUS.CANCELLED; cancellationReason?: string | null };
 
 export type OrderListScope = { kind: 'place'; placeId: string } | { kind: 'platform' };
+
+export type OrderDetailScope = OrderListScope;

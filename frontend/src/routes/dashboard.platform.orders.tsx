@@ -1,12 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { DashboardPlaceholderPage } from '@/components/layouts/dashboard-placeholder-page';
-
 import { dashboardRoutePermissions } from '@/configs/dashboard-navigation';
+
+import { GlobalOrdersPage } from '@/features/orders/components/global-orders-page';
+import { parseGlobalOrderSearch } from '@/features/orders/schemas/global-order-list.schema';
 
 import { requirePlatformDashboardRoute } from '@/utils/auth/dashboard-route-access';
 
 export const Route = createFileRoute('/dashboard/platform/orders')({
+  validateSearch: parseGlobalOrderSearch,
   beforeLoad: ({ context }) =>
     requirePlatformDashboardRoute(context.auth.user, dashboardRoutePermissions.platform.orders),
   head: () => ({ meta: [{ title: 'Platform Orders | Tooang' }] }),
@@ -14,12 +16,8 @@ export const Route = createFileRoute('/dashboard/platform/orders')({
 });
 
 function PlatformOrdersRoute() {
-  return (
-    <DashboardPlaceholderPage
-      title='Orders'
-      description='Inspect globally accessible Tooang orders.'
-      search={Route.useSearch()}
-      scopeLabel='Platform'
-    />
-  );
+  const filters = Route.useSearch();
+  const navigate = Route.useNavigate();
+
+  return <GlobalOrdersPage filters={filters} onFiltersChange={(next) => void navigate({ search: next })} />;
 }

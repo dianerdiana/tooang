@@ -43,6 +43,16 @@ describe('dashboard route access', () => {
   it('checks platform routes against global permissions only', () => {
     expect(canAccessPlatformDashboardRoute(admin, [PERMISSION.ORDER_READ])).toBe(true);
     expect(canAccessPlatformDashboardRoute(admin, [PERMISSION.REVIEW_MODERATE])).toBe(false);
+    expect(
+      canAccessPlatformDashboardRoute(
+        {
+          ...admin,
+          globalPermissions: [],
+          placeMemberships: [selectedPlace],
+        },
+        [PERMISSION.ORDER_READ],
+      ),
+    ).toBe(false);
   });
 
   it('allows the create-place route only with a global create grant', () => {
