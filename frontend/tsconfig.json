@@ -1,0 +1,23 @@
+{
+  "files": [],
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/components/*": ["./src/components/*"],
+      "@/configs/*": ["./src/configs/*"],
+      "@/layouts/*": ["./src/layouts/*"],
+      "@/assets/*": ["./src/assets/*"],
+      "@/utils/*": ["./src/utils/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/types/*": ["./src/types/*"],
+      "@/features/*": ["./src/features/*"],
+      "@/hooks/*": ["./src/utils/hooks/*"],
+      "@/context/*": ["./src/utils/context/*"],
+      "@/navigation/*": ["./src/utils/navigation/*"],
+      "@/queries/*": ["./src/queries/*"],
+      "@/integrations/*": ["./src/integrations/*"]
+    }
+  },
+  "ignoredModules": ["radix-ui/*", "@base-ui/*"]
+}
