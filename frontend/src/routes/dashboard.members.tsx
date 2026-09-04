@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { DashboardPlaceholderPage } from '@/components/layouts/dashboard-placeholder-page';
-
 import { dashboardRoutePermissions } from '@/configs/dashboard-navigation';
+
+import { MembersPage } from '@/features/place-members/components/place-members-page';
 
 import { requirePlaceDashboardRoute } from '@/utils/auth/dashboard-route-access';
 
@@ -15,12 +15,6 @@ export const Route = createFileRoute('/dashboard/members')({
 
 function MembersRoute() {
   const { selectedPlace } = Route.useRouteContext();
-  const search = Route.useSearch();
-  return (
-    <DashboardPlaceholderPage
-      title='Members'
-      description={`Manage members for ${selectedPlace?.place.name}.`}
-      search={search}
-    />
-  );
+  if (!selectedPlace) return null;
+  return <MembersPage placeId={selectedPlace.placeId} placeName={selectedPlace.place.name} />;
 }
