@@ -2,8 +2,8 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 
-import { APP_CONFIG } from './common/constants/app-config.constant';
-import { WinstonLoggerService } from './common/services/winston-logger.service';
+import { APP_CONFIG } from './common/constants';
+import { WinstonLoggerService } from './common/services';
 
 import { AppModule } from './app.module';
 

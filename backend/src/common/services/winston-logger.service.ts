@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 
 import * as winston from 'winston';
 
-import { APP_CONFIG } from '../constants/app-config.constant';
+import { APP_CONFIG } from '../constants';
 
 @Injectable()
 export class WinstonLoggerService implements LoggerService {

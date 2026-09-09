@@ -1,7 +1,6 @@
 export const APP_CONFIG = {
   nodeEnv: 'app.nodeEnv',
   port: 'app.port',
-  xApiKey: 'app.xApiKey',
 
   dbConnectionString: 'database.connectionString',
 
