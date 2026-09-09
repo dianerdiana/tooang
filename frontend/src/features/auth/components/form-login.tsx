@@ -38,7 +38,7 @@ export function FormLogin() {
           if (props.status === 'success') {
             queryClient.removeQueries();
 
-            toast.success(`Welcome to SehatMurah, ${props.data.user.name}`);
+            toast.success(`Welcome to backend, ${props.data.user.name}`);
             navigate({ to: getSafeRedirectTarget(search.redirect) });
           } else {
             toast.error(props.message);
