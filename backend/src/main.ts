@@ -1,36 +1,21 @@
-import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { NestExpressApplication } from '@nestjs/platform-express';
-
-import { APP_CONFIG } from './common/constants';
-import { WinstonLoggerService } from './common/services';
 
 import { AppModule } from './app.module';
 
+import 'reflect-metadata';
+
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create(AppModule);
 
-  const configService = app.get(ConfigService);
-  const logger = app.get<WinstonLoggerService>(WinstonLoggerService);
-
-  // Logger
-  app.useLogger(logger);
-
-  // enable cors
-  app.enableCors({
-    origin: ['*'],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
-    allowedHeaders: 'Content-Type, Accept, Authorization',
-  });
-
-  const port = configService.get<number>(APP_CONFIG.port) ?? 3000;
-
-  await app.listen(process.env.PORT ?? 3000, () => {
-    if (configService.getOrThrow<string>(APP_CONFIG.nodeEnv) === 'development') {
-      console.log(`App is running on port: http://localhost:${port}`);
-    }
-  });
+  const rawPort = (process.env.PORT ?? '').trim();
+  const parsedPort = rawPort.length > 0 ? Number(rawPort) : Number.NaN;
+  const port =
+    Number.isFinite(parsedPort) && parsedPort >= 0 && parsedPort <= 65535 ? parsedPort : 3000;
+  await app.listen(port);
+  console.log(`Server running at http://localhost:${port}`);
 }
 
-bootstrap().catch((err) => console.log(err));
+bootstrap().catch((error) => {
+  console.error('Failed to start server', error);
+  process.exit(1);
+});
