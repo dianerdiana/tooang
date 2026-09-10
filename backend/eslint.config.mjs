@@ -44,10 +44,12 @@ export default tseslint.config(
             ['^@?\\w'],
 
             // Internal alias
+            ['^@/generated'],
             ['^@/common'],
             ['^@/config'],
             ['^@/modules'],
 
+            ['^./generated'],
             ['^./common'],
             ['^./configs'],
             ['^./modules'],

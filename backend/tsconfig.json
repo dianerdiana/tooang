@@ -21,10 +21,11 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
-      "@/config": ["./src/config"],
-      "@/common": ["./src/common"],
-      "@/lib": ["./src/lib"],
-      "@/modules": ["./src/modules"]
+      "@/generated/*": ["./generated/*"],
+      "@/config": ["./src/config/*"],
+      "@/common": ["./src/common/*"],
+      "@/lib": ["./src/lib/*"],
+      "@/modules": ["./src/modules/*"]
     }
   }
 }
