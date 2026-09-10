@@ -1,12 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
-import { UsersController } from './modules/users/users.controller';
-import { UsersService } from './modules/users/users.service';
-
 import env from './config/env';
 import { AppController } from './app.controller';
-import { BcryptHashingService, PrismaService, UserJwtService, WinstonLoggerService } from './lib';
+import { AppService } from './app.service';
+import { LibModule } from './lib';
 
 @Module({
   imports: [
@@ -14,15 +12,9 @@ import { BcryptHashingService, PrismaService, UserJwtService, WinstonLoggerServi
       isGlobal: true,
       load: [env],
     }),
+    LibModule,
   ],
-  controllers: [AppController, UsersController],
-  providers: [
-    PrismaService,
-    BcryptHashingService,
-    WinstonLoggerService,
-    UserJwtService,
-
-    UsersService,
-  ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

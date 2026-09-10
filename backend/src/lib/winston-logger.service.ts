@@ -1,16 +1,16 @@
 import { Injectable, type LoggerService } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 
 import * as winston from 'winston';
 
-import { APP_CONFIG } from '../common/constants';
+import envConfig from '../config/env';
 
 @Injectable()
 export class WinstonLoggerService implements LoggerService {
   private logger: winston.Logger;
+  private env = envConfig();
 
-  constructor(private configService: ConfigService) {
-    const isProduction = this.configService.get<string>(APP_CONFIG.nodeEnv) === 'production';
+  constructor() {
+    const isProduction = this.env.app.nodeEnv === 'production';
 
     this.logger = winston.createLogger({
       level: isProduction ? 'warn' : 'debug',
