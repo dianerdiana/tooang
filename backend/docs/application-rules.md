@@ -1,129 +1,129 @@
-# Aturan Service dan Transaksi Aplikasi
+# Application Service and Transaction Rules
 
-Dokumen ini mendefinisikan aturan bisnis yang tidak sepenuhnya dapat dijamin oleh `prisma/schema.prisma`. Semua service, controller, guard, job, dan seed harus mengikuti aturan berikut.
+This document defines business rules that cannot be fully enforced by `prisma/schema.prisma`. All services, controllers, guards, jobs, and seeds must follow these rules.
 
-## 1. Prinsip umum
+## 1. General Principles
 
-- Jangan menerima `userId`, role, atau identitas pemilik dari request sebagai sumber kebenaran. Ambil identitas user dari access token yang sudah diverifikasi.
-- Gunakan `User.id` sebagai foreign key internal. `User.userId` hanya digunakan sebagai identifier publik bila dibutuhkan API.
-- Semua pembacaan data aktif harus mengabaikan record dengan `deletedAt != null`, kecuali endpoint administratif yang memang menampilkan arsip.
-- Validasi input dilakukan pada DTO dan diulang untuk invariant penting di dalam transaksi.
-- Jangan memakai nilai harga, subtotal, nama menu, role, atau status yang dikirim client tanpa menghitung atau memeriksanya kembali di server.
-- Operasi yang membaca lalu mengubah beberapa record terkait harus menggunakan `prisma.$transaction`.
+- Do not accept `userId`, roles, or owner identity from a request as the source of truth. Obtain the user's identity from a verified access token.
+- Use `User.id` as the internal foreign key. Use `User.userId` only as a public identifier when required by the API.
+- All active-data queries must exclude records where `deletedAt != null`, except for administrative endpoints that explicitly display archived records.
+- Validate input in DTOs and revalidate important invariants within transactions.
+- Do not trust prices, subtotals, menu names, roles, or statuses submitted by the client without recalculating or verifying them on the server.
+- Operations that read and then modify multiple related records must use `prisma.$transaction`.
 
-## 2. Identitas dan RBAC
+## 2. Identity and RBAC
 
-### Role user
+### User Roles
 
-- Setiap user aktif wajib memiliki minimal satu `UserRole`.
-- Registrasi user biasa harus membuat `User` dan memasangkan role `USER` dalam satu transaksi.
-- Penambahan dan penghapusan role hanya boleh dilakukan oleh `SUPER_ADMIN`.
-- Role terakhir milik user tidak boleh dihapus selama user masih aktif.
-- User yang menjadi `PlaceOwner` wajib memiliki role `OWNER`.
-- Role `OWNER` tidak boleh dihapus selama user masih memiliki relasi `PlaceOwner`.
-- Role sistem pada tabel `Role` harus di-seed dan tidak boleh dihapus melalui endpoint umum.
-- Token autentikasi harus merepresentasikan seluruh role aktif user atau service harus mengambil ulang role dari database untuk operasi sensitif. Jangan bergantung pada satu role saja.
+- Every active user must have at least one `UserRole`.
+- Standard user registration must create the `User` and assign the `USER` role within a single transaction.
+- Only `SUPER_ADMIN` may add or remove roles.
+- A user's last role must not be removed while the user remains active.
+- A user who is a `PlaceOwner` must have the `OWNER` role.
+- The `OWNER` role must not be removed while the user still has a `PlaceOwner` relationship.
+- System roles in the `Role` table must be seeded and must not be deleted through general-purpose endpoints.
+- Authentication tokens must represent all active roles assigned to the user, or the service must reload roles from the database for sensitive operations. Do not rely on a single role.
 
-### Matriks akses
+### Access Matrix
 
-| Operasi | USER | OWNER | SUPER_ADMIN |
+| Operation | USER | OWNER | SUPER_ADMIN |
 | --- | --- | --- | --- |
-| Melihat tempat/menu yang dipublikasikan | Ya | Ya | Ya |
-| Menulis review milik sendiri | Ya | Ya | Ya |
-| Mengelola keranjang/pesanan sendiri | Ya | Ya | Ya |
-| Mengelola tempat yang dimiliki | Tidak | Ya | Ya |
-| Melihat dan memproses pesanan suatu tempat | Tidak | Hanya tempat miliknya | Ya |
-| Mengelola role dan seluruh data | Tidak | Tidak | Ya |
+| View published places/menus | Yes | Yes | Yes |
+| Write own reviews | Yes | Yes | Yes |
+| Manage own cart/orders | Yes | Yes | Yes |
+| Manage owned places | No | Yes | Yes |
+| View and process a place's orders | No | Owned places only | Yes |
+| Manage roles and all data | No | No | Yes |
 
-`ADMIN` dipertahankan pada schema untuk kompatibilitas kode yang sudah ada, tetapi hak aksesnya harus ditentukan secara eksplisit sebelum digunakan. Jangan menyamakannya secara otomatis dengan `SUPER_ADMIN`.
+`ADMIN` is retained in the schema for compatibility with existing code, but its permissions must be explicitly defined before use. Do not automatically treat it as equivalent to `SUPER_ADMIN`.
 
-### Pemeriksaan kepemilikan
+### Ownership Checks
 
-- Untuk operasi OWNER, query mutasi harus menyertakan pembatas `placeId` yang terhubung ke `PlaceOwner.userId = authenticatedUser.id`.
-- Jangan hanya melakukan pemeriksaan role `OWNER`; selalu periksa kepemilikan tempat target.
-- Entity turunan—jam operasional, kategori, menu, review administratif, keranjang, dan pesanan—harus ditelusuri ke `Place.id` sebelum dimutasi.
-- `SUPER_ADMIN` boleh melewati pemeriksaan kepemilikan, tetapi tetap tunduk pada validasi bisnis dan audit.
-- Jika entity ada tetapi bukan milik OWNER, respons yang disarankan adalah `404` agar keberadaan resource milik tenant lain tidak bocor.
+- For OWNER operations, mutation queries must include a `placeId` restriction linked to `PlaceOwner.userId = authenticatedUser.id`.
+- Do not check only for the `OWNER` role; always verify ownership of the target place.
+- Child entities—business hours, categories, menus, administrative reviews, carts, and orders—must be traced back to `Place.id` before they are modified.
+- `SUPER_ADMIN` may bypass ownership checks but remains subject to business validation and auditing.
+- If an entity exists but does not belong to the OWNER, the recommended response is `404` to avoid exposing the existence of another tenant's resource.
 
-## 3. Tempat dan kepemilikan
+## 3. Places and Ownership
 
-- Pembuatan `Place`, assignment `PlaceOwner`, dan pemberian role `OWNER` bila diperlukan harus atomik dalam satu transaksi.
-- Sebuah tempat aktif minimal memiliki satu OWNER, kecuali tempat dikelola sementara oleh `SUPER_ADMIN` berdasarkan kebijakan operasional yang terdokumentasi.
-- Pemilik terakhir tidak boleh dilepas dari tempat aktif.
-- `slug` harus dinormalisasi, unik, dan tidak boleh memakai reserved path aplikasi.
-- Tempat hanya boleh dipublikasikan bila data minimum telah lengkap: nama, tipe, alamat, minimal satu OWNER, dan minimal satu menu aktif sesuai kebijakan produk.
-- Mengaktifkan pemesanan hanya diperbolehkan jika tempat aktif, dipublikasikan, dan memiliki minimal satu menu yang tersedia.
-- Menonaktifkan pemesanan mencegah checkout baru, tetapi tidak membatalkan pesanan yang sudah terbentuk.
-- Soft delete tempat harus menonaktifkan publikasi dan pemesanan. Penanganan pesanan aktif harus diselesaikan atau dibatalkan lebih dahulu.
+- Creating a `Place`, assigning a `PlaceOwner`, and granting the `OWNER` role when necessary must be atomic within a single transaction.
+- An active place must have at least one OWNER, unless it is temporarily managed by `SUPER_ADMIN` under a documented operational policy.
+- The last owner must not be removed from an active place.
+- The `slug` must be normalized, unique, and must not use reserved application paths.
+- A place may be published only when the minimum required data is complete: name, type, address, at least one OWNER, and at least one active menu item, according to product policy.
+- Ordering may be enabled only when the place is active, published, and has at least one available menu item.
+- Disabling ordering prevents new checkouts but does not cancel existing orders.
+- Soft-deleting a place must disable publishing and ordering. Active orders must be completed or cancelled first.
 
-## 4. Jam operasional
+## 4. Business Hours
 
-- Maksimal satu `BusinessHour` per hari untuk setiap tempat sudah dibantu oleh unique constraint.
-- Jika `isClosed = true`, `opensAt` dan `closesAt` harus `null`.
-- Jika `isClosed = false`, `opensAt` dan `closesAt` wajib terisi dan tidak boleh sama.
-- Jam yang melewati tengah malam harus ditangani secara eksplisit oleh service, misalnya `18:00–02:00` berarti tutup pada hari berikutnya.
-- Seluruh evaluasi jam buka harus memakai timezone tempat atau timezone aplikasi yang telah disepakati, bukan timezone perangkat client.
+- The unique constraint already helps enforce a maximum of one `BusinessHour` record per day for each place.
+- If `isClosed = true`, `opensAt` and `closesAt` must be `null`.
+- If `isClosed = false`, `opensAt` and `closesAt` are required and must not be equal.
+- Hours that cross midnight must be handled explicitly by the service; for example, `18:00–02:00` means the place closes on the following day.
+- All opening-hours evaluations must use the place's timezone or the agreed application timezone, not the client device's timezone.
 
-## 5. Kategori dan menu
+## 5. Categories and Menus
 
-- `MenuCategory.placeId` harus sama dengan `MenuItem.placeId`. Service wajib mengecek kategori menggunakan kombinasi `categoryId` dan `placeId`.
-- Nama kategori harus unik secara case-insensitive dalam satu tempat. Normalisasi spasi sebelum validasi.
-- Harga menu harus lebih besar atau sama dengan nol dan menggunakan `Decimal`; jangan menggunakan floating-point JavaScript untuk perhitungan uang.
-- `sortOrder` tidak boleh negatif.
-- Menu yang dihapus, category-nya nonaktif, atau `isAvailable = false` tidak boleh ditambahkan ke keranjang atau dipesan.
-- Mengubah harga menu tidak boleh mengubah histori `OrderItem` yang sudah tersimpan.
-- Soft delete menu tidak boleh menghapus histori pesanan. Item terkait dalam keranjang aktif harus dibuang atau ditandai tidak valid saat keranjang dibaca.
-- OWNER hanya boleh membuat, mengubah, memindahkan kategori, atau menghapus menu di tempat miliknya sendiri.
+- `MenuCategory.placeId` must equal `MenuItem.placeId`. The service must look up the category using the combination of `categoryId` and `placeId`.
+- Category names must be unique within a place using case-insensitive comparison. Normalize whitespace before validation.
+- Menu prices must be greater than or equal to zero and use `Decimal`; do not use JavaScript floating-point arithmetic for monetary calculations.
+- `sortOrder` must not be negative.
+- A menu item that is deleted, belongs to an inactive category, or has `isAvailable = false` must not be added to a cart or ordered.
+- Changing a menu item's price must not alter stored `OrderItem` history.
+- Soft-deleting a menu item must not delete order history. Related items in active carts must be removed or marked invalid when the cart is read.
+- An OWNER may create, update, move between categories, or delete menu items only in places they own.
 
-## 6. Review
+## 6. Reviews
 
-- Rating harus berupa integer dalam rentang 1 sampai 5.
-- User hanya boleh membuat satu review aktif per tempat dan satu review aktif per menu, sesuai unique constraint saat ini.
-- Saat review di-soft-delete lalu user menulis ulang, service harus memulihkan dan memperbarui record lama; membuat record baru akan melanggar unique constraint.
-- User hanya boleh mengubah atau menghapus review miliknya sendiri. `SUPER_ADMIN` dapat melakukan moderasi.
-- Tempat yang direview harus aktif dan dipublikasikan. Menu yang direview harus berasal dari tempat tersebut dan tidak terhapus.
-- Tentukan kebijakan verifikasi pembelian sebelum mewajibkan review hanya dari pembeli. Jika diterapkan, cek adanya `OrderStatus.COMPLETED` yang berisi menu/tempat terkait.
-- Nilai rata-rata dan jumlah review hanya menghitung review dengan `deletedAt = null`.
-- Jika ringkasan rating disimpan sebagai cache, pembaruan review dan cache harus dilakukan dalam transaksi yang sama atau melalui mekanisme event yang idempotent.
+- Ratings must be integers from 1 through 5.
+- A user may have only one active review per place and one active review per menu item, in accordance with the current unique constraints.
+- If a review has been soft-deleted and the user submits another review, the service must restore and update the old record; creating a new record would violate the unique constraint.
+- Users may update or delete only their own reviews. `SUPER_ADMIN` may moderate reviews.
+- A reviewed place must be active and published. A reviewed menu item must belong to that place and must not be deleted.
+- Define the purchase-verification policy before restricting reviews to verified buyers. If implemented, check for an `OrderStatus.COMPLETED` order containing the relevant menu item or place.
+- Average ratings and review counts must include only reviews where `deletedAt = null`.
+- If rating summaries are cached, review and cache updates must occur in the same transaction or through an idempotent event mechanism.
 
-## 7. Keranjang
+## 7. Carts
 
-- Satu keranjang hanya berisi menu dari satu tempat. `Cart.placeId` harus sama dengan `MenuItem.placeId` untuk setiap `CartItem`.
-- User hanya boleh membaca dan memodifikasi keranjang miliknya sendiri.
-- Quantity harus integer lebih besar dari nol dan sebaiknya memiliki batas maksimum yang ditentukan produk.
-- Penambahan item yang sama memperbarui quantity pada `CartItem` yang sudah ada karena kombinasi `cartId` dan `menuItemId` unik.
-- Mengubah quantity menjadi nol harus menghapus item, bukan menyimpan quantity nol.
-- Harga tidak disimpan pada keranjang; harga terkini dibaca ulang dari `MenuItem` saat keranjang ditampilkan dan saat checkout.
-- Keranjang boleh disimpan ketika pemesanan sedang nonaktif, tetapi checkout harus ditolak.
-- Setiap pembacaan keranjang harus menandai atau membersihkan menu yang sudah tidak tersedia, terhapus, atau berada pada kategori nonaktif.
-- Catatan item harus dibatasi panjangnya dan disanitasi saat ditampilkan.
+- A cart may contain menu items from only one place. `Cart.placeId` must equal `MenuItem.placeId` for every `CartItem`.
+- Users may read and modify only their own carts.
+- Quantity must be an integer greater than zero and should have a product-defined maximum.
+- Adding the same item must update the quantity of the existing `CartItem` because the combination of `cartId` and `menuItemId` is unique.
+- Changing the quantity to zero must delete the item instead of storing a zero quantity.
+- Prices are not stored in the cart; current prices are reloaded from `MenuItem` when the cart is displayed and during checkout.
+- A cart may be retained while ordering is disabled, but checkout must be rejected.
+- Every cart read must flag or remove menu items that are unavailable, deleted, or belong to inactive categories.
+- Item notes must have a length limit and must be sanitized when displayed.
 
-## 8. Checkout dan pembuatan pesanan
+## 8. Checkout and Order Creation
 
-Checkout wajib dilakukan dalam satu transaksi dengan urutan logis berikut:
+Checkout must be performed in a single transaction using the following logical sequence:
 
-1. Ambil user aktif dan keranjang miliknya beserta tempat, kategori, dan seluruh menu.
-2. Pastikan keranjang tidak kosong dan semua item berasal dari `Cart.placeId`.
-3. Pastikan tempat aktif, dipublikasikan, dan `isOrderingEnabled = true`.
-4. Pastikan setiap menu tidak terhapus, tersedia, category-nya aktif, dan quantity valid.
-5. Hitung ulang `unitPrice`, `lineTotal`, dan `subtotal` di server menggunakan `Decimal`.
-6. Buat `orderCode` yang unik dan mudah dibaca. Tangani collision dengan retry terbatas terhadap unique constraint.
-7. Buat `Order` dan seluruh `OrderItem`. Salin `itemName`, `itemType`, dan `unitPrice` sebagai snapshot.
-8. Tentukan `expiresAt` berdasarkan kebijakan tempat/aplikasi.
-9. Kosongkan item keranjang hanya setelah order dan seluruh item berhasil dibuat.
+1. Load the active user and their cart, including the place, categories, and all menu items.
+2. Ensure the cart is not empty and every item belongs to `Cart.placeId`.
+3. Ensure the place is active, published, and has `isOrderingEnabled = true`.
+4. Ensure every menu item is not deleted, is available, belongs to an active category, and has a valid quantity.
+5. Recalculate `unitPrice`, `lineTotal`, and `subtotal` on the server using `Decimal`.
+6. Generate a unique, human-readable `orderCode`. Handle collisions by retrying unique-constraint failures a limited number of times.
+7. Create the `Order` and all `OrderItem` records. Copy `itemName`, `itemType`, and `unitPrice` as snapshots.
+8. Set `expiresAt` according to place or application policy.
+9. Empty the cart only after the order and all its items have been created successfully.
 
-Aturan tambahan:
+Additional rules:
 
-- `subtotal` harus sama dengan jumlah seluruh `OrderItem.lineTotal`.
-- `lineTotal` harus sama dengan `unitPrice × quantity`.
-- `customerName` merupakan snapshot dan tidak otomatis berubah ketika profil user diperbarui.
-- `tableNumber` wajib untuk `DINE_IN` hanya jika tempat menerapkan nomor meja; untuk `TAKEAWAY` harus dikosongkan.
-- Endpoint checkout harus memakai idempotency key agar retry jaringan tidak membuat pesanan ganda.
-- Jika tingkat konkurensi tinggi, gunakan isolation level yang sesuai atau optimistic concurrency agar harga/ketersediaan tidak berubah di tengah checkout.
+- `subtotal` must equal the sum of all `OrderItem.lineTotal` values.
+- `lineTotal` must equal `unitPrice × quantity`.
+- `customerName` is a snapshot and must not change automatically when the user's profile is updated.
+- `tableNumber` is required for `DINE_IN` only if the place uses table numbers; it must be empty for `TAKEAWAY`.
+- The checkout endpoint must use an idempotency key so network retries do not create duplicate orders.
+- Under high concurrency, use an appropriate isolation level or optimistic concurrency control to prevent prices or availability from changing during checkout.
 
-## 9. Lifecycle pesanan
+## 9. Order Lifecycle
 
-Transisi status yang diperbolehkan:
+Allowed status transitions:
 
 ```text
 PENDING   -> CONFIRMED | CANCELLED | EXPIRED
@@ -135,62 +135,62 @@ CANCELLED -> terminal
 EXPIRED   -> terminal
 ```
 
-- User hanya boleh membatalkan pesanan miliknya saat masih `PENDING`, kecuali kebijakan tempat memperluasnya.
-- OWNER hanya boleh melihat atau mengubah pesanan milik tempatnya.
-- `SUPER_ADMIN` dapat mengubah seluruh pesanan, tetapi tidak boleh melompati aturan transisi tanpa alur override yang tercatat.
-- Setiap perubahan status harus memakai update bersyarat terhadap status sebelumnya untuk mencegah race condition.
-- Isi timestamp yang sesuai ketika status berubah: `confirmedAt`, `completedAt`, atau `cancelledAt`.
-- Pesanan `PENDING` yang melewati `expiresAt` diubah menjadi `EXPIRED` oleh job yang idempotent.
-- Order terminal tidak boleh diedit, kecuali metadata administratif yang tidak mengubah nilai transaksi.
-- Karena tidak ada payment gateway, jangan menambahkan status pembayaran atau menyatakan order telah dibayar hanya berdasarkan status pesanan.
+- Users may cancel only their own orders while the status is `PENDING`, unless the place's policy allows otherwise.
+- An OWNER may view or update only orders belonging to their places.
+- `SUPER_ADMIN` may update any order but must not bypass transition rules without a recorded override flow.
+- Every status change must use a conditional update against the previous status to prevent race conditions.
+- Populate the appropriate timestamp when the status changes: `confirmedAt`, `completedAt`, or `cancelledAt`.
+- An idempotent job must change `PENDING` orders that have passed `expiresAt` to `EXPIRED`.
+- Terminal orders must not be edited, except for administrative metadata that does not alter transaction values.
+- Because there is no payment gateway, do not add payment statuses or claim that an order has been paid based solely on its order status.
 
-## 10. Kode, QR, dan link verifikasi
+## 10. Codes, QR Codes, and Verification Links
 
-- `orderCode` digunakan untuk komunikasi manusia dan pencarian kasir; jangan jadikan kode pendek sebagai satu-satunya bukti otorisasi.
-- QR code sebaiknya berisi URL yang menggunakan `verificationToken`, bukan `Order.id`, `userId`, atau informasi pribadi.
-- Endpoint verifikasi token hanya menampilkan data minimum yang dibutuhkan kasir.
-- Token harus dibandingkan secara exact, tidak dicatat utuh pada log, dan tidak dikirim ke layanan analitik.
-- Kasir/OWNER baru boleh memproses pesanan setelah kepemilikan tempat diverifikasi dari session mereka; kepemilikan QR saja tidak memberikan hak mutasi.
-- Terapkan rate limit pada pencarian berdasarkan kode dan token untuk mengurangi brute force.
-- Link untuk order `CANCELLED`, `EXPIRED`, atau yang sudah melewati masa retensi harus memberi hasil yang aman dan tidak mengekspos data pribadi.
+- `orderCode` is used for human communication and cashier lookups; do not use a short code as the sole proof of authorization.
+- A QR code should contain a URL that uses `verificationToken`, not `Order.id`, `userId`, or personal information.
+- The token-verification endpoint must display only the minimum data required by the cashier.
+- Tokens must be compared exactly, must not be logged in full, and must not be sent to analytics services.
+- A cashier or OWNER may process an order only after ownership of the place has been verified from their session; possession of the QR code alone does not grant mutation permissions.
+- Apply rate limits to code- and token-based lookups to reduce brute-force attempts.
+- Links for `CANCELLED` or `EXPIRED` orders, or orders beyond the retention period, must return a safe response without exposing personal data.
 
-## 11. Soft delete dan retensi
+## 11. Soft Deletion and Retention
 
-- Soft-deleted user tidak boleh login, membuat review, mengubah keranjang, atau membuat pesanan.
-- Data historis order dipertahankan sesuai kebutuhan audit dan kebijakan privasi.
-- Jangan hard-delete `User`, `Place`, atau `MenuItem` yang masih direferensikan histori pesanan tanpa proses retensi khusus.
-- Anonimisasi data user harus mempertahankan integritas order sambil menghapus data pribadi yang tidak lagi diperlukan.
-- Restore record harus memeriksa kembali konflik email, slug, nama kategori, dan unique constraint lain.
+- Soft-deleted users must not be able to log in, create reviews, modify carts, or create orders.
+- Historical order data must be retained according to audit requirements and privacy policies.
+- Do not hard-delete a `User`, `Place`, or `MenuItem` that is still referenced by order history without a dedicated retention process.
+- User-data anonymization must preserve order integrity while removing personal data that is no longer required.
+- Restoring a record must recheck conflicts involving email addresses, slugs, category names, and other unique constraints.
 
-## 12. Error handling dan audit
+## 12. Error Handling and Auditing
 
-- Gunakan `400` untuk input tidak valid, `401` untuk token tidak valid, `403` untuk larangan global berbasis role, `404` untuk resource tidak ada/bukan milik tenant, dan `409` untuk konflik state atau unique constraint.
-- Jangan mengembalikan stack trace, hash password, verification token, atau detail internal Prisma kepada client.
-- Catat aksi sensitif: perubahan role, assignment OWNER, perubahan pengaturan pemesanan, moderasi review, dan perubahan status order.
-- Audit log minimal berisi actor, aksi, target, timestamp, serta nilai sebelum/sesudah yang aman. Jangan menyimpan password, token, atau data rahasia.
+- Use `400` for invalid input, `401` for invalid tokens, `403` for global role-based restrictions, `404` for missing resources or resources owned by another tenant, and `409` for state or unique-constraint conflicts.
+- Do not return stack traces, password hashes, verification tokens, or internal Prisma details to clients.
+- Log sensitive actions: role changes, OWNER assignments, ordering-setting changes, review moderation, and order-status changes.
+- Audit logs must include, at minimum, the actor, action, target, timestamp, and safe before/after values. Do not store passwords, tokens, or secrets.
 
-## 13. Constraint database tambahan yang disarankan
+## 13. Recommended Additional Database Constraints
 
-Prisma schema belum mengekspresikan seluruh `CHECK constraint`. Migration SQL manual disarankan untuk:
+The Prisma schema does not express every `CHECK constraint`. Manual SQL migrations are recommended for:
 
-- `rating BETWEEN 1 AND 5` pada kedua tabel review.
-- `price >= 0`, `unit_price >= 0`, `line_total >= 0`, dan `subtotal >= 0`.
-- `quantity > 0` pada cart item dan order item.
+- `rating BETWEEN 1 AND 5` on both review tables.
+- `price >= 0`, `unit_price >= 0`, `line_total >= 0`, and `subtotal >= 0`.
+- `quantity > 0` on cart items and order items.
 - `sort_order >= 0`.
-- Konsistensi jam operasional antara `is_closed`, `opens_at`, dan `closes_at`.
+- Consistency between `is_closed`, `opens_at`, and `closes_at` for business hours.
 
-Validasi service tetap wajib walaupun constraint database tersebut ditambahkan, agar API dapat memberikan pesan error yang jelas.
+Service-level validation remains mandatory even after these database constraints are added so the API can return clear error messages.
 
-## 14. Skenario pengujian minimum
+## 14. Minimum Test Scenarios
 
-- User dibuat bersama role `USER` secara atomik dan role terakhir tidak dapat dihapus.
-- OWNER A tidak dapat membaca atau mengubah entity privat maupun pesanan milik OWNER B.
-- SUPER_ADMIN dapat mengelola seluruh tempat.
-- Kategori dari tempat lain ditolak ketika membuat atau memindahkan menu.
-- Menu dari tempat lain ditolak ketika ditambahkan ke keranjang.
-- Checkout ditolak saat ordering nonaktif, tempat tidak dipublikasikan, keranjang kosong, atau salah satu menu tidak tersedia.
-- Perubahan harga sebelum checkout menghasilkan snapshot harga terbaru, sedangkan order lama tetap tidak berubah.
-- Retry checkout dengan idempotency key yang sama hanya menghasilkan satu order.
-- Transisi status ilegal dan dua update status bersamaan ditolak dengan benar.
-- Token QR valid hanya memberi data minimum dan tidak memberi hak mutasi tanpa session OWNER yang sah.
-- Review di luar rating 1–5 ditolak dan review yang dihapus dapat dipulihkan tanpa konflik unique constraint.
+- A user is created atomically with the `USER` role, and their last role cannot be removed.
+- OWNER A cannot read or modify private entities or orders belonging to OWNER B.
+- `SUPER_ADMIN` can manage all places.
+- A category from another place is rejected when creating or moving a menu item.
+- A menu item from another place is rejected when added to a cart.
+- Checkout is rejected when ordering is disabled, the place is unpublished, the cart is empty, or any menu item is unavailable.
+- A price change before checkout produces a snapshot of the latest price, while existing orders remain unchanged.
+- Retrying checkout with the same idempotency key creates only one order.
+- Illegal status transitions and two concurrent status updates are rejected correctly.
+- A valid QR token exposes only the minimum data and does not grant mutation permissions without a valid OWNER session.
+- Reviews with ratings outside 1–5 are rejected, and deleted reviews can be restored without unique-constraint conflicts.
