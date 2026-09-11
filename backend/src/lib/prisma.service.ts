@@ -3,7 +3,8 @@ import { ConfigService } from '@nestjs/config';
 
 import { PrismaPg } from '@prisma/adapter-pg';
 
-import { Prisma, PrismaClient } from '../../generated/prisma/client.js';
+import { Prisma, PrismaClient } from '@/generated/prisma/client';
+
 import { APP_CONFIG } from '../common/constants';
 
 import { WinstonLoggerService } from './winston-logger.service';

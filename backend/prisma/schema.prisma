@@ -69,9 +69,46 @@ model User {
   menuItemReviews MenuItemReview[]
   carts           Cart[]
   orders          Order[]
+  refreshSessions RefreshSession[]
+  auditLogs       AuditLog[]       @relation("AuditActor")
 
   @@index([deletedAt])
   @@map("users")
+}
+
+model RefreshSession {
+  id           String          @id @default(uuid())
+  familyId     String          @map("family_id")
+  userId       String          @map("user_id")
+  tokenHash    String          @unique @map("token_hash")
+  expiresAt    DateTime        @map("expires_at")
+  revokedAt    DateTime?       @map("revoked_at")
+  replacedById String?         @unique @map("replaced_by_id")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replacedBy   RefreshSession? @relation("SessionReplacement", fields: [replacedById], references: [id], onDelete: SetNull)
+  replaces     RefreshSession? @relation("SessionReplacement")
+
+  @@index([userId, revokedAt])
+  @@index([familyId, revokedAt])
+  @@index([expiresAt])
+  @@map("refresh_sessions")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String   @map("actor_user_id")
+  action      String
+  targetType  String   @map("target_type")
+  targetId    String   @map("target_id")
+  beforeData  Json?    @map("before_data")
+  afterData   Json?    @map("after_data")
+  createdAt   DateTime @default(now()) @map("created_at")
+  actor       User     @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([actorUserId, createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@map("audit_logs")
 }
 
 model Role {

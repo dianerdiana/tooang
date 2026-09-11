@@ -21,7 +21,6 @@ export default tseslint.config(
         ...globals.node,
         ...globals.jest,
       },
-      sourceType: 'commonjs',
       parserOptions: {
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
@@ -47,11 +46,13 @@ export default tseslint.config(
             ['^@/generated'],
             ['^@/common'],
             ['^@/config'],
+            ['^@/lib'],
             ['^@/modules'],
 
             ['^./generated'],
             ['^./common'],
-            ['^./configs'],
+            ['^./config'],
+            ['^./lib'],
             ['^./modules'],
 
             // Parent

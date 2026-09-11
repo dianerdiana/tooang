@@ -1,8 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 
 import envConfig from './config/env';
-import { AppModule } from './app.module';
+
 import { WinstonLoggerService } from './lib';
+
+import { AppModule } from './app.module';
 
 import 'reflect-metadata';
 
@@ -12,6 +14,7 @@ async function bootstrap() {
 
   // Logger
   app.useLogger(app.get(WinstonLoggerService));
+  app.setGlobalPrefix('api/v1');
 
   const rawPort = env.app.port ?? 3000;
   const parsedPort = rawPort > 0 ? Number(rawPort) : Number.NaN;

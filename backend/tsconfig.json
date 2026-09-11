@@ -20,12 +20,14 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
+    "types": ["node", "jest"],
     "paths": {
       "@/generated/*": ["./generated/*"],
-      "@/config": ["./src/config/*"],
-      "@/common": ["./src/common/*"],
-      "@/lib": ["./src/lib/*"],
-      "@/modules": ["./src/modules/*"]
+      "@/config/*": ["./src/config/*"],
+      "@/common/*": ["./src/common/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/modules/*": ["./src/modules/*"]
     }
-  }
+  },
+  "include": ["src/**/*"]
 }

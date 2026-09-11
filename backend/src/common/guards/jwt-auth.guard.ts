@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 
 import { UserJwtService } from '../../lib';
 import type { UserTokenPayload } from '../auth';
-import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { IS_PUBLIC_KEY } from '../decorators';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {

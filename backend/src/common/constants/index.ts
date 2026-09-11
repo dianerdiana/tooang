@@ -1,1 +1,1 @@
-export { APP_CONFIG } from './app-config.constant.js';
+export { APP_CONFIG } from './app-config.constant';
