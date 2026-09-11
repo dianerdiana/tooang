@@ -1,7 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Digital food menu, RBAC, reviews, carts, and cashier-verifiable orders.
 
 generator client {
   provider     = "prisma-client"
@@ -13,15 +10,298 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id           String    @id @default(uuid())
-  userId       String    @unique @map("id_user")
-  fullName     String    @map("nama_lengkap")
-  email        String    @unique
-  passwordHash String    @map("password_hash")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  deletedAt    DateTime? @map("deleted_at")
+enum RoleCode {
+  SUPER_ADMIN
+  ADMIN
+  OWNER
+  USER
+}
 
+enum PlaceType {
+  RESTAURANT
+  CAFE
+  FOOD_STALL
+  OTHER
+}
+
+enum MenuItemType {
+  FOOD
+  DRINK
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum FulfillmentType {
+  DINE_IN
+  TAKEAWAY
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+model User {
+  id              String           @id @default(uuid())
+  userId          String           @unique @map("id_user")
+  fullName        String           @map("nama_lengkap")
+  email           String           @unique
+  passwordHash    String           @map("password_hash")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  deletedAt       DateTime?        @map("deleted_at")
+  roles           UserRole[]
+  ownedPlaces     PlaceOwner[]
+  placeReviews    PlaceReview[]
+  menuItemReviews MenuItemReview[]
+  carts           Cart[]
+  orders          Order[]
+
+  @@index([deletedAt])
   @@map("users")
+}
+
+model Role {
+  id          String     @id @default(uuid())
+  code        RoleCode   @unique
+  name        String
+  description String?
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  userId     String   @map("user_id")
+  roleId     String   @map("role_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model Place {
+  id                String         @id @default(uuid())
+  name              String
+  slug              String         @unique
+  type              PlaceType
+  description       String?
+  address           String
+  city              String?
+  latitude          Decimal?       @db.Decimal(10, 7)
+  longitude         Decimal?       @db.Decimal(10, 7)
+  phone             String?
+  whatsapp          String?
+  logoUrl           String?        @map("logo_url")
+  coverImageUrl     String?        @map("cover_image_url")
+  isPublished       Boolean        @default(false) @map("is_published")
+  isOrderingEnabled Boolean        @default(false) @map("is_ordering_enabled")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  deletedAt         DateTime?      @map("deleted_at")
+  owners            PlaceOwner[]
+  businessHours     BusinessHour[]
+  categories        MenuCategory[]
+  menuItems         MenuItem[]
+  reviews           PlaceReview[]
+  carts             Cart[]
+  orders            Order[]
+
+  @@index([type, isPublished, deletedAt])
+  @@map("places")
+}
+
+model PlaceOwner {
+  placeId    String   @map("place_id")
+  userId     String   @map("user_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  place      Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([placeId, userId])
+  @@index([userId])
+  @@map("place_owners")
+}
+
+model BusinessHour {
+  id       String    @id @default(uuid())
+  placeId  String    @map("place_id")
+  day      DayOfWeek
+  opensAt  DateTime? @map("opens_at") @db.Time(0)
+  closesAt DateTime? @map("closes_at") @db.Time(0)
+  isClosed Boolean   @default(false) @map("is_closed")
+  place    Place     @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  @@unique([placeId, day])
+  @@map("business_hours")
+}
+
+model MenuCategory {
+  id          String     @id @default(uuid())
+  placeId     String     @map("place_id")
+  name        String
+  description String?
+  sortOrder   Int        @default(0) @map("sort_order")
+  isActive    Boolean    @default(true) @map("is_active")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  place       Place      @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  menuItems   MenuItem[]
+
+  @@unique([placeId, name])
+  @@index([placeId, isActive, sortOrder])
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id          String           @id @default(uuid())
+  placeId     String           @map("place_id")
+  categoryId  String           @map("category_id")
+  name        String
+  description String?
+  type        MenuItemType
+  price       Decimal          @db.Decimal(12, 2)
+  imageUrl    String?          @map("image_url")
+  isAvailable Boolean          @default(true) @map("is_available")
+  sortOrder   Int              @default(0) @map("sort_order")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  deletedAt   DateTime?        @map("deleted_at")
+  place       Place            @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  category    MenuCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  reviews     MenuItemReview[]
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+
+  @@index([placeId, type, isAvailable, deletedAt])
+  @@index([categoryId, isAvailable, deletedAt])
+  @@map("menu_items")
+}
+
+model PlaceReview {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  placeId   String    @map("place_id")
+  rating    Int
+  comment   String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  place     Place     @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, placeId])
+  @@index([placeId, deletedAt, createdAt])
+  @@map("place_reviews")
+}
+
+model MenuItemReview {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  menuItemId String    @map("menu_item_id")
+  rating     Int
+  comment    String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  menuItem   MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, menuItemId])
+  @@index([menuItemId, deletedAt, createdAt])
+  @@map("menu_item_reviews")
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String     @map("user_id")
+  placeId   String     @map("place_id")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  place     Place      @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+
+  @@unique([userId, placeId])
+  @@index([placeId])
+  @@map("carts")
+}
+
+model CartItem {
+  id         String   @id @default(uuid())
+  cartId     String   @map("cart_id")
+  menuItemId String   @map("menu_item_id")
+  quantity   Int      @default(1)
+  note       String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, menuItemId])
+  @@index([menuItemId])
+  @@map("cart_items")
+}
+
+model Order {
+  id                String          @id @default(uuid())
+  orderCode         String          @unique @map("order_code")
+  verificationToken String          @unique @default(uuid()) @map("verification_token")
+  userId            String          @map("user_id")
+  placeId           String          @map("place_id")
+  status            OrderStatus     @default(PENDING)
+  fulfillmentType   FulfillmentType @default(DINE_IN) @map("fulfillment_type")
+  customerName      String          @map("customer_name")
+  tableNumber       String?         @map("table_number")
+  customerNote      String?         @map("customer_note")
+  subtotal          Decimal         @db.Decimal(12, 2)
+  expiresAt         DateTime?       @map("expires_at")
+  confirmedAt       DateTime?       @map("confirmed_at")
+  completedAt       DateTime?       @map("completed_at")
+  cancelledAt       DateTime?       @map("cancelled_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  user              User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  place             Place           @relation(fields: [placeId], references: [id], onDelete: Restrict)
+  items             OrderItem[]
+
+  @@index([userId, createdAt])
+  @@index([placeId, status, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String       @id @default(uuid())
+  orderId    String       @map("order_id")
+  menuItemId String?      @map("menu_item_id")
+  itemName   String       @map("item_name")
+  itemType   MenuItemType @map("item_type")
+  unitPrice  Decimal      @map("unit_price") @db.Decimal(12, 2)
+  quantity   Int
+  note       String?
+  lineTotal  Decimal      @map("line_total") @db.Decimal(12, 2)
+  order      Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem?    @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([menuItemId])
+  @@map("order_items")
 }
