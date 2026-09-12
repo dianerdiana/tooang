@@ -2,12 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
 
-import {
-  isUserRoleEnumArray,
-  type RefreshTokenPayload,
-  type UserRoleEnum,
-  type UserTokenPayload,
-} from '../common/auth';
+import { type AccessTokenPayload, type RefreshTokenPayload } from '../common/auth';
 import { APP_CONFIG } from '../common/constants';
 
 type TokenResult = { token: string; expiresIn: number };
@@ -19,10 +14,10 @@ export class UserJwtService {
     private readonly configService: ConfigService,
   ) {}
 
-  async createAccessToken(userId: string, roles: UserRoleEnum[]): Promise<TokenResult> {
+  async createAccessToken(userId: string): Promise<TokenResult> {
     const duration = this.getDuration(APP_CONFIG.jwtAccessTokenExpire);
     const token = await this.jwtService.signAsync(
-      { sub: userId, roles, tokenType: 'access' },
+      { sub: userId, tokenType: 'access' },
       { secret: this.getSecret(APP_CONFIG.jwtAccessToken), expiresIn: duration.signValue },
     );
     return { token, expiresIn: duration.seconds };
@@ -32,8 +27,11 @@ export class UserJwtService {
     userId: string,
     sessionId: string,
     familyId: string,
+    rememberMe = false,
   ): Promise<TokenResult> {
-    const duration = this.getDuration(APP_CONFIG.jwtRefreshTokenExpire);
+    const duration = this.getDuration(
+      rememberMe ? APP_CONFIG.jwtRememberMeRefreshTokenExpire : APP_CONFIG.jwtRefreshTokenExpire,
+    );
     const token = await this.jwtService.signAsync(
       { sub: userId, sessionId, familyId, tokenType: 'refresh' },
       { secret: this.getSecret(APP_CONFIG.jwtRefreshToken), expiresIn: duration.signValue },
@@ -41,15 +39,12 @@ export class UserJwtService {
     return { token, expiresIn: duration.seconds };
   }
 
-  async verifyAccessToken(token: string): Promise<UserTokenPayload> {
+  async verifyAccessToken(token: string): Promise<AccessTokenPayload> {
     const payload = await this.verify(token, this.getSecret(APP_CONFIG.jwtAccessToken));
     if (payload.tokenType !== 'access' || typeof payload.sub !== 'string') {
       throw new UnauthorizedException('Invalid authentication token payload');
     }
-    if (!isUserRoleEnumArray(payload.roles)) {
-      throw new UnauthorizedException('Invalid authentication token payload');
-    }
-    return { userId: payload.sub, roles: payload.roles };
+    return { userId: payload.sub };
   }
 
   async verifyRefreshToken(token: string): Promise<RefreshTokenPayload> {
@@ -69,8 +64,10 @@ export class UserJwtService {
     };
   }
 
-  getRefreshTokenExpiresIn(): number {
-    return this.getDuration(APP_CONFIG.jwtRefreshTokenExpire).seconds;
+  getRefreshTokenExpiresIn(rememberMe = false): number {
+    return this.getDuration(
+      rememberMe ? APP_CONFIG.jwtRememberMeRefreshTokenExpire : APP_CONFIG.jwtRefreshTokenExpire,
+    ).seconds;
   }
 
   private async verify(token: string, secret: string): Promise<Record<string, unknown>> {
