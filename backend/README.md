@@ -1,98 +1,415 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Tooang Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+REST API for the Tooang frontend, built with [NestJS](https://nestjs.com/) and TypeScript. The application provides the server-side foundation for authentication, user management, and the project's food-menu, cart, review, and ordering features.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+> This README includes placeholders marked with `TODO`. Replace them as the project and deployment workflow evolve.
 
-## Description
+## Table of Contents
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- [Overview](#overview)
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [Project Structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Environment Variables](#environment-variables)
+- [Database Setup](#database-setup)
+- [Running the Application](#running-the-application)
+- [API Usage](#api-usage)
+- [Available Scripts](#available-scripts)
+- [Testing](#testing)
+- [Code Quality](#code-quality)
+- [Deployment](#deployment)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
 
-## Project setup
+## Overview
 
-```bash
-$ npm install
+This backend exposes a versioned REST API consumed by the Tooang frontend. It follows a modular-monolith architecture in which each feature is organized as a NestJS module using the following flow:
+
+```text
+HTTP request -> Controller -> Service -> Repository -> Prisma -> PostgreSQL
 ```
 
-## Compile and run the project
+All API routes use the `/api/v1` prefix. The server listens on port `3000` by default.
 
-```bash
-# development
-$ npm run start
+## Features
 
-# watch mode
-$ npm run start:dev
+Currently implemented:
 
-# production mode
-$ npm run start:prod
+- User registration, login, token refresh, and logout
+- JWT-based authentication with access and refresh tokens
+- Role-based access control
+- Current-user profile management
+- Administrative user and role management
+- Zod request validation
+- Consistent HTTP response and error handling
+- Winston application logging
+- PostgreSQL persistence through Prisma ORM
+
+The database model also provides a foundation for places, digital menus, reviews, carts, and orders. See [Architecture](ARCHITECTURE.md) for the planned module boundaries and implementation order.
+
+## Technology Stack
+
+- [Node.js](https://nodejs.org/) and [TypeScript](https://www.typescriptlang.org/)
+- [NestJS](https://nestjs.com/) 11
+- [PostgreSQL](https://www.postgresql.org/)
+- [Prisma ORM](https://www.prisma.io/) 7
+- [Zod](https://zod.dev/) for input validation
+- [Jest](https://jestjs.io/) and Supertest for testing
+- ESLint and Prettier for code quality
+- Winston for logging
+
+## Project Structure
+
+```text
+backend/
+|-- docs/                    # Application rules and API specifications
+|-- prisma/                  # Prisma schema, migrations, and seed script
+|-- src/
+|   |-- common/              # Shared auth, decorators, filters, guards, and pipes
+|   |-- config/              # Application and environment configuration
+|   |-- lib/                 # Infrastructure services such as Prisma and logging
+|   |-- modules/             # Feature modules (auth, users, and future modules)
+|   |-- app.module.ts        # Root application module
+|   `-- main.ts              # Application entry point
+|-- test/                    # End-to-end tests
+|-- ARCHITECTURE.md          # Architecture conventions and module boundaries
+`-- package.json             # Dependencies and npm scripts
 ```
 
-## Run tests
+## Prerequisites
+
+Install the following before setting up the project:
+
+- Node.js: `TODO: specify the supported version` (Node.js 20 LTS or newer is recommended for NestJS 11)
+- npm: `TODO: specify the supported version`
+- PostgreSQL: `TODO: specify the supported version`
+- Git
+
+## Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone <repository-url>
+   cd tooang/backend
+   ```
+
+2. Install dependencies from the lockfile:
+
+   ```bash
+   npm ci
+   ```
+
+   Use `npm install` instead when intentionally updating dependencies.
+
+3. Create a local environment file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   If `.env.example` has not been added yet, create `.env` manually using the variables in the next section.
+
+4. Create a PostgreSQL database and update `DATABASE_URL` in `.env`.
+
+5. Generate the Prisma client and apply database migrations:
+
+   ```bash
+   npx prisma generate --config prisma7.config.ts
+   npx prisma migrate dev --config prisma7.config.ts
+   ```
+
+6. Seed the required roles and, optionally, a super-administrator account:
+
+   ```bash
+   npm run prisma:seed
+   ```
+
+7. Start the development server:
+
+   ```bash
+   npm run start:dev
+   ```
+
+## Environment Variables
+
+Create a `.env` file in the `backend` directory. Never commit real credentials or secrets.
+
+```dotenv
+# Application
+NODE_ENV=development
+PORT=3000
+
+# PostgreSQL
+DATABASE_URL=postgresql://<username>:<password>@localhost:5432/<database>?schema=public
+
+# JWT secrets and lifetimes (in seconds)
+JWT_ACCESS_TOKEN=<replace-with-a-long-random-secret>
+JWT_REFRESH_TOKEN=<replace-with-a-different-long-random-secret>
+JWT_ACCESS_TOKEN_EXPIRE=900
+JWT_REFRESH_TOKEN_EXPIRE=604800
+
+# Optional seed account
+SEED_SUPER_ADMIN_EMAIL=<admin@example.com>
+SEED_SUPER_ADMIN_PASSWORD=<replace-with-a-secure-password>
+SEED_SUPER_ADMIN_FULL_NAME=Super Administrator
+
+# Reserved for integrations/caching; configure when the related feature is enabled
+GEMINI_API_KEY=<optional-api-key>
+GEMINI_MODEL=gemini-3.5-flash
+GEMINI_FALLBACK_MODEL=gemini-3.1-flash-lite
+CACHE_REDIS_URL=redis://localhost:6379
+CACHE_TTL=60
+```
+
+| Variable                     | Required | Default                 | Description                                                                             |
+| ---------------------------- | -------- | ----------------------- | --------------------------------------------------------------------------------------- |
+| `NODE_ENV`                   | No       | `development`           | Application environment.                                                                |
+| `PORT`                       | No       | `3000`                  | HTTP server port.                                                                       |
+| `DATABASE_URL`               | Yes      | None                    | PostgreSQL connection string used by Prisma.                                            |
+| `JWT_ACCESS_TOKEN`           | Yes      | None                    | Secret used to sign access tokens.                                                      |
+| `JWT_REFRESH_TOKEN`          | Yes      | None                    | Secret used to sign refresh tokens. Use a different value from the access-token secret. |
+| `JWT_ACCESS_TOKEN_EXPIRE`    | Yes      | None                    | Access-token lifetime in seconds.                                                       |
+| `JWT_REFRESH_TOKEN_EXPIRE`   | Yes      | None                    | Refresh-token lifetime in seconds.                                                      |
+| `SEED_SUPER_ADMIN_EMAIL`     | No       | None                    | Email for an optional seeded super administrator.                                       |
+| `SEED_SUPER_ADMIN_PASSWORD`  | No       | None                    | Password for the optional seed account; must contain at least 8 bytes.                  |
+| `SEED_SUPER_ADMIN_FULL_NAME` | No       | `Super Administrator`   | Display name for the optional seed account.                                             |
+| `GEMINI_API_KEY`             | No       | None                    | Reserved Gemini integration API key.                                                    |
+| `GEMINI_MODEL`               | No       | `gemini-3.5-flash`      | Reserved primary Gemini model name.                                                     |
+| `GEMINI_FALLBACK_MODEL`      | No       | `gemini-3.1-flash-lite` | Reserved fallback Gemini model name.                                                    |
+| `CACHE_REDIS_URL`            | No       | None                    | Reserved Redis connection URL.                                                          |
+| `CACHE_TTL`                  | No       | `60`                    | Reserved cache lifetime in seconds.                                                     |
+
+For a production environment, store secrets in the deployment platform's secret manager instead of an environment file.
+
+## Database Setup
+
+Generate the Prisma client after changing `prisma/schema.prisma`:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npx prisma generate --config prisma7.config.ts
 ```
+
+Create and apply a development migration:
+
+```bash
+npx prisma migrate dev --name <migration-name> --config prisma7.config.ts
+```
+
+Apply existing migrations in production:
+
+```bash
+npx prisma migrate deploy --config prisma7.config.ts
+```
+
+Seed the database:
+
+```bash
+npm run prisma:seed
+```
+
+The seed script always creates the application roles. It creates or promotes a super-administrator only when both `SEED_SUPER_ADMIN_EMAIL` and `SEED_SUPER_ADMIN_PASSWORD` are configured.
+
+## Running the Application
+
+Development with automatic reload:
+
+```bash
+npm run start:dev
+```
+
+Standard development start:
+
+```bash
+npm run start
+```
+
+Debug mode with automatic reload:
+
+```bash
+npm run start:debug
+```
+
+Production build and start:
+
+```bash
+npm run build
+npm run start:prod
+```
+
+After startup, the API is available at:
+
+```text
+http://localhost:3000/api/v1
+```
+
+Replace `3000` with the configured `PORT` value when necessary.
+
+## API Usage
+
+Requests containing JSON must include `Content-Type: application/json`. Protected endpoints require an access token in the following header:
+
+```http
+Authorization: Bearer <access-token>
+```
+
+Example registration request:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fullName": "Example User",
+    "email": "user@example.com",
+    "password": "replace-with-a-secure-password"
+  }'
+```
+
+Example login request:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "replace-with-a-secure-password"
+  }'
+```
+
+Example authenticated request:
+
+```bash
+curl http://localhost:3000/api/v1/me \
+  -H "Authorization: Bearer <access-token>"
+```
+
+Core implemented endpoints include:
+
+| Method   | Endpoint                            | Authentication | Description                                     |
+| -------- | ----------------------------------- | -------------- | ----------------------------------------------- |
+| `GET`    | `/api/v1`                           | Public         | Basic application response.                     |
+| `POST`   | `/api/v1/auth/register`             | Public         | Register a user.                                |
+| `POST`   | `/api/v1/auth/login`                | Public         | Log in and obtain a token pair.                 |
+| `POST`   | `/api/v1/auth/refresh`              | Refresh token  | Rotate the refresh token and obtain new tokens. |
+| `POST`   | `/api/v1/auth/logout`               | Bearer token   | Revoke a refresh session.                       |
+| `GET`    | `/api/v1/me`                        | Bearer token   | Get the current user's profile.                 |
+| `PATCH`  | `/api/v1/me`                        | Bearer token   | Update the current user's profile.              |
+| `GET`    | `/api/v1/users`                     | `SUPER_ADMIN`  | List active users.                              |
+| `GET`    | `/api/v1/users/:userId`             | `SUPER_ADMIN`  | Get an active user.                             |
+| `POST`   | `/api/v1/users/:userId/roles`       | `SUPER_ADMIN`  | Assign a role.                                  |
+| `DELETE` | `/api/v1/users/:userId/roles/:role` | `SUPER_ADMIN`  | Revoke a role.                                  |
+| `DELETE` | `/api/v1/users/:userId`             | `SUPER_ADMIN`  | Deactivate a user.                              |
+
+Detailed request and response contracts are available in the [API specification](docs/api-specification/).
+
+## Available Scripts
+
+| Command               | Description                                         |
+| --------------------- | --------------------------------------------------- |
+| `npm run build`       | Compile the application into `dist/`.               |
+| `npm run start`       | Start the application.                              |
+| `npm run start:dev`   | Start in watch mode.                                |
+| `npm run start:debug` | Start in debug and watch mode.                      |
+| `npm run start:prod`  | Run the compiled production build.                  |
+| `npm run lint`        | Run ESLint and automatically apply supported fixes. |
+| `npm run format`      | Format source and test files with Prettier.         |
+| `npm test`            | Run unit tests.                                     |
+| `npm run test:watch`  | Run unit tests in watch mode.                       |
+| `npm run test:cov`    | Run unit tests and produce a coverage report.       |
+| `npm run test:e2e`    | Run end-to-end tests.                               |
+| `npm run test:debug`  | Run Jest in Node.js debug mode.                     |
+| `npm run prisma:seed` | Seed roles and the optional super-administrator.    |
+
+## Testing
+
+Run unit tests:
+
+```bash
+npm test
+```
+
+Run end-to-end tests:
+
+```bash
+npm run test:e2e
+```
+
+Generate a coverage report:
+
+```bash
+npm run test:cov
+```
+
+> TODO: Document the dedicated test database setup and required test environment variables.
+
+## Code Quality
+
+Run the linter:
+
+```bash
+npm run lint
+```
+
+Format the codebase:
+
+```bash
+npm run format
+```
+
+Run the relevant checks before opening a pull request.
 
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+The application can be deployed anywhere that supports Node.js and PostgreSQL.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+General production workflow:
+
+1. Configure production environment variables and secrets.
+2. Install locked production dependencies.
+3. Generate the Prisma client.
+4. Build the NestJS application.
+5. Apply migrations with `prisma migrate deploy`.
+6. Start the compiled application with `npm run start:prod`.
+7. Configure HTTPS, health checks, logging, and process supervision on the hosting platform.
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm ci
+npx prisma generate --config prisma7.config.ts
+npm run build
+npx prisma migrate deploy --config prisma7.config.ts
+npm run start:prod
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+> TODO: Add platform-specific deployment instructions, the production API URL, health-check path, CORS policy, and CI/CD workflow.
 
-## Resources
+## Documentation
 
-Check out a few resources that may come in handy when working with NestJS:
+- [Architecture and module conventions](ARCHITECTURE.md)
+- [Application rules](docs/application-rules.md)
+- [Authentication API specification](docs/api-specification/auth.md)
+- [Users API specification](docs/api-specification/users.md)
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+> TODO: Add generated OpenAPI/Swagger documentation when available.
 
-## Support
+## Contributing
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+1. Create a branch from the project's default branch.
+2. Make a focused change and add or update tests.
+3. Run linting, formatting, and the relevant test suites.
+4. Commit the change using the project's commit convention.
+5. Open a pull request describing the change and how it was verified.
 
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+> TODO: Add the branch naming, commit message, code review, and release conventions used by the team.
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+This package is currently marked as `UNLICENSED` and is private. Add a license file and update this section if the distribution policy changes.
+
+## Contact
+
+- Maintainer: `TODO: name or team`
+- Email: `TODO: contact email`
+- Project repository: `TODO: repository URL`
