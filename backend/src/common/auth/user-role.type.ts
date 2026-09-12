@@ -1,14 +1,16 @@
-export enum UserRoleEnum {
+export enum PlatformRoleEnum {
   SuperAdmin = 'SUPER_ADMIN',
   Admin = 'ADMIN',
-  Owner = 'OWNER',
   User = 'USER',
 }
 
-export function isUserRoleEnum(value: unknown): value is UserRoleEnum {
-  return typeof value === 'string' && Object.values(UserRoleEnum).includes(value as UserRoleEnum);
+export enum PlaceMemberRoleEnum {
+  Owner = 'OWNER',
+  Cashier = 'CASHIER',
 }
 
-export function isUserRoleEnumArray(value: unknown): value is UserRoleEnum[] {
-  return Array.isArray(value) && value.length > 0 && value.every(isUserRoleEnum);
+export function isPlatformRole(value: unknown): value is PlatformRoleEnum {
+  return (
+    typeof value === 'string' && Object.values(PlatformRoleEnum).includes(value as PlatformRoleEnum)
+  );
 }

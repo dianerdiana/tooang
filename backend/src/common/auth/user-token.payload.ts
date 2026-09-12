@@ -1,8 +1,13 @@
-import { UserRoleEnum } from './user-role.type';
+import { PlatformRoleEnum } from './user-role.type';
 
-export interface UserTokenPayload {
+export interface AccessTokenPayload {
   userId: string;
-  roles: UserRoleEnum[];
+}
+
+export interface AuthenticatedUser {
+  id: string;
+  userId: string;
+  platformRole: PlatformRoleEnum;
 }
 
 export interface RefreshTokenPayload {
