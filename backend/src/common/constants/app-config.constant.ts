@@ -8,6 +8,9 @@ export const APP_CONFIG = {
   jwtRefreshToken: 'jwt.refreshToken',
   jwtAccessTokenExpire: 'jwt.accessTokenExpire',
   jwtRefreshTokenExpire: 'jwt.refreshTokenExpire',
+  jwtRememberMeRefreshTokenExpire: 'jwt.rememberMeRefreshTokenExpire',
+
+  bcryptRounds: 'security.bcryptRounds',
 
   cacheRedisUrl: 'cache.redisUrl',
   cacheTtl: 'cache.ttl',

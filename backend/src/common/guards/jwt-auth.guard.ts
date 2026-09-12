@@ -1,8 +1,8 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
-import { UserJwtService } from '../../lib';
-import type { UserTokenPayload } from '../auth';
+import { PrismaService, UserJwtService } from '../../lib';
+import { type AuthenticatedUser, PlatformRoleEnum } from '../auth';
 import { IS_PUBLIC_KEY } from '../decorators';
 
 @Injectable()
@@ -10,6 +10,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly jwtService: UserJwtService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -24,7 +25,7 @@ export class JwtAuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<{
       headers: Record<string, string | string[] | undefined>;
-      user?: UserTokenPayload;
+      user?: AuthenticatedUser;
     }>();
 
     const authorization = request.headers.authorization;
@@ -39,7 +40,21 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
-    request.user = await this.jwtService.verifyAccessToken(accessToken);
+    const payload = await this.jwtService.verifyAccessToken(accessToken);
+    const user = await this.prisma.user.findFirst({
+      where: {
+        userId: payload.userId,
+        deletedAt: null,
+        deletionRequestedAt: null,
+      },
+      select: { id: true, userId: true, platformRole: true },
+    });
+    if (!user) throw new UnauthorizedException();
+
+    request.user = {
+      ...user,
+      platformRole: user.platformRole as PlatformRoleEnum,
+    };
     return true;
   }
 }
