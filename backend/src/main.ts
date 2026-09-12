@@ -1,5 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 
+import cookieParser from 'cookie-parser';
+
 import envConfig from './config/env';
 
 import { WinstonLoggerService } from './lib';
@@ -11,6 +13,8 @@ import 'reflect-metadata';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const env = envConfig();
+
+  app.use(cookieParser());
 
   // Logger
   app.useLogger(app.get(WinstonLoggerService));
