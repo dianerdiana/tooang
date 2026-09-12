@@ -5,12 +5,17 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import request from 'supertest';
 
-import { AppModule } from './../src/app.module';
+const testDatabaseUrl = process.env.TEST_DATABASE_URL;
+const describeDatabase = testDatabaseUrl ? describe : describe.skip;
 
-describe('AppController (e2e)', () => {
+describeDatabase('AppController (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
+    process.env.DATABASE_URL = testDatabaseUrl!;
+    process.env.JWT_ACCESS_TOKEN ||= 'e2e-access-secret';
+    process.env.JWT_REFRESH_TOKEN ||= 'e2e-refresh-secret';
+    const { AppModule } = await import('./../src/app.module.js');
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
