@@ -122,7 +122,7 @@ Install the following before setting up the project:
    npx prisma migrate dev --config prisma7.config.ts
    ```
 
-6. Seed the required roles and, optionally, a super-administrator account:
+6. Optionally seed or promote a super-administrator account:
 
    ```bash
    npm run prisma:seed
@@ -146,11 +146,13 @@ PORT=3000
 # PostgreSQL
 DATABASE_URL=postgresql://<username>:<password>@localhost:5432/<database>?schema=public
 
-# JWT secrets and lifetimes (in seconds)
+# JWT secrets and lifetimes
 JWT_ACCESS_TOKEN=<replace-with-a-long-random-secret>
 JWT_REFRESH_TOKEN=<replace-with-a-different-long-random-secret>
-JWT_ACCESS_TOKEN_EXPIRE=900
-JWT_REFRESH_TOKEN_EXPIRE=604800
+JWT_ACCESS_TOKEN_EXPIRE=15m
+JWT_REFRESH_TOKEN_EXPIRE=30d
+JWT_REMEMBER_ME_REFRESH_TOKEN_EXPIRE=90d
+BCRYPT_ROUNDS=12
 
 # Optional seed account
 SEED_SUPER_ADMIN_EMAIL=<admin@example.com>
@@ -172,8 +174,10 @@ CACHE_TTL=60
 | `DATABASE_URL`               | Yes      | None                    | PostgreSQL connection string used by Prisma.                                            |
 | `JWT_ACCESS_TOKEN`           | Yes      | None                    | Secret used to sign access tokens.                                                      |
 | `JWT_REFRESH_TOKEN`          | Yes      | None                    | Secret used to sign refresh tokens. Use a different value from the access-token secret. |
-| `JWT_ACCESS_TOKEN_EXPIRE`    | Yes      | None                    | Access-token lifetime in seconds.                                                       |
-| `JWT_REFRESH_TOKEN_EXPIRE`   | Yes      | None                    | Refresh-token lifetime in seconds.                                                      |
+| `JWT_ACCESS_TOKEN_EXPIRE`    | No       | `15m`                   | Access-token lifetime.                                                                  |
+| `JWT_REFRESH_TOKEN_EXPIRE`   | No       | `30d`                   | Standard refresh-session lifetime.                                                      |
+| `JWT_REMEMBER_ME_REFRESH_TOKEN_EXPIRE` | No | `90d`              | Remember-me refresh-session lifetime.                                                   |
+| `BCRYPT_ROUNDS`              | No       | `12`                    | Bcrypt work factor applied after SHA-256 password pre-hashing.                          |
 | `SEED_SUPER_ADMIN_EMAIL`     | No       | None                    | Email for an optional seeded super administrator.                                       |
 | `SEED_SUPER_ADMIN_PASSWORD`  | No       | None                    | Password for the optional seed account; must contain at least 8 bytes.                  |
 | `SEED_SUPER_ADMIN_FULL_NAME` | No       | `Super Administrator`   | Display name for the optional seed account.                                             |
@@ -211,7 +215,7 @@ Seed the database:
 npm run prisma:seed
 ```
 
-The seed script always creates the application roles. It creates or promotes a super-administrator only when both `SEED_SUPER_ADMIN_EMAIL` and `SEED_SUPER_ADMIN_PASSWORD` are configured.
+The seed script creates or promotes a super-administrator only when both `SEED_SUPER_ADMIN_EMAIL` and `SEED_SUPER_ADMIN_PASSWORD` are configured.
 
 ## Running the Application
 
@@ -292,16 +296,16 @@ Core implemented endpoints include:
 | -------- | ----------------------------------- | -------------- | ----------------------------------------------- |
 | `GET`    | `/api/v1`                           | Public         | Basic application response.                     |
 | `POST`   | `/api/v1/auth/register`             | Public         | Register a user.                                |
-| `POST`   | `/api/v1/auth/login`                | Public         | Log in and obtain a token pair.                 |
-| `POST`   | `/api/v1/auth/refresh`              | Refresh token  | Rotate the refresh token and obtain new tokens. |
-| `POST`   | `/api/v1/auth/logout`               | Bearer token   | Revoke a refresh session.                       |
+| `POST`   | `/api/v1/auth/login`                | Public         | Log in; return access token and set refresh cookie. |
+| `POST`   | `/api/v1/auth/refresh`              | Refresh cookie | Rotate refresh cookie and obtain a new access token. |
+| `POST`   | `/api/v1/auth/logout`               | Refresh cookie | Revoke a refresh session and clear its cookie.  |
 | `GET`    | `/api/v1/me`                        | Bearer token   | Get the current user's profile.                 |
 | `PATCH`  | `/api/v1/me`                        | Bearer token   | Update the current user's profile.              |
-| `GET`    | `/api/v1/users`                     | `SUPER_ADMIN`  | List active users.                              |
-| `GET`    | `/api/v1/users/:userId`             | `SUPER_ADMIN`  | Get an active user.                             |
-| `POST`   | `/api/v1/users/:userId/roles`       | `SUPER_ADMIN`  | Assign a role.                                  |
-| `DELETE` | `/api/v1/users/:userId/roles/:role` | `SUPER_ADMIN`  | Revoke a role.                                  |
-| `DELETE` | `/api/v1/users/:userId`             | `SUPER_ADMIN`  | Deactivate a user.                              |
+| `POST`   | `/api/v1/me/account-deletion-requests` | Bearer token | Request account deletion.                       |
+| `GET`    | `/api/v1/users`                     | ADMIN/SUPER_ADMIN | List active users.                           |
+| `GET`    | `/api/v1/users/:userId`             | ADMIN/SUPER_ADMIN | Get an active user.                          |
+| `PUT`    | `/api/v1/users/:userId/platform-role` | SUPER_ADMIN | Set a platform role.                            |
+| `DELETE` | `/api/v1/users/:userId`             | ADMIN/SUPER_ADMIN | Deactivate an eligible user.                 |
 
 Detailed request and response contracts are available in the [API specification](docs/api-specification/).
 
@@ -321,7 +325,7 @@ Detailed request and response contracts are available in the [API specification]
 | `npm run test:cov`    | Run unit tests and produce a coverage report.       |
 | `npm run test:e2e`    | Run end-to-end tests.                               |
 | `npm run test:debug`  | Run Jest in Node.js debug mode.                     |
-| `npm run prisma:seed` | Seed roles and the optional super-administrator.    |
+| `npm run prisma:seed` | Seed or promote the optional super-administrator.   |
 
 ## Testing
 
