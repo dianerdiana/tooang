@@ -10,11 +10,15 @@ datasource db {
   provider = "postgresql"
 }
 
-enum RoleCode {
+enum PlatformRole {
   SUPER_ADMIN
   ADMIN
-  OWNER
   USER
+}
+
+enum PlaceMemberRole {
+  OWNER
+  CASHIER
 }
 
 enum PlaceType {
@@ -54,25 +58,37 @@ enum OrderStatus {
   EXPIRED
 }
 
-model User {
-  id              String           @id @default(uuid())
-  userId          String           @unique @map("id_user")
-  fullName        String           @map("nama_lengkap")
-  email           String           @unique
-  passwordHash    String           @map("password_hash")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-  deletedAt       DateTime?        @map("deleted_at")
-  roles           UserRole[]
-  ownedPlaces     PlaceOwner[]
-  placeReviews    PlaceReview[]
-  menuItemReviews MenuItemReview[]
-  carts           Cart[]
-  orders          Order[]
-  refreshSessions RefreshSession[]
-  auditLogs       AuditLog[]       @relation("AuditActor")
+enum MediaAssetStatus {
+  ACTIVE
+  PENDING_DELETE
+  DELETE_FAILED
+  DELETED
+}
 
-  @@index([deletedAt])
+model User {
+  id                  String           @id @default(uuid())
+  userId              String           @unique @map("id_user")
+  fullName            String           @map("full_name")
+  email               String           @unique @db.VarChar(254)
+  passwordHash        String           @map("password_hash")
+  platformRole        PlatformRole     @default(USER) @map("platform_role")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  deletedAt           DateTime?        @map("deleted_at")
+  deletionRequestedAt DateTime?        @map("deletion_requested_at")
+  anonymizedAt        DateTime?        @map("anonymized_at")
+  placeMemberships    PlaceMember[]
+  placeReviews        PlaceReview[]
+  menuItemReviews     MenuItemReview[]
+  carts               Cart[]
+  orders              Order[]
+  idempotencyKeys     IdempotencyKey[]
+  refreshSessions     RefreshSession[]
+  auditLogs           AuditLog[]       @relation("AuditActor")
+
+  @@index([platformRole, deletedAt])
+  @@index([deletedAt, createdAt])
+  @@index([deletionRequestedAt])
   @@map("users")
 }
 
@@ -111,71 +127,57 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-model Role {
-  id          String     @id @default(uuid())
-  code        RoleCode   @unique
-  name        String
-  description String?
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
-  users       UserRole[]
-
-  @@map("roles")
-}
-
-model UserRole {
-  userId     String   @map("user_id")
-  roleId     String   @map("role_id")
-  assignedAt DateTime @default(now()) @map("assigned_at")
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role       Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
-
-  @@id([userId, roleId])
-  @@index([roleId])
-  @@map("user_roles")
-}
-
 model Place {
   id                String         @id @default(uuid())
-  name              String
-  slug              String         @unique
+  name              String         @db.VarChar(120)
+  slug              String         @unique @db.VarChar(100)
   type              PlaceType
-  description       String?
-  address           String
-  city              String?
+  description       String?        @db.VarChar(2000)
+  address           String         @db.VarChar(500)
+  city              String?        @db.VarChar(100)
   latitude          Decimal?       @db.Decimal(10, 7)
   longitude         Decimal?       @db.Decimal(10, 7)
-  phone             String?
-  whatsapp          String?
-  logoUrl           String?        @map("logo_url")
-  coverImageUrl     String?        @map("cover_image_url")
+  phone             String?        @db.VarChar(30)
+  whatsapp          String?        @db.VarChar(30)
+  timezone          String
+  logoAssetId       String?        @unique @map("logo_asset_id")
+  coverAssetId      String?        @unique @map("cover_asset_id")
   isPublished       Boolean        @default(false) @map("is_published")
   isOrderingEnabled Boolean        @default(false) @map("is_ordering_enabled")
   createdAt         DateTime       @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")
   deletedAt         DateTime?      @map("deleted_at")
-  owners            PlaceOwner[]
+  members           PlaceMember[]
   businessHours     BusinessHour[]
+  diningTables      DiningTable[]
   categories        MenuCategory[]
   menuItems         MenuItem[]
   reviews           PlaceReview[]
   carts             Cart[]
   orders            Order[]
+  logoAsset         MediaAsset?    @relation("PlaceLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
+  coverAsset        MediaAsset?    @relation("PlaceCover", fields: [coverAssetId], references: [id], onDelete: SetNull)
 
+  @@index([isPublished, deletedAt, createdAt])
   @@index([type, isPublished, deletedAt])
   @@map("places")
 }
 
-model PlaceOwner {
-  placeId    String   @map("place_id")
-  userId     String   @map("user_id")
-  assignedAt DateTime @default(now()) @map("assigned_at")
-  place      Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+model PlaceMember {
+  id        String          @id @default(uuid())
+  placeId   String          @map("place_id")
+  userId    String          @map("user_id")
+  role      PlaceMemberRole
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+  revokedAt DateTime?       @map("revoked_at")
+  place     Place           @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Restrict)
 
-  @@id([placeId, userId])
-  @@index([userId])
-  @@map("place_owners")
+  @@unique([placeId, userId])
+  @@index([placeId, revokedAt, role])
+  @@index([userId, revokedAt, role])
+  @@map("place_members")
 }
 
 model BusinessHour {
@@ -191,42 +193,84 @@ model BusinessHour {
   @@map("business_hours")
 }
 
-model MenuCategory {
-  id          String     @id @default(uuid())
-  placeId     String     @map("place_id")
-  name        String
-  description String?
-  sortOrder   Int        @default(0) @map("sort_order")
-  isActive    Boolean    @default(true) @map("is_active")
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
-  place       Place      @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  menuItems   MenuItem[]
+model DiningTable {
+  id             String    @id @default(uuid())
+  placeId        String    @map("place_id")
+  name           String    @db.VarChar(30)
+  normalizedName String    @map("normalized_name") @db.VarChar(30)
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+  place          Place     @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  orders         Order[]
 
-  @@unique([placeId, name])
-  @@index([placeId, isActive, sortOrder])
+  @@unique([placeId, normalizedName])
+  @@index([placeId, isActive, deletedAt])
+  @@map("dining_tables")
+}
+
+model MediaAsset {
+  id                 String           @id @default(uuid())
+  imageKitFileId     String           @unique @map("imagekit_file_id")
+  deliveryUrl        String           @map("delivery_url")
+  deliveryPath       String?          @map("delivery_path")
+  mimeType           String           @map("mime_type") @db.VarChar(50)
+  sizeBytes          Int              @map("size_bytes")
+  status             MediaAssetStatus @default(ACTIVE)
+  cleanupAttempts    Int              @default(0) @map("cleanup_attempts")
+  cleanupLastError   String?          @map("cleanup_last_error")
+  cleanupRequestedAt DateTime?        @map("cleanup_requested_at")
+  cleanupCompletedAt DateTime?        @map("cleanup_completed_at")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  logoForPlace       Place?           @relation("PlaceLogo")
+  coverForPlace      Place?           @relation("PlaceCover")
+  menuItem           MenuItem?
+
+  @@index([status, cleanupRequestedAt])
+  @@map("media_assets")
+}
+
+model MenuCategory {
+  id             String     @id @default(uuid())
+  placeId        String     @map("place_id")
+  name           String     @db.VarChar(100)
+  normalizedName String     @map("normalized_name") @db.VarChar(100)
+  description    String?
+  sortOrder      Int        @default(0) @map("sort_order")
+  isActive       Boolean    @default(true) @map("is_active")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+  deletedAt      DateTime?  @map("deleted_at")
+  place          Place      @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  menuItems      MenuItem[]
+
+  @@unique([placeId, normalizedName])
+  @@index([placeId, isActive, deletedAt, sortOrder])
   @@map("menu_categories")
 }
 
 model MenuItem {
-  id          String           @id @default(uuid())
-  placeId     String           @map("place_id")
-  categoryId  String           @map("category_id")
-  name        String
-  description String?
-  type        MenuItemType
-  price       Decimal          @db.Decimal(12, 2)
-  imageUrl    String?          @map("image_url")
-  isAvailable Boolean          @default(true) @map("is_available")
-  sortOrder   Int              @default(0) @map("sort_order")
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
-  deletedAt   DateTime?        @map("deleted_at")
-  place       Place            @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  category    MenuCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  reviews     MenuItemReview[]
-  cartItems   CartItem[]
-  orderItems  OrderItem[]
+  id           String           @id @default(uuid())
+  placeId      String           @map("place_id")
+  categoryId   String           @map("category_id")
+  name         String           @db.VarChar(120)
+  description  String?          @db.VarChar(1000)
+  type         MenuItemType
+  price        Decimal          @db.Decimal(15, 2)
+  imageAssetId String?          @unique @map("image_asset_id")
+  isAvailable  Boolean          @default(true) @map("is_available")
+  sortOrder    Int              @default(0) @map("sort_order")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  deletedAt    DateTime?        @map("deleted_at")
+  place        Place            @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  category     MenuCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  imageAsset   MediaAsset?      @relation(fields: [imageAssetId], references: [id], onDelete: SetNull)
+  reviews      MenuItemReview[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
 
   @@index([placeId, type, isAvailable, deletedAt])
   @@index([categoryId, isAvailable, deletedAt])
@@ -237,16 +281,18 @@ model PlaceReview {
   id        String    @id @default(uuid())
   userId    String    @map("user_id")
   placeId   String    @map("place_id")
+  orderId   String    @unique @map("order_id")
   rating    Int
-  comment   String?
+  comment   String?   @db.VarChar(2000)
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
   user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
-  place     Place     @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  place     Place     @relation(fields: [placeId], references: [id], onDelete: Restrict)
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, placeId])
   @@index([placeId, deletedAt, createdAt])
+  @@index([userId, createdAt])
   @@map("place_reviews")
 }
 
@@ -254,16 +300,19 @@ model MenuItemReview {
   id         String    @id @default(uuid())
   userId     String    @map("user_id")
   menuItemId String    @map("menu_item_id")
+  orderId    String    @map("order_id")
   rating     Int
-  comment    String?
+  comment    String?   @db.VarChar(2000)
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
   user       User      @relation(fields: [userId], references: [id], onDelete: Restrict)
-  menuItem   MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, menuItemId])
+  @@unique([orderId, menuItemId])
   @@index([menuItemId, deletedAt, createdAt])
+  @@index([userId, createdAt])
   @@map("menu_item_reviews")
 }
 
@@ -287,7 +336,7 @@ model CartItem {
   cartId     String   @map("cart_id")
   menuItemId String   @map("menu_item_id")
   quantity   Int      @default(1)
-  note       String?
+  note       String?  @db.VarChar(500)
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
   cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
@@ -299,29 +348,37 @@ model CartItem {
 }
 
 model Order {
-  id                String          @id @default(uuid())
-  orderCode         String          @unique @map("order_code")
-  verificationToken String          @unique @default(uuid()) @map("verification_token")
-  userId            String          @map("user_id")
-  placeId           String          @map("place_id")
-  status            OrderStatus     @default(PENDING)
-  fulfillmentType   FulfillmentType @default(DINE_IN) @map("fulfillment_type")
-  customerName      String          @map("customer_name")
-  tableNumber       String?         @map("table_number")
-  customerNote      String?         @map("customer_note")
-  subtotal          Decimal         @db.Decimal(12, 2)
-  expiresAt         DateTime?       @map("expires_at")
-  confirmedAt       DateTime?       @map("confirmed_at")
-  completedAt       DateTime?       @map("completed_at")
-  cancelledAt       DateTime?       @map("cancelled_at")
-  createdAt         DateTime        @default(now()) @map("created_at")
-  updatedAt         DateTime        @updatedAt @map("updated_at")
-  user              User            @relation(fields: [userId], references: [id], onDelete: Restrict)
-  place             Place           @relation(fields: [placeId], references: [id], onDelete: Restrict)
-  items             OrderItem[]
+  id                     String           @id @default(uuid())
+  orderCode              String           @unique @map("order_code")
+  verificationToken      String           @unique @default(uuid()) @map("verification_token")
+  userId                 String           @map("user_id")
+  placeId                String           @map("place_id")
+  diningTableId          String?          @map("dining_table_id")
+  status                 OrderStatus      @default(PENDING)
+  statusUpdatedAt        DateTime         @default(now()) @map("status_updated_at")
+  fulfillmentType        FulfillmentType  @default(DINE_IN) @map("fulfillment_type")
+  customerName           String           @map("customer_name") @db.VarChar(100)
+  diningTableName        String?          @map("dining_table_name") @db.VarChar(30)
+  customerNote           String?          @map("customer_note") @db.VarChar(500)
+  cancellationReason     String?          @map("cancellation_reason") @db.VarChar(500)
+  subtotal               Decimal          @db.Decimal(15, 2)
+  expiresAt              DateTime         @map("expires_at")
+  verificationDisabledAt DateTime?        @map("verification_disabled_at")
+  confirmedAt            DateTime?        @map("confirmed_at")
+  completedAt            DateTime?        @map("completed_at")
+  cancelledAt            DateTime?        @map("cancelled_at")
+  createdAt              DateTime         @default(now()) @map("created_at")
+  updatedAt              DateTime         @updatedAt @map("updated_at")
+  user                   User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  place                  Place            @relation(fields: [placeId], references: [id], onDelete: Restrict)
+  diningTable            DiningTable?     @relation(fields: [diningTableId], references: [id], onDelete: SetNull)
+  items                  OrderItem[]
+  placeReview            PlaceReview?
+  menuItemReviews        MenuItemReview[]
 
   @@index([userId, createdAt])
   @@index([placeId, status, createdAt])
+  @@index([status, expiresAt])
   @@map("orders")
 }
 
@@ -331,14 +388,31 @@ model OrderItem {
   menuItemId String?      @map("menu_item_id")
   itemName   String       @map("item_name")
   itemType   MenuItemType @map("item_type")
-  unitPrice  Decimal      @map("unit_price") @db.Decimal(12, 2)
+  unitPrice  Decimal      @map("unit_price") @db.Decimal(15, 2)
   quantity   Int
-  note       String?
-  lineTotal  Decimal      @map("line_total") @db.Decimal(12, 2)
+  note       String?      @db.VarChar(500)
+  lineTotal  Decimal      @map("line_total") @db.Decimal(15, 2)
   order      Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menuItem   MenuItem?    @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
 
   @@index([orderId])
   @@index([menuItemId])
   @@map("order_items")
+}
+
+model IdempotencyKey {
+  id             String   @id @default(uuid())
+  key            String
+  userId         String   @map("user_id")
+  endpoint       String
+  requestHash    String   @map("request_hash")
+  responseStatus Int      @map("response_status")
+  responseBody   Json     @map("response_body")
+  createdAt      DateTime @default(now()) @map("created_at")
+  expiresAt      DateTime @map("expires_at")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint, key])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
 }

@@ -1,0 +1,751 @@
+# Tooang Backend Software Requirements Specification
+
+| Attribute            | Value                                                                  |
+| -------------------- | ---------------------------------------------------------------------- |
+| System               | Tooang Backend REST API                                                |
+| Document type        | Software Requirements Specification (SRS)                              |
+| Status               | Implementation baseline                                                |
+| Version              | 1.3                                                                    |
+| Last updated         | 2026-09-12                                                             |
+| Product requirements | [`product-requirements-document.md`](product-requirements-document.md) |
+
+## 1. Purpose and scope
+
+This SRS defines verifiable functional and non-functional requirements for the Tooang backend. It covers authentication, role- and permission-based authorization, user administration, place and dining-table management, menu management, reviews, carts, orders, public verification links, media storage, auditing, persistence, data lifecycle, and operations.
+
+Requirements use stable identifiers. The terms **shall**, **should**, and **may** indicate mandatory, recommended, and optional behavior respectively.
+
+Version 1.3 is the implementation baseline for the current prototype. Production service-level objectives shall be reviewed and approved separately before production launch.
+
+## 2. System context
+
+Tooang Backend is a NestJS modular monolith that exposes a JSON REST API to a web frontend and persists data in PostgreSQL through Prisma.
+
+```text
+Web client
+   |
+   | HTTPS + JSON REST
+   v
+NestJS API (/api/v1)
+   |
+   | Prisma
+   v
+PostgreSQL
+```
+
+Uploaded application media is stored and delivered through ImageKit.
+
+```text
+Authenticated web client
+   |
+   | request upload authorization
+   v
+Tooang Backend
+   |
+   | short-lived upload authorization
+   v
+Web client
+   |
+   | direct image upload
+   v
+ImageKit
+```
+
+The request path inside a feature follows:
+
+```text
+Controller -> Service -> Repository -> Prisma -> PostgreSQL
+```
+
+Architectural constraints and module boundaries are defined in [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
+
+## 3. Technology and implementation constraints
+
+- SRS-CON-001: The application shall use TypeScript and NestJS 11.
+- SRS-CON-002: PostgreSQL shall be the authoritative relational datastore.
+- SRS-CON-003: Prisma 7 shall manage database access and migrations.
+- SRS-CON-004: Zod shall validate request params, queries, and bodies.
+- SRS-CON-005: The externally supported API shall be rooted at `/api/v1`.
+- SRS-CON-006: The backend shall remain deployable as one modular-monolith process.
+- SRS-CON-007: Monetary values shall use PostgreSQL `DECIMAL(15,2)` and `Prisma.Decimal`, never JavaScript floating-point arithmetic.
+- SRS-CON-008: Version 1 monetary values shall be denominated only in Indonesian Rupiah (`IDR`). Multi-currency ordering is out of scope for version 1.
+- SRS-CON-009: Feature modules shall use the minimum controller, service, repository, schema, and module structure unless additional files have a specific responsibility.
+- SRS-CON-010: ImageKit shall be the external storage and delivery provider for application-managed image media in version 1.
+
+## 4. Actors and authorization model
+
+Tooang version 1 uses two distinct authorization dimensions:
+
+```text
+Platform Role
+─────────────
+
+SUPER_ADMIN
+ADMIN
+USER
+```
+
+`User.platformRole` shall contain exactly one of:
+
+```text
+SUPER_ADMIN | ADMIN | USER
+```
+
+Place-scoped operational authority is modeled separately:
+
+```text
+Place Membership Role
+─────────────────────
+
+OWNER
+CASHIER
+```
+
+`PlaceMember.role` shall contain exactly one of:
+
+```text
+OWNER | CASHIER
+```
+
+A user's effective access is therefore determined from:
+
+1. the user's current `User.platformRole`,
+2. zero or more current `PlaceMember` records,
+3. code-defined permission mappings,
+4. target-resource scope and domain-state rules.
+
+| Actor / context | Authentication                                              | Effective access                                                                                                                                                            |
+| --------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Visitor         | None                                                        | Published places, available menus, visible reviews, and the minimal public order-verification response                                                                      |
+| Platform USER   | Access token                                                | Own profile, account-deletion request, verified-purchase reviews, carts, and own orders                                                                                     |
+| Place CASHIER   | Access token plus `PlaceMember(role=CASHIER)`               | Platform USER self-service access plus read/process orders and read active dining-table data for member places                                                              |
+| Place OWNER     | Access token plus `PlaceMember(role=OWNER)`                 | Platform USER self-service access plus place configuration, dining tables, menus, member management, and order processing for member places                                 |
+| ADMIN           | Access token plus current `User.platformRole = ADMIN`       | Platform operations across places, dining tables, menus, reviews, eligible users, place memberships, and orders, excluding security administration reserved for SUPER_ADMIN |
+| SUPER_ADMIN     | Access token plus current `User.platformRole = SUPER_ADMIN` | System-wide administration, platform-role/security administration, place-membership administration, and moderation                                                          |
+
+### 4.1 Role architecture
+
+- SRS-RBAC-001: Every active user shall have exactly one persisted platform role in `User.platformRole`.
+- SRS-RBAC-002: Supported platform roles shall be `USER`, `ADMIN`, and `SUPER_ADMIN`.
+- SRS-RBAC-003: Place-scoped roles shall not be stored in `User.platformRole`.
+- SRS-RBAC-004: Place-scoped roles shall be represented by `PlaceMember`.
+- SRS-RBAC-005: `PlaceMember.role` shall support `OWNER` and `CASHIER`.
+- SRS-RBAC-006: A user may have zero or more `PlaceMember` records across different places.
+- SRS-RBAC-007: A user shall have at most one active membership record for a given place.
+- SRS-RBAC-008: Endpoint-level authorization shall not replace resource-level membership, tenant-isolation, ownership, assignment, or domain-state checks.
+- SRS-RBAC-009: OWNER mutations shall verify an active `PlaceMember` record with `role = OWNER` between the authenticated `User.id` and target `Place.id`.
+- SRS-RBAC-010: OWNER queries shall filter OWNER memberships in the database and shall not filter an unrestricted result set in memory.
+- SRS-RBAC-011: CASHIER queries and mutations shall verify an active `PlaceMember` record with `role = CASHIER` for the target place.
+- SRS-RBAC-012: A resource belonging to a place for which the actor lacks the required membership scope shall be returned as not found when necessary to prevent tenant enumeration.
+- SRS-RBAC-013: ADMIN and SUPER_ADMIN may bypass place-membership scope only for permissions whose defined scope is global, and remain subject to validation, domain rules, target-account restrictions, and auditing.
+- SRS-RBAC-014: Only SUPER_ADMIN shall change another user's `User.platformRole`.
+- SRS-RBAC-015: The last active SUPER_ADMIN shall not be demoted, deactivated, or deleted.
+- SRS-RBAC-016: OWNER membership shall not be removed when it would leave an active place without any OWNER, unless an explicitly logged SUPER_ADMIN exception workflow is supported.
+- SRS-RBAC-017: OWNER may add or remove CASHIER memberships only for places where that actor has active OWNER membership.
+- SRS-RBAC-018: OWNER shall not grant or revoke OWNER membership unless explicitly authorized by a future requirement.
+- SRS-RBAC-019: ADMIN may add or remove CASHIER memberships for any place.
+- SRS-RBAC-020: ADMIN shall not grant or revoke OWNER membership unless explicitly authorized by a future requirement.
+- SRS-RBAC-021: SUPER_ADMIN may create, change, or remove OWNER and CASHIER memberships for any place, subject to the last-OWNER invariant.
+- SRS-RBAC-022: Place membership creation, role changes, and revocation shall be audited.
+- SRS-RBAC-023: Deactivation of an account shall prevent all platform-role-derived and place-membership-derived access even when historical membership records remain.
+- SRS-RBAC-024: Platform role and place membership are independent dimensions; an ADMIN or SUPER_ADMIN may also hold OWNER or CASHIER membership, but global authorization shall be derived from platform permissions rather than requiring that membership.
+
+### 4.2 Permission model
+
+Tooang version 1 uses code-defined permissions. `User.platformRole` and `PlaceMember.role` are persisted in PostgreSQL, while permission identifiers and role-to-permission mappings are version-controlled application constants and are not persisted as dynamically editable authorization records.
+
+- SRS-AUTHZ-001: Backend authorization capabilities shall be represented by a finite set of permission identifiers defined in application source code.
+- SRS-AUTHZ-002: Permissions shall not be dynamically created, deleted, assigned, or modified through production application endpoints in version 1.
+- SRS-AUTHZ-003: Each supported platform role and place-membership role shall map to an explicit allowlist of permissions maintained in source control.
+- SRS-AUTHZ-004: Protected backend operations shall authorize against effective permissions derived from the user's current `User.platformRole` and, when relevant, the user's current `PlaceMember` role for the target place.
+- SRS-AUTHZ-005: Role or permission claims contained in an access token shall not be authoritative for privileged authorization decisions.
+- SRS-AUTHZ-006: User active/deleted state, current platform role, and relevant `PlaceMember` relationships used for authorization shall be resolved from current server-side state.
+- SRS-AUTHZ-007: Platform-role changes, place-membership changes, and account deactivation shall take effect for subsequent requests without waiting for the current access token to expire.
+- SRS-AUTHZ-008: Possession of a permission shall not bypass target-resource scope, tenant isolation, business-state rules, or order-state transition rules.
+- SRS-AUTHZ-009: OWNER permissions affecting place-scoped resources shall additionally require an active target-place membership with `PlaceMember.role = OWNER`.
+- SRS-AUTHZ-010: CASHIER permissions affecting place-scoped resources shall additionally require an active target-place membership with `PlaceMember.role = CASHIER`.
+- SRS-AUTHZ-011: ADMIN and SUPER_ADMIN permissions whose defined scope is global may operate across places without a `PlaceMember` record, subject to auditing and domain rules.
+- SRS-AUTHZ-012: The backend shall be the authoritative security boundary for authorization decisions.
+- SRS-AUTHZ-013: Frontend permission checks may control visibility, navigation, and interaction state, but shall not be treated as an authorization boundary.
+- SRS-AUTHZ-014: The authenticated-user resource shall expose the user's platform role and effective platform permission identifiers.
+- SRS-AUTHZ-015: The authenticated-user resource should expose place memberships, including `placeId`, membership role, and place-scoped effective permissions when required by the frontend.
+- SRS-AUTHZ-016: Role-to-permission mapping and scope resolution shall default to denial when the required permission or scope has not been explicitly granted.
+- SRS-AUTHZ-017: Platform-role mappings, place-membership-role mappings, and representative scope decisions shall be covered by automated tests.
+- SRS-AUTHZ-018: Permission identifiers shall describe capabilities rather than encode concrete resource IDs or tenant IDs.
+- SRS-AUTHZ-019: Resource scope shall be resolved separately from permission identity; permission names shall not be generated per place, user, table, menu item, or order.
+- SRS-AUTHZ-020: Effective authorization for a place-scoped operation shall combine applicable platform permissions and target-place membership permissions; permissions are additive, while resource-scope and domain restrictions remain mandatory.
+- SRS-AUTHZ-021: A global permission obtained through ADMIN or SUPER_ADMIN shall not weaken target-account restrictions, last-SUPER_ADMIN invariants, last-OWNER invariants, or other explicit domain restrictions.
+- SRS-AUTHZ-022: The backend shall not infer platform authority from place membership and shall not infer place membership from `User.platformRole`.
+
+### 4.3 Version 1 permission matrix
+
+The following matrix separates **platform permissions** from **place-membership permissions**. `own`, `member`, `owned`, `restricted`, and `global` are resource scopes, not separate permission identifiers.
+
+#### Platform-role permissions
+
+| Permission                 | USER                       | ADMIN                   | SUPER_ADMIN             |
+| -------------------------- | -------------------------- | ----------------------- | ----------------------- |
+| `profile.read`             | own                        | own                     | own                     |
+| `profile.update`           | own                        | own                     | own                     |
+| `account.deletion.request` | own                        | own                     | own                     |
+| `cart.manage`              | own                        | own                     | own                     |
+| `order.checkout`           | own                        | own                     | own                     |
+| `order.read`               | own                        | own + global            | own + global            |
+| `order.cancel`             | own `PENDING`              | own + global            | own + global            |
+| `review.create`            | own qualifying purchase    | own qualifying purchase | own qualifying purchase |
+| `review.update`            | own                        | own                     | own                     |
+| `review.delete`            | own                        | own                     | own                     |
+| `review.moderate`          | —                          | global                  | global                  |
+| `place.create`             | —                          | global                  | global                  |
+| `place.read`               | public/member context only | global                  | global                  |
+| `place.update`             | —                          | global                  | global                  |
+| `place.publish`            | —                          | global                  | global                  |
+| `place.delete`             | —                          | global                  | global                  |
+| `table.read`               | member context only        | global                  | global                  |
+| `table.create`             | —                          | global                  | global                  |
+| `table.update`             | —                          | global                  | global                  |
+| `table.delete`             | —                          | global                  | global                  |
+| `menu.create`              | —                          | global                  | global                  |
+| `menu.update`              | —                          | global                  | global                  |
+| `menu.delete`              | —                          | global                  | global                  |
+| `place_member.read`        | member context only        | global                  | global                  |
+| `cashier.assign`           | —                          | global                  | global                  |
+| `cashier.revoke`           | —                          | global                  | global                  |
+| `owner.assign`             | —                          | —                       | global                  |
+| `owner.revoke`             | —                          | —                       | global                  |
+| `platform_role.assign`     | —                          | —                       | global                  |
+| `platform_role.update`     | —                          | —                       | global                  |
+| `user.read`                | —                          | global                  | global                  |
+| `user.deactivate`          | —                          | restricted              | global                  |
+| `media.upload`             | —                          | global                  | global                  |
+| `media.delete`             | —                          | global                  | global                  |
+
+#### Place-membership permissions
+
+| Permission          | CASHIER                            | OWNER                |
+| ------------------- | ---------------------------------- | -------------------- |
+| `order.read`        | member place                       | owned place          |
+| `order.cancel`      | member place                       | owned place          |
+| `order.confirm`     | member place                       | owned place          |
+| `order.prepare`     | member place                       | owned place          |
+| `order.ready`       | member place                       | owned place          |
+| `order.complete`    | member place                       | owned place          |
+| `place.read`        | operational member view            | owned place          |
+| `place.update`      | —                                  | owned place          |
+| `place.publish`     | —                                  | owned place          |
+| `place.delete`      | —                                  | owned place          |
+| `table.read`        | member place                       | owned place          |
+| `table.create`      | —                                  | owned place          |
+| `table.update`      | —                                  | owned place          |
+| `table.delete`      | —                                  | owned place          |
+| `menu.create`       | —                                  | owned place          |
+| `menu.update`       | —                                  | owned place          |
+| `menu.delete`       | —                                  | owned place          |
+| `place_member.read` | own membership / operational needs | owned place          |
+| `cashier.assign`    | —                                  | owned place          |
+| `cashier.revoke`    | —                                  | owned place          |
+| `media.upload`      | —                                  | owned resource scope |
+| `media.delete`      | —                                  | owned resource scope |
+
+Public read operations do not require authenticated permissions. The matrix is an authorization baseline; endpoint-specific domain rules remain mandatory.
+
+## 5. Functional requirements
+
+### 5.1 Authentication and refresh sessions
+
+- SRS-AUTH-001: Registration shall accept a full name, email, and password that pass the configured validation policy.
+- SRS-AUTH-002: Email shall be normalized before uniqueness checking and storage.
+- SRS-AUTH-003: Registration shall create the user and initial `USER` role in one database transaction.
+- SRS-AUTH-004: Passwords shall be stored only as adaptive password hashes.
+- SRS-AUTH-005: Login shall reject invalid credentials without revealing whether an email exists.
+- SRS-AUTH-006: Login shall return or deliver a short-lived access token and establish a refresh session.
+- SRS-AUTH-007: Raw refresh tokens shall not be stored; only a cryptographic token hash shall be persisted.
+- SRS-AUTH-008: Refresh shall rotate the token by revoking/replacing the current session and creating its replacement atomically.
+- SRS-AUTH-009: Refresh-session replacement shall maintain `familyId`, `replacedById`, expiry, revocation, and creation data consistent with the Prisma model.
+- SRS-AUTH-010: Reuse of a revoked/replaced refresh token shall cause the affected token family to be revoked.
+- SRS-AUTH-011: Logout shall revoke the submitted refresh session or the applicable token family.
+- SRS-AUTH-012: Expired, revoked, malformed, or unknown refresh tokens shall be rejected.
+- SRS-AUTH-013: Soft-deleted, deactivated, or deletion-pending users shall not log in, refresh, or access protected resources.
+- SRS-AUTH-014: Authentication responses shall never expose `passwordHash`, refresh-token hashes, or internal session relationships.
+- SRS-AUTH-015: Passwords shall contain 8 through 128 Unicode characters.
+- SRS-AUTH-016: Registration and password changes shall reject passwords found in the configured known/common-password denylist.
+- SRS-AUTH-017: Before bcrypt hashing, the exact UTF-8 byte sequence of the accepted password shall be deterministically pre-hashed using SHA-256 and the digest shall be encoded into a bcrypt-safe textual representation so that every accepted password byte affects the resulting stored hash.
+- SRS-AUTH-018: Password input shall not be trimmed, case-normalized, or otherwise transformed before the pre-hash defined by SRS-AUTH-017.
+- SRS-AUTH-019: The bcrypt work factor shall be configurable, approved for the deployment environment, and increased when operationally feasible without changing the password contract.
+- SRS-AUTH-020: Access tokens shall expire 15 minutes after issuance.
+- SRS-AUTH-021: Standard refresh sessions shall expire 30 days after issuance. When the user explicitly selects the optional remember-me mode, the refresh session may expire after 90 days.
+- SRS-AUTH-022: A refresh token delivered by cookie shall use `HttpOnly`, `SameSite=Lax`, and `Path=/api/v1/auth`.
+- SRS-AUTH-023: Refresh cookies shall use `Secure=true` and HTTPS only in production and may use `Secure=false` only on localhost development.
+- SRS-AUTH-024: Authentication attempts shall use progressive rate limiting. The baseline login limit shall be 10 attempts per 15 minutes per source IP, with increasingly restrictive throttling for repeated abuse and no permanent account lockout caused solely by failed attempts.
+
+### 5.2 User and role management
+
+- SRS-USR-001: An authenticated user shall retrieve their active profile using the `/me` resource.
+- SRS-USR-002: The `/me` resource shall include current platform role, place memberships where applicable, and effective permission identifiers suitable for frontend authorization-aware rendering.
+- SRS-USR-003: An authenticated user shall update only supported fields of their own profile.
+- SRS-USR-004: ADMIN and SUPER_ADMIN shall list and retrieve active users with bounded pagination for platform-support workflows.
+- SRS-USR-005: SUPER_ADMIN shall change a user's platform role only to a supported `User.platformRole` value.
+- SRS-USR-006: Platform-role assignment shall be idempotent or return a deterministic conflict response.
+- SRS-USR-007: SUPER_ADMIN shall change or demote a platform role only when last-SUPER_ADMIN and other applicable invariants remain valid.
+- SRS-USR-008: ADMIN may deactivate accounts whose `User.platformRole = USER` but shall not deactivate ADMIN or SUPER_ADMIN accounts, regardless of place membership.
+- SRS-USR-009: SUPER_ADMIN may deactivate any eligible account except when doing so would deactivate the last active SUPER_ADMIN.
+- SRS-USR-010: Account deactivation shall set `deletedAt` or the approved deactivation state and revoke active refresh sessions atomically.
+- SRS-USR-011: Platform-role identifiers are schema-defined values and shall not be dynamically created or deleted through general user endpoints.
+- SRS-USR-012: An authenticated user may submit an idempotent request to delete their own account.
+- SRS-USR-013: A self-service account-deletion request shall be rejected with a conflict when the user is the only active `PlaceMember(role=OWNER)` of any active place; ownership shall first be transferred or the place shall be resolved through an authorized administrative workflow.
+- SRS-USR-014: Acceptance of an account-deletion request shall make the account inaccessible for login and protected operations and shall revoke active refresh sessions.
+- SRS-USR-015: Accepted deletion requests shall enter a deletion-pending lifecycle; users shall not directly hard-delete their own database records.
+- SRS-USR-016: Personal-data anonymization/removal for an accepted deletion request shall complete within 30 days, subject to retained transaction and audit requirements.
+
+### 5.3 Place management
+
+- SRS-PLC-001: Public list and detail operations shall return only places with `isPublished = true` and `deletedAt = null`.
+- SRS-PLC-002: The public place list shall support bounded pagination and documented filters.
+- SRS-PLC-003: Public place detail shall be addressable by unique slug.
+- SRS-PLC-004: Place data shall support type, name, description, address, city, coordinates, contact data, ImageKit-backed logo and cover media references, business hours, timezone, and ordering state as modeled in Prisma.
+- SRS-PLC-005: Place type shall be one of `RESTAURANT`, `CAFE`, `FOOD_STALL`, or `OTHER`.
+- SRS-PLC-006: Place creation and initial OWNER membership creation shall be atomic.
+- SRS-PLC-007: Initial ownership shall be represented by `PlaceMember(role=OWNER)` and shall not modify `User.platformRole`.
+- SRS-PLC-008: An active place shall retain at least one owner unless an explicitly logged SUPER_ADMIN exception is supported.
+- SRS-PLC-009: A slug shall be normalized, unique, no longer than 100 characters, and shall not match a reserved API or frontend route.
+- SRS-PLC-010: A place shall be publishable only after required identity fields, at least one owner, and the configured minimum menu content exist.
+- SRS-PLC-011: Ordering shall be enabled only for an active, published place with at least one available menu item.
+- SRS-PLC-012: Disabling ordering shall block new checkouts and shall not cancel existing orders.
+- SRS-PLC-013: Soft deletion shall disable publishing and ordering and shall be blocked while unresolved orders violate the retention policy.
+- SRS-PLC-014: Every place shall store a valid IANA timezone identifier, such as `Asia/Jakarta`, `Asia/Tokyo`, or `Asia/Singapore`.
+- SRS-PLC-015: ADMIN may perform OWNER place-management operations across places only when granted the corresponding global permissions; those mutations shall be audited.
+- SRS-PLC-016: Place name shall contain 1 through 120 characters.
+- SRS-PLC-017: Place description shall contain no more than 2,000 characters.
+- SRS-PLC-018: Place address shall contain no more than 500 characters.
+- SRS-PLC-019: Place city shall contain no more than 100 characters.
+- SRS-PLC-020: Place phone/contact-number fields shall contain no more than 30 characters.
+- SRS-PLC-021: Email fields shall contain no more than 254 characters and shall pass the configured email validation.
+- SRS-PLC-022: Version 1 ordering is not a preorder system. Checkout shall require the place to be currently open according to its configured business hours and `Place.timezone`.
+
+### 5.4 Business hours
+
+- SRS-HRS-001: A place shall store no more than one business-hour record for each day of the week.
+- SRS-HRS-002: A closed day shall have `isClosed = true` and null opening/closing times.
+- SRS-HRS-003: An open day shall provide non-equal opening and closing times.
+- SRS-HRS-004: Overnight hours shall be evaluated as closing on the following calendar day.
+- SRS-HRS-005: Opening-state calculations shall use `Place.timezone` and shall not trust the server default or client timezone.
+- SRS-HRS-006: Database timestamps shall be stored in UTC and converted to `Place.timezone` when producing place-local dates and times for display or business-rule evaluation.
+- SRS-HRS-007: Checkout shall re-evaluate the current place-local opening state inside the checkout transaction or immediately before its transaction-protected state mutation.
+- SRS-HRS-008: Preorder, scheduled ordering, and ordering while a place is closed are out of scope for version 1.
+
+### 5.5 Dining tables
+
+- SRS-TBL-001: Version 1 shall maintain a dining-table master for each place.
+- SRS-TBL-002: Each dining table shall belong to exactly one place and shall have an internal identifier, a human-readable table identifier/name, activation state, and creation/update metadata.
+- SRS-TBL-003: A dining-table identifier/name shall contain 1 through 30 characters.
+- SRS-TBL-004: Dining-table identifiers shall be normalized and unique case-insensitively within a place.
+- SRS-TBL-005: OWNER may create, update, activate/deactivate, and soft-delete dining tables only within owned places.
+- SRS-TBL-006: ADMIN and SUPER_ADMIN may perform dining-table management globally when granted the corresponding permissions.
+- SRS-TBL-007: CASHIER may read active dining-table data only for assigned places and shall not manage dining-table configuration.
+- SRS-TBL-008: DINE_IN checkout shall require an active dining table belonging to the same place as the cart/order.
+- SRS-TBL-009: TAKEAWAY checkout shall not retain a dining-table reference or table snapshot.
+- SRS-TBL-010: An order created for DINE_IN shall snapshot the dining-table display identifier/name used at checkout so that later table renaming does not modify order history.
+- SRS-TBL-011: Deactivation or deletion of a dining table shall not modify retained order snapshots or invalidate historical orders.
+
+### 5.6 Categories and menu items
+
+- SRS-MNU-001: Public menu queries shall return only non-deleted, available items in active categories belonging to a published place.
+- SRS-MNU-002: Public menu queries shall support filtering by place, `FOOD`/`DRINK`, and category.
+- SRS-MNU-003: OWNER shall create, update, order, enable/disable, and soft-delete categories/items only within owned places and only when granted the corresponding permissions.
+- SRS-MNU-004: `MenuCategory.placeId` and `MenuItem.placeId` shall match for every menu item.
+- SRS-MNU-005: Category names shall be normalized and unique case-insensitively within a place.
+- SRS-MNU-006: Category names shall contain 1 through 100 characters.
+- SRS-MNU-007: Menu prices shall be non-negative `DECIMAL(15,2)` values denominated in IDR.
+- SRS-MNU-008: `sortOrder` shall be a non-negative integer.
+- SRS-MNU-009: Deleted or unavailable menu items and items in inactive categories shall not enter a cart or order.
+- SRS-MNU-010: A menu update shall not modify existing `OrderItem` snapshot values.
+- SRS-MNU-011: Soft-deleting a menu item shall preserve order history and shall cause matching active cart items to be removed or reported invalid on cart retrieval.
+- SRS-MNU-012: A menu name shall contain 1 through 120 characters, and a menu description shall contain no more than 1,000 characters.
+- SRS-MNU-013: ADMIN may perform OWNER category and menu operations across places when granted the corresponding global permissions; those mutations shall be audited.
+- SRS-MNU-014: Menu images managed by Tooang shall use ImageKit-backed media references governed by section 5.12.
+
+### 5.7 Reviews
+
+- SRS-REV-001: An authenticated active user may create a review only for an order owned by that user whose status is `COMPLETED`.
+- SRS-REV-002: A rating shall be an integer from 1 through 5.
+- SRS-REV-003: Users shall update and soft-delete only their own reviews.
+- SRS-REV-004: A completed order shall have at most one stored place review.
+- SRS-REV-005: A completed order shall have at most one stored menu-item review for each menu item included in that order.
+- SRS-REV-006: Re-submitting a soft-deleted place review for the same order shall restore and update the existing row instead of creating another row.
+- SRS-REV-007: Re-submitting a soft-deleted menu-item review for the same order and menu item shall restore and update the existing row instead of creating another row.
+- SRS-REV-008: ADMIN and SUPER_ADMIN shall moderate any review when granted `review.moderate`, and the action shall be audited.
+- SRS-REV-009: Public review queries and rating summaries shall exclude soft-deleted reviews.
+- SRS-REV-010: A place review shall reference its qualifying completed order and place.
+- SRS-REV-011: A menu-item review shall reference its qualifying completed order and shall target only a menu item included in that order's item snapshots.
+- SRS-REV-012: Different completed orders may each receive a place review and eligible menu-item reviews, including when they belong to the same place or contain the same menu item.
+- SRS-REV-013: Review text shall contain no more than 2,000 characters.
+
+### 5.8 Carts
+
+- SRS-CART-001: A user shall maintain at most one cart for each place.
+- SRS-CART-002: Users shall access only their own carts.
+- SRS-CART-003: Every cart item shall reference a menu item whose `placeId` matches the cart's `placeId`.
+- SRS-CART-004: Quantity shall be a positive integer within the configured maximum.
+- SRS-CART-005: Adding an existing menu item shall update its quantity rather than create a duplicate cart row.
+- SRS-CART-006: Setting quantity to zero shall remove the item.
+- SRS-CART-007: Cart item notes shall contain no more than 500 characters and shall be safely rendered by consumers.
+- SRS-CART-008: Cart retrieval shall return current server-side prices and shall identify or remove no-longer-orderable items.
+- SRS-CART-009: A cart may be retained while ordering is disabled or a place is closed, but it shall not be checked out.
+- SRS-CART-010: A cart shall contain no more than 50 distinct menu items.
+- SRS-CART-011: Quantity shall not exceed 99 for any one cart item, and the sum of quantities across the cart shall not exceed 200.
+
+### 5.9 Checkout and order creation
+
+- SRS-ORD-001: Checkout shall require an authenticated active user and a non-empty cart owned by that user.
+- SRS-ORD-002: Checkout shall re-read the place, business hours/opening state, category, menu availability, prices, fulfillment data, and applicable dining-table data as part of the protected checkout operation.
+- SRS-ORD-003: Checkout shall reject a deleted, unpublished, ordering-disabled, or currently closed place.
+- SRS-ORD-004: Checkout shall reject any cross-place, deleted, unavailable, inactive-category, invalid-quantity, or otherwise invalid item.
+- SRS-ORD-005: The server shall calculate `unitPrice`, `lineTotal`, and `subtotal` using `Prisma.Decimal`.
+- SRS-ORD-006: `lineTotal` shall equal `unitPrice * quantity`, and `subtotal` shall equal the sum of line totals.
+- SRS-ORD-007: Order creation shall snapshot `itemName`, `itemType`, `unitPrice`, quantity, note, and line total.
+- SRS-ORD-008: Order creation shall generate a unique human-readable `orderCode` and unique opaque `verificationToken`.
+- SRS-ORD-009: The order, all order items, applicable dining-table snapshot, expiry time, checkout idempotency result, and cart clearing shall be committed atomically.
+- SRS-ORD-010: Checkout shall accept an idempotency key scoped to the authenticated user and checkout endpoint.
+- SRS-ORD-011: Retrying a completed request with the same idempotency key and equivalent normalized input shall return the original result without creating another order.
+- SRS-ORD-012: Reusing an idempotency key with different normalized input shall return HTTP `409 Conflict`.
+- SRS-ORD-013: Idempotency request equivalence shall be determined from a deterministic hash of the validated and normalized checkout payload rather than raw JSON serialization.
+- SRS-ORD-014: DINE_IN shall require a valid active dining-table reference from the same place and shall persist the table display snapshot.
+- SRS-ORD-015: TAKEAWAY shall persist no dining-table reference or table snapshot.
+- SRS-ORD-016: The backend shall not create payment records or report an order as paid in version 1.
+- SRS-ORD-017: Customer name shall contain 1 through 100 characters, and order notes shall contain no more than 500 characters.
+- SRS-ORD-018: A new `PENDING` order shall set `expiresAt` to 15 minutes after creation.
+- SRS-ORD-019: Checkout idempotency shall be persisted in a dedicated `idempotency_keys` table containing at least `id`, `key`, `user_id`, `endpoint`, `request_hash`, `response_status`, `response_body`, `created_at`, and `expires_at`.
+- SRS-ORD-020: An idempotency record shall be scoped by authenticated user and endpoint.
+- SRS-ORD-021: Checkout idempotency records shall expire 24 hours after creation.
+- SRS-ORD-022: The successful idempotency result and the created order state shall not be committed independently; a successful checkout shall not exist without its persisted idempotency result.
+- SRS-ORD-023: Failed checkout validation shall not clear the cart or create a successful idempotency result.
+
+### 5.10 Order retrieval, verification, and lifecycle
+
+- SRS-STS-001: A user shall list and retrieve only their own orders unless another role grants broader scoped access.
+- SRS-STS-002: CASHIER shall list, retrieve, and process only orders associated with assigned places.
+- SRS-STS-003: OWNER shall list, retrieve, and process only orders associated with owned places.
+- SRS-STS-004: ADMIN and SUPER_ADMIN shall retrieve and process orders globally only when granted the corresponding permissions.
+- SRS-STS-005: New orders shall start in `PENDING`.
+- SRS-STS-006: Status transitions shall be limited to:
+
+```text
+PENDING   -> CONFIRMED | CANCELLED | EXPIRED
+CONFIRMED -> PREPARING | CANCELLED
+PREPARING -> READY | CANCELLED
+READY     -> COMPLETED | CANCELLED
+COMPLETED -> terminal
+CANCELLED -> terminal
+EXPIRED   -> terminal
+```
+
+- SRS-STS-007: Status mutation shall condition the database update on the expected previous status to prevent races.
+- SRS-STS-008: Every successful status transition shall update `statusUpdatedAt`.
+- SRS-STS-009: `confirmedAt`, `completedAt`, and `cancelledAt` shall be set only when the corresponding transition occurs.
+- SRS-STS-010: A `PENDING` order whose `expiresAt <= now()` shall be considered expired for authorization and transition decisions even if the scheduled expiry job has not yet materialized `status = EXPIRED`.
+- SRS-STS-011: After `expiresAt`, a `PENDING` order shall permit only the transition to `EXPIRED`; confirmation or cancellation as a still-valid `PENDING` order shall be rejected.
+- SRS-STS-012: An idempotent scheduled job shall materialize expired `PENDING` orders as `EXPIRED` and update `statusUpdatedAt`.
+- SRS-STS-013: A USER may cancel only their own non-expired `PENDING` order.
+- SRS-STS-014: CASHIER may cancel `PENDING`, `CONFIRMED`, `PREPARING`, or `READY` orders only for assigned places.
+- SRS-STS-015: OWNER may cancel `PENDING`, `CONFIRMED`, `PREPARING`, or `READY` orders only for owned places.
+- SRS-STS-016: ADMIN and SUPER_ADMIN may cancel any non-terminal order when granted `order.cancel`, subject to all other domain rules.
+- SRS-STS-017: Cancellation after the `PENDING` state shall require a cancellation reason containing 1 through 500 characters.
+- SRS-STS-018: Cancellation of a valid `PENDING` order may include an optional cancellation reason of no more than 500 characters.
+- SRS-STS-019: Terminal order transactional data shall be immutable except for explicitly allowed retained-data anonymization.
+- SRS-STS-020: Human order-code lookup shall be rate-limited and shall not grant mutation authority.
+- SRS-STS-021: QR/link data shall use the opaque verification token and shall not embed database IDs or personal information.
+- SRS-STS-022: A valid public verification token shall return only `orderCode`, place display name, order status, fulfillment type, creation time, expiry time, and `statusUpdatedAt`.
+- SRS-STS-023: Public verification shall not disclose customer identity/contact data, dining-table data, order items, notes, prices, internal IDs, or any token.
+- SRS-STS-024: A CASHIER, OWNER, ADMIN, or SUPER_ADMIN shall have an authenticated session with effective `order.read`/transition permissions and the applicable place scope before retrieving operational details or changing status.
+- SRS-STS-025: Public verification shall be read-only. Operational details and order mutations shall use authenticated endpoints and shall re-check current permission, scope, and order state.
+- SRS-STS-026: A public verification token shall be unguessable, shall not appear in logs or response bodies, and shall cease to be publicly usable 30 days after the order enters a terminal state.
+- SRS-STS-027: An expired, unknown, disabled, or retention-expired public verification token shall return the same non-disclosing not-found response.
+
+### 5.11 Audit logging
+
+- SRS-AUD-001: The system shall audit platform-role changes, OWNER and CASHIER place-membership changes, ordering-setting changes, ADMIN cross-place mutations, review moderation, user deactivation, accepted account-deletion requests, and order-status changes.
+- SRS-AUD-002: Each audit record shall identify actor, action, target type, target ID, timestamp, and safe before/after data where applicable.
+- SRS-AUD-003: Audit data shall never include passwords, raw access/refresh tokens, token hashes, verification tokens, ImageKit private credentials, secrets, or unnecessary personal data.
+- SRS-AUD-004: An auditable database state mutation and its required audit record shall be committed atomically when feasible.
+- SRS-AUD-005: Audit records shall be append-only to ordinary application users.
+- SRS-AUD-006: Audit events for permission-protected administrative actions shall record the effective actor identity and action but shall not persist sensitive authorization tokens.
+
+### 5.12 Media storage and ImageKit
+
+- SRS-MED-001: ImageKit shall be the external media storage and delivery provider for application-managed images in version 1.
+- SRS-MED-002: ImageKit private API credentials shall be stored only in backend environment configuration or the approved secret store and shall never be returned to or embedded in the frontend.
+- SRS-MED-003: Client-side uploads shall require short-lived upload authorization generated by the Tooang backend after authenticating and authorizing the requesting user.
+- SRS-MED-004: Upload authorization shall be issued only to actors with `media.upload` for the target resource scope.
+- SRS-MED-005: OWNER shall receive media-management scope only for owned places and their managed menu/place resources.
+- SRS-MED-006: ADMIN and SUPER_ADMIN may manage media globally when granted the corresponding permissions.
+- SRS-MED-007: CASHIER and USER shall not receive place/menu media-management permissions in version 1.
+- SRS-MED-008: Version 1 image uploads shall accept only `image/jpeg`, `image/png`, `image/webp`, and `image/avif`.
+- SRS-MED-009: A single uploaded image shall not exceed 5 MB.
+- SRS-MED-010: SVG, GIF, video, executable, arbitrary binary, and raw file uploads shall not be supported by the version 1 media workflow.
+- SRS-MED-011: Application-managed logo, cover, and menu images shall reference ImageKit-managed assets rather than arbitrary external image URLs.
+- SRS-MED-012: The application shall persist sufficient provider metadata to manage the asset lifecycle, including at least the ImageKit file identifier and the delivery URL or delivery path used by the application.
+- SRS-MED-013: Deleting or replacing a media association shall trigger provider cleanup or an observable retryable cleanup process so that orphaned ImageKit assets do not grow without bound.
+- SRS-MED-014: Provider cleanup failures shall not silently corrupt application metadata; failures shall be logged and made retryable.
+- SRS-MED-015: Application metadata shall not be committed in a state that intentionally references an upload known to have failed.
+- SRS-MED-016: Public place and menu images may use public ImageKit delivery URLs in version 1.
+- SRS-MED-017: Private/access-controlled media delivery is out of scope for version 1 and shall require an explicit future security design.
+- SRS-MED-018: ImageKit API errors returned to clients shall be translated into sanitized application errors without exposing provider credentials or private request details.
+
+## 6. Data requirements
+
+- SRS-DATA-001: Internal foreign keys shall use `User.id`; public APIs may expose `User.userId` where required.
+- SRS-DATA-002: UUID defaults in Prisma shall be used for internal entity identifiers unless a requirement states otherwise.
+- SRS-DATA-003: Active-data queries shall exclude records with non-null `deletedAt` where the model uses soft deletion.
+- SRS-DATA-004: Soft-deleted users, places, menus, dining tables, and reviews shall follow the restore/conflict rules in `application-rules.md`.
+- SRS-DATA-005: Hard deletion shall not break retained order and audit history.
+- SRS-DATA-006: Order item and dining-table snapshots shall remain readable when their source records are later changed or deleted.
+- SRS-DATA-007: Database migrations should add check constraints for rating range, non-negative monetary fields and sort order, positive quantities, and business-hour consistency.
+- SRS-DATA-008: Application validation shall remain mandatory even when a database check constraint exists.
+- SRS-DATA-009: Production migrations shall be applied using `prisma migrate deploy` and shall not use destructive development migration commands.
+- SRS-DATA-010: Backup, restore, retention, and anonymization procedures shall be implemented and tested before production launch.
+- SRS-DATA-011: The schema shall support `User.platformRole`, `Place.timezone`, `PlaceMember` with OWNER/CASHIER membership roles, dining-table masters, one place review per order, one menu-item review per order/menu-item pair, `Order.statusUpdatedAt`, applicable cancellation-reason data, account-deletion state, ImageKit asset metadata, and dedicated checkout idempotency records.
+- SRS-DATA-012: Retention periods shall be measured from record creation unless a requirement specifies another event.
+
+| Data                                                            |                       Retention |
+| --------------------------------------------------------------- | ------------------------------: |
+| Access/session logs                                             |                         90 days |
+| Authentication sessions                                         |     Session expiry plus 30 days |
+| Audit logs                                                      |                          1 year |
+| Order records                                                   |                         5 years |
+| Payment transaction metadata, if introduced in a future version |                         5 years |
+| Idempotency records                                             |                        24 hours |
+| Deleted-account personal data                                   | Anonymize/remove within 30 days |
+| Anonymous analytics                                             |                          1 year |
+
+- SRS-DATA-013: Account deletion shall revoke active sessions and anonymize or remove the account's personal data within 30 days after an accepted deletion request, while legally or operationally retained transaction records remain intact.
+- SRS-DATA-014: Anonymized retained orders shall replace the customer name with `Deleted User`, clear retained user phone/email values if present, and preserve non-personal transaction fields such as order totals, order items, fulfillment snapshots, and transaction metadata.
+- SRS-DATA-015: Retention deletion/anonymization jobs shall be idempotent, auditable, and designed so that backups age out affected data according to the documented backup lifecycle.
+- SRS-DATA-016: Version 1 authorization permissions and role-to-permission mappings shall not require `Role`, `UserRole`, `Permission`, or `RolePermission` database tables.
+- SRS-DATA-017: `User.platformRole` and `PlaceMember.role` persisted values shall correspond to the supported role identifiers used by the version-controlled authorization mapping.
+
+## 7. API and interface requirements
+
+- SRS-API-001: The API shall exchange UTF-8 JSON except for explicitly documented provider/media flows.
+- SRS-API-002: Protected endpoints shall accept an access token through `Authorization: Bearer <token>`.
+- SRS-API-003: Request validation failures shall return a consistent machine-readable error structure.
+- SRS-API-004: List endpoints shall implement pagination and enforce a maximum page size.
+- SRS-API-005: Resource routes shall use plural nouns and kebab-case.
+- SRS-API-006: User-owned resources should use `/me`; OWNER-managed resources shall be scoped by `placeId`.
+- SRS-API-007: `400` shall represent invalid input, `401` invalid authentication, `403` global permission/role denial, `404` absent/hidden/foreign-tenant resources, and `409` state, invariant, idempotency, or uniqueness conflicts.
+- SRS-API-008: Raw Prisma errors, ImageKit provider errors containing private details, and stack traces shall not be returned to clients.
+- SRS-API-009: API contracts shall be documented under `docs/api-specification` and updated with implementation changes.
+- SRS-API-010: Backward-incompatible public contract changes shall use a new API version or an approved migration period.
+- SRS-API-011: The externally visible authentication routes shall be rooted under `/api/v1/auth`, including login, refresh, and logout.
+- SRS-API-012: Platform role, place-membership role, and permission identifiers exposed through `/me` shall be treated as capability metadata for clients and shall not be accepted from clients as proof of authorization.
+
+## 8. Security and privacy requirements
+
+- SRS-SEC-001: Production traffic shall use HTTPS at the deployment boundary.
+- SRS-SEC-002: Access-token and refresh-token signing secrets shall be distinct, sufficiently random, and stored outside source control.
+- SRS-SEC-003: Logs shall redact authorization headers, authentication cookies, raw tokens, password fields, order verification tokens, and ImageKit private credentials.
+- SRS-SEC-004: Authentication, refresh, human-code lookup, and public verification endpoints shall be rate-limited.
+- SRS-SEC-005: Database queries shall use Prisma parameterization and shall not concatenate untrusted SQL.
+- SRS-SEC-006: Response selection shall exclude password hashes, token hashes, replacement-session internals, private provider credentials, and private audit content.
+- SRS-SEC-007: Input length limits shall be enforced server-side for all user-controlled fields covered by this SRS.
+- SRS-SEC-008: Other text fields introduced by later endpoints shall receive explicit documented upper bounds before those endpoints are released.
+- SRS-SEC-009: CORS origins and cookie attributes shall be environment-specific and restrictive in production.
+- SRS-SEC-010: Refresh cookies shall follow SRS-AUTH-022 through SRS-AUTH-023 and shall never be transmitted over plain HTTP outside localhost development.
+- SRS-SEC-011: Personal-data retention and anonymization shall follow SRS-DATA-012 through SRS-DATA-015 and the approved privacy policy.
+- SRS-SEC-012: Authorization shall be covered by negative tests, especially OWNER-membership cross-place, CASHIER-membership cross-place, ADMIN-to-SUPER_ADMIN-target, and frontend-permission-bypass attempts.
+- SRS-SEC-013: Frontend-provided role or permission values shall never determine backend authorization.
+- SRS-SEC-014: Image upload authorization shall be short-lived and shall not expose provider private credentials.
+- SRS-SEC-015: Public ImageKit media URLs shall contain no application secrets, database IDs that are unnecessary for delivery, authentication tokens, or personal data.
+
+## 9. Performance and capacity requirements
+
+The following are prototype service-level objectives measured at the API process, excluding client network latency. These targets shall be reassessed from observed traffic and production architecture before production launch.
+
+- SRS-PERF-001: Across API requests under the prototype normal-load profile, p95 response latency shall be less than 750 ms and p99 response latency shall be less than 1.5 seconds.
+- SRS-PERF-002: Public-menu response latency shall be less than 1 second at p95 under the prototype normal-load profile.
+- SRS-PERF-003: The prototype shall support 100 concurrent active users.
+- SRS-PERF-004: The prototype shall support 25 requests per second sustained for general API traffic and bursts of 50 requests per second for one minute.
+- SRS-PERF-005: Default list page size shall not exceed 20 and maximum page size shall not exceed 100 unless an endpoint specifies a stricter limit.
+- SRS-PERF-006: Public list, menu filter, review list, user order list, place order-queue, platform-role lookup, OWNER membership scope, and CASHIER membership queries shall use indexed predicates represented in the Prisma schema where appropriate.
+- SRS-PERF-007: Database transactions shall contain only required database work and shall not perform remote ImageKit calls or QR image generation.
+- SRS-PERF-008: Caching shall be introduced only after profiling and shall not weaken current platform-role and membership authorization, place scoping, or required data freshness.
+- SRS-PERF-009: Checkout shall support 5 requests per second sustained during the representative prototype checkout test without duplicate orders or inconsistent order state.
+- SRS-PERF-010: The representative general API load test shall include 25 RPS sustained for 10 minutes, a 50 RPS burst for 1 minute, and a 100-concurrent-user scenario for 10 minutes.
+- SRS-PERF-011: The representative checkout load test shall execute 5 checkout requests per second for at least 5 minutes.
+- SRS-PERF-012: Prototype load tests shall pass only when the request error rate is below 1%, API p95 is below 750 ms, API p99 is below 1.5 seconds, no duplicate orders are created, and no invalid order-state transitions are observed.
+- SRS-PERF-013: Prototype performance targets are not production capacity commitments and shall be revised before production readiness approval.
+
+## 10. Reliability and concurrency requirements
+
+- SRS-REL-001: Multi-record invariants identified in `application-rules.md` shall be executed in transactions where the datastore can enforce atomicity.
+- SRS-REL-002: Unique-code collisions shall be handled with bounded retry rather than surfaced as an internal error.
+- SRS-REL-003: Concurrent order-status updates shall produce at most one valid transition from an expected state.
+- SRS-REL-004: A concurrent order transition shall not treat an already expired `PENDING` order as valid solely because the expiry scheduler has not yet run.
+- SRS-REL-005: Refresh rotation and refresh-token reuse response shall remain consistent under concurrent refresh requests.
+- SRS-REL-006: Scheduled expiry, retention, anonymization, provider-cleanup, and audit-support operations shall be idempotent where repeated execution is possible.
+- SRS-REL-007: Application shutdown shall disconnect Prisma cleanly.
+- SRS-REL-008: The production deployment shall define a database backup and tested restore process.
+- SRS-REL-009: A readiness check should verify critical application configuration and database connectivity without exposing secrets.
+- SRS-REL-010: The database backup and restore design shall target a Recovery Point Objective (RPO) of no more than 24 hours.
+- SRS-REL-011: The database restore procedure shall target a Recovery Time Objective (RTO) of no more than 4 hours.
+- SRS-REL-012: Production availability SLO shall be approved before production launch; the previous 99.5% target is not a prototype release gate in version 1.2.
+- SRS-REL-013: Remote ImageKit operations shall not be performed inside PostgreSQL transactions.
+- SRS-REL-014: Workflows spanning PostgreSQL and ImageKit shall use ordered state changes, idempotency, or compensating cleanup so that provider failures remain observable and recoverable.
+
+## 11. Logging, monitoring, and operability
+
+- SRS-OPS-001: Winston shall provide structured application logging suitable for the deployment environment.
+- SRS-OPS-002: Every request should carry or receive a correlation/request ID.
+- SRS-OPS-003: Logs shall record route, method, status, duration, and safe actor/resource identifiers where available.
+- SRS-OPS-004: Authentication failures, authorization denials, refresh-token reuse, unexpected server errors, repeated verification failures, account-deletion workflow failures, and media-provider failures shall be observable.
+- SRS-OPS-005: Metrics should include request latency/error rate, checkout outcomes, order-state counts, expiry counts, authorization-denial counts, provider-operation failures, and database health.
+- SRS-OPS-006: Environment configuration shall be validated during startup and the process shall fail fast when required secrets, ImageKit configuration, or `DATABASE_URL` are absent for enabled features.
+- SRS-OPS-007: Production errors shall preserve diagnostic context in secure logs while returning sanitized responses.
+- SRS-OPS-008: Permission-mapping configuration is application code and shall be reviewable through normal code-review/version-control history.
+
+## 12. Maintainability and quality requirements
+
+- SRS-QLT-001: TypeScript compilation shall pass with the project's configured strictness.
+- SRS-QLT-002: ESLint and Prettier checks shall pass before merge.
+- SRS-QLT-003: Business decisions shall reside in services, HTTP concerns in controllers, authorization guards/policies in the authorization layer, and Prisma queries in repositories.
+- SRS-QLT-004: Feature repositories shall not be exported to other modules by default.
+- SRS-QLT-005: `common` and `lib` shall not depend on feature modules.
+- SRS-QLT-006: New requirements shall include automated tests proportional to risk.
+- SRS-QLT-007: Schema changes shall update Prisma migrations, affected API specifications, and requirement documents.
+- SRS-QLT-008: Permission constants shall be referenced through a shared typed authorization contract rather than repeated string literals across controllers and services.
+- SRS-QLT-009: Platform-role and place-membership-role permission mappings shall have a single authoritative backend definition.
+- SRS-QLT-010: Frontend applications may maintain compatible permission types for type safety but shall consume effective permissions from the backend rather than independently determining authoritative role policy.
+
+## 13. Verification strategy
+
+### Unit verification
+
+- Service tests shall verify permission decisions, role mapping, scope resolution, ownership decisions, target-account restrictions, money calculations, review restoration, order transitions, expiry behavior, deletion-request invariants, and token-reuse behavior.
+- Schema tests shall verify boundaries, enum values, normalization, and rejected unknown/invalid input.
+- Pure helpers such as order-code generation, normalized idempotency hashing, and permission mapping shall be tested independently.
+
+### Integration verification
+
+- Repository tests shall run against PostgreSQL and verify unique constraints, soft-delete filters, OWNER predicates, CASHIER assignment predicates, dining-table uniqueness, review cardinality, transaction rollback, refresh-session replacement, order snapshots, idempotency persistence, and expired-order transition predicates.
+- Migration tests shall apply the schema to an empty database and validate required platform-role enum values and authorization mapping.
+- Media integration tests shall mock or use an approved non-production ImageKit environment and shall verify that private credentials are not returned to clients.
+
+### End-to-end verification
+
+- Registration, login, refresh rotation/reuse, logout, and user deactivation.
+- `/me` platform role, memberships, and effective permissions.
+- SUPER_ADMIN user, platform-role, and OWNER-membership administration.
+- ADMIN platform operations, including denial of SUPER_ADMIN-only role/ownership/security administration and denial of ADMIN/SUPER_ADMIN deactivation targets.
+- Protection of the last active SUPER_ADMIN.
+- Two OWNERs managing different places, including negative cross-tenant attempts.
+- OWNER CASHIER-membership management limited to owned places.
+- Two CASHIER memberships assigned to different places, including negative cross-place reads and status mutations.
+- Public place/menu discovery and filtering.
+- Business-hours enforcement using the place timezone.
+- Dining-table creation, uniqueness, activation/deactivation, DINE_IN validation, TAKEAWAY null behavior, and historical table snapshots.
+- Verified-purchase place review creation, one-place-review-per-order enforcement, deletion/restoration, and moderation.
+- Verified-purchase menu-item review creation, one-review-per-order/item enforcement, repeat reviews from different completed orders, deletion/restoration, and moderation.
+- Cart isolation, unavailable-item handling, cart limits, and checkout.
+- Idempotent checkout retry, same-key/different-payload conflict, and atomic successful result persistence.
+- Expired `PENDING` order rejection before the expiry scheduler materializes `EXPIRED`.
+- Concurrent status updates and cancellation-permission matrix.
+- Order-code/verification-token lookup, minimal disclosure, token retention, and authenticated processing.
+- Account-deletion request, sole-owner conflict, session revocation, and anonymization workflow.
+- ImageKit upload-authorization permission checks and negative frontend-bypass attempts.
+
+### Release gate
+
+- SRS-TST-001: Prisma schema validation and generation shall pass.
+- SRS-TST-002: Build, lint, unit tests, integration tests, and critical E2E tests shall pass in CI.
+- SRS-TST-003: No known critical/high authorization, tenant-isolation, duplicate-order, password-handling, or secret-exposure defect may remain open for release.
+- SRS-TST-004: Database migration and rollback/restore procedures shall be reviewed before production deployment.
+- SRS-TST-005: Platform-role and membership-role permission-matrix tests shall pass before release.
+- SRS-TST-006: Prototype load tests defined in section 9 shall pass for the prototype implementation baseline.
+- SRS-TST-007: Production launch shall require a separate review of production SLOs, backup/restore readiness, media-provider configuration, secret management, and operational monitoring.
+
+## 14. Requirement traceability summary
+
+| Product area             | PRD requirements     | Primary SRS requirements                           | Primary Prisma models / implementation artifacts                                                               |
+| ------------------------ | -------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Authentication           | PR-AUTH-001–005      | SRS-AUTH-001–024                                   | `User`, `RefreshSession`                                                                                       |
+| Authorization/RBAC       | PR-RBAC-001–005      | SRS-RBAC-001–024, SRS-AUTHZ-001–022                | `User`, `PlaceMember`, platform-role enum, membership-role enum, permission constants, role-permission mapping |
+| Users/account lifecycle  | PR-RBAC-001–005      | SRS-USR-001–016                                    | `User`, `PlaceMember`, `RefreshSession`, deletion-state data, `AuditLog`                                       |
+| Places                   | PR-PLC-001–005       | SRS-PLC-001–022, SRS-HRS-001–008                   | `Place`, `PlaceMember`, `BusinessHour`                                                                         |
+| Dining tables            | Operational decision | SRS-TBL-001–011                                    | Dining-table model, `Order` table snapshot/reference                                                           |
+| Menus                    | PR-MNU-001–005       | SRS-MNU-001–014                                    | `MenuCategory`, `MenuItem`                                                                                     |
+| Reviews                  | PR-REV-001–005       | SRS-REV-001–013                                    | `PlaceReview`, `MenuItemReview`                                                                                |
+| Carts/orders             | PR-ORD-001–009       | SRS-CART-001–011, SRS-ORD-001–023, SRS-STS-001–027 | `Cart`, `CartItem`, `Order`, `OrderItem`, idempotency record                                                   |
+| Media                    | Operational decision | SRS-MED-001–018                                    | ImageKit asset metadata and provider integration                                                               |
+| Audit                    | PR-RBAC-005          | SRS-AUD-001–006                                    | `AuditLog`                                                                                                     |
+| Data lifecycle           | Operational decision | SRS-DATA-012–017, SRS-USR-012–016                  | All retained/anonymized models                                                                                 |
+| Prototype service levels | Operational decision | SRS-PERF-001–013, SRS-REL-010–014                  | Deployment, observability, and load-test configuration                                                         |
+
+## 15. Version 1.3 incorporated decisions
+
+Version 1.3 incorporates the previously resolved version 1.2 decisions and closes the authorization/domain ambiguities identified during the version 1.1 review.
+
+| Decision                                                    | Incorporated requirements                                                    |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Password and abuse controls                                 | SRS-AUTH-015–019, SRS-AUTH-024                                               |
+| Access and refresh tokens                                   | SRS-AUTH-020–023, SRS-SEC-010                                                |
+| Code-defined permissions over persisted authorization roles | SRS-AUTHZ-001–022, section 4.3                                               |
+| Split platform role and place membership role               | SRS-RBAC-001–024, section 4.1                                                |
+| Place membership architecture and CASHIER lifecycle         | SRS-RBAC-004–024, SRS-STS-002, SRS-STS-014                                   |
+| Platform role and ADMIN boundaries                          | SRS-RBAC-001–024, SRS-USR-008–010, SRS-AUTHZ-021–022                         |
+| Last active SUPER_ADMIN protection                          | SRS-RBAC-012, SRS-USR-009                                                    |
+| Place timezone and open-only V1 checkout                    | SRS-PLC-014, SRS-PLC-022, SRS-HRS-005–008                                    |
+| Dining-table master                                         | SRS-TBL-001–011, SRS-ORD-014–015                                             |
+| Explicit text/cart/order limits                             | SRS-PLC-016–021, SRS-MNU-006, SRS-CART-007–011, SRS-ORD-017, SRS-STS-017–018 |
+| Verified-purchase review cardinality                        | SRS-REV-001–013                                                              |
+| Public verification disclosure/retention                    | SRS-STS-020–027                                                              |
+| Checkout idempotency                                        | SRS-ORD-009–013, SRS-ORD-019–023                                             |
+| Expiry source of truth                                      | SRS-STS-010–012, SRS-REL-004                                                 |
+| Cancellation matrix                                         | SRS-STS-013–018                                                              |
+| IDR-only monetary model                                     | SRS-CON-007–008, SRS-MNU-007                                                 |
+| Account-deletion request workflow                           | SRS-USR-012–016, SRS-DATA-013–015                                            |
+| Email-verification/password-reset exclusion from V1         | No V1 functional or retention requirements                                   |
+| ImageKit media storage                                      | SRS-CON-010, SRS-MED-001–018                                                 |
+| Prototype performance targets                               | SRS-PERF-001–013                                                             |
+| Backup objectives                                           | SRS-REL-010–011                                                              |
+| Production availability deferred to production review       | SRS-REL-012                                                                  |
+
+## 16. Explicit version 1 exclusions
+
+The following capabilities are outside the version 1 SRS baseline unless introduced by a later approved requirement:
+
+- Multi-currency ordering.
+- Payment processing or paid/unpaid order state.
+- Preorder or scheduled ordering while a place is closed.
+- Dynamic/custom platform roles or place-membership roles.
+- Database-managed dynamic permission editing.
+- Email-verification workflow.
+- Password-reset workflow.
+- Private/access-controlled media delivery.
+- Video, SVG, GIF, or arbitrary file upload.
+- Inventory/stock management.
+- Frontend-only authorization as a security control.
+
+## 17. Authorization architecture summary
+
+The version 1.3 authorization data model is intentionally normalized around two separate concerns:
+
+```text
+User
+└── platformRole: USER | ADMIN | SUPER_ADMIN
+
+Place
+└── PlaceMember[]
+    ├── userId
+    ├── placeId
+    └── role: OWNER | CASHIER
+```
+
+The backend shall not use `UserRole`, `Role`, `PlaceOwner`, or a separate CASHIER-assignment table for the version 1.3 baseline. Platform authorization is resolved from `User.platformRole`; place-scoped authorization is resolved from `PlaceMember`.
+
+## 18. Related documents
+
+- Product requirements: [`product-requirements-document.md`](product-requirements-document.md)
+- Application rules: [`application-rules.md`](application-rules.md)
+- Architecture: [`../ARCHITECTURE.md`](../ARCHITECTURE.md)
+- Database schema: [`../prisma/schema.prisma`](../prisma/schema.prisma)
+- Backend setup and implemented endpoints: [`../README.md`](../README.md)
+- Detailed API contracts: [`api-specification/`](api-specification/)
