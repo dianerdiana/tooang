@@ -40,9 +40,10 @@ Currently implemented:
 
 - User registration, login, token refresh, and logout
 - JWT-based authentication with access and refresh tokens
-- Role-based access control
+- Permission-based access control using current platform roles and place memberships
 - Current-user profile management
-- Administrative user and role management
+- Administrative user/platform-role management
+- Place creation and OWNER/CASHIER membership management
 - Zod request validation
 - Consistent HTTP response and error handling
 - Winston application logging
@@ -71,7 +72,7 @@ backend/
 |   |-- common/              # Shared auth, decorators, filters, guards, and pipes
 |   |-- config/              # Application and environment configuration
 |   |-- lib/                 # Infrastructure services such as Prisma and logging
-|   |-- modules/             # Feature modules (auth, users, and future modules)
+|   |-- modules/             # Feature modules (auth, audit, users, places, and future modules)
 |   |-- app.module.ts        # Root application module
 |   `-- main.ts              # Application entry point
 |-- test/                    # End-to-end tests
@@ -122,7 +123,7 @@ Install the following before setting up the project:
    npx prisma migrate dev --config prisma7.config.ts
    ```
 
-6. Optionally seed or promote a super-administrator account:
+6. Optionally seed the initial super-administrator account:
 
    ```bash
    npm run prisma:seed
@@ -215,7 +216,7 @@ Seed the database:
 npm run prisma:seed
 ```
 
-The seed script creates or promotes a super-administrator only when both `SEED_SUPER_ADMIN_EMAIL` and `SEED_SUPER_ADMIN_PASSWORD` are configured.
+The seed script creates a super-administrator only when both `SEED_SUPER_ADMIN_EMAIL` and `SEED_SUPER_ADMIN_PASSWORD` are configured. It refuses to promote an existing non-SUPER_ADMIN account; subsequent role changes must use the audited API.
 
 ## Running the Application
 
@@ -306,6 +307,10 @@ Core implemented endpoints include:
 | `GET`    | `/api/v1/users/:userId`             | ADMIN/SUPER_ADMIN | Get an active user.                          |
 | `PUT`    | `/api/v1/users/:userId/platform-role` | SUPER_ADMIN | Set a platform role.                            |
 | `DELETE` | `/api/v1/users/:userId`             | ADMIN/SUPER_ADMIN | Deactivate an eligible user.                 |
+| `POST`   | `/api/v1/places`                    | `place.create` | Create a place with the actor as initial OWNER. |
+| `GET`    | `/api/v1/places/:placeId/members`   | Scoped permission | List current place memberships.             |
+| `PUT`    | `/api/v1/places/:placeId/members/:userId` | Scoped permission | Assign, reactivate, or change membership. |
+| `DELETE` | `/api/v1/places/:placeId/members/:userId` | Scoped permission | Revoke a membership.                     |
 
 Detailed request and response contracts are available in the [API specification](docs/api-specification/).
 
@@ -325,7 +330,7 @@ Detailed request and response contracts are available in the [API specification]
 | `npm run test:cov`    | Run unit tests and produce a coverage report.       |
 | `npm run test:e2e`    | Run end-to-end tests.                               |
 | `npm run test:debug`  | Run Jest in Node.js debug mode.                     |
-| `npm run prisma:seed` | Seed or promote the optional super-administrator.   |
+| `npm run prisma:seed` | Seed the optional initial super-administrator.       |
 
 ## Testing
 
@@ -347,7 +352,7 @@ Generate a coverage report:
 npm run test:cov
 ```
 
-> TODO: Document the dedicated test database setup and required test environment variables.
+Database E2E tests require `TEST_DATABASE_URL` and intentionally skip when it is absent. Backend CI provisions PostgreSQL, applies migrations, and runs these suites without skipping.
 
 ## Code Quality
 
@@ -395,6 +400,8 @@ npm run start:prod
 - [Application rules](docs/application-rules.md)
 - [Authentication API specification](docs/api-specification/auth.md)
 - [Users API specification](docs/api-specification/users.md)
+- [Places API specification](docs/api-specification/places.md)
+- [Place-membership API specification](docs/api-specification/place-members.md)
 
 > TODO: Add generated OpenAPI/Swagger documentation when available.
 

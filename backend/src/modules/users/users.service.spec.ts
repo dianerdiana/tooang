@@ -2,18 +2,18 @@ import { ConflictException, ForbiddenException } from '@nestjs/common';
 
 import { jest } from '@jest/globals';
 
-import { type AuthenticatedUser, PlatformRoleEnum } from '@/common/auth';
+import { type AuthenticatedUser, PlatformRole, type PlatformRoleType } from '@/common/auth';
 
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
 
-const actor = (platformRole: PlatformRoleEnum): AuthenticatedUser => ({
+const actor = (platformRole: PlatformRoleType): AuthenticatedUser => ({
   id: 'actor-db-id',
   userId: 'usr_actor',
   platformRole,
 });
 
-const userRecord = (platformRole = PlatformRoleEnum.User) => ({
+const userRecord = (platformRole: PlatformRoleType = PlatformRole.USER) => ({
   id: 'target-db-id',
   userId: 'usr_target',
   fullName: 'Target User',
@@ -29,6 +29,7 @@ describe('UsersService', () => {
   const transactionalPrisma = {
     $transaction: jest.fn((callback: (tx: object) => unknown) => Promise.resolve(callback({}))),
   };
+  const audit = { append: jest.fn(() => Promise.resolve({})) };
 
   it('returns platform and membership permissions for /me', async () => {
     const repository = {
@@ -39,8 +40,8 @@ describe('UsersService', () => {
         }),
       ),
     } as unknown as UsersRepository;
-    const service = new UsersService(repository, transactionalPrisma as never);
-    const result = await service.getMe(actor(PlatformRoleEnum.User));
+    const service = new UsersService(repository, audit as never, transactionalPrisma as never);
+    const result = await service.getMe(actor(PlatformRole.USER));
 
     expect(result.permissions).toContain('profile.read');
     expect(result.placeMemberships[0].permissions).toContain('order.confirm');
@@ -49,24 +50,36 @@ describe('UsersService', () => {
 
   it('prevents ADMIN from deactivating an ADMIN', async () => {
     const repository = {
-      findActiveByPublicId: jest.fn(() => Promise.resolve(userRecord(PlatformRoleEnum.Admin))),
+      findActiveByPublicId: jest.fn(() => Promise.resolve(userRecord(PlatformRole.ADMIN))),
     } as unknown as UsersRepository;
-    const service = new UsersService(repository, transactionalPrisma as never);
+    const service = new UsersService(repository, audit as never, transactionalPrisma as never);
 
     await expect(
-      service.deactivate(actor(PlatformRoleEnum.Admin), 'usr_target'),
+      service.deactivate(actor(PlatformRole.ADMIN), 'usr_target'),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('prevents deactivation of the only active owner of an active place', async () => {
+    const repository = {
+      findActiveByPublicId: jest.fn(() => Promise.resolve(userRecord())),
+      findSoleOwnedPlace: jest.fn(() => Promise.resolve({ id: 'place-1' })),
+    } as unknown as UsersRepository;
+    const service = new UsersService(repository, audit as never, transactionalPrisma as never);
+
+    await expect(
+      service.deactivate(actor(PlatformRole.ADMIN), 'usr_target'),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('protects the last active SUPER_ADMIN from demotion', async () => {
     const repository = {
-      findActiveByPublicId: jest.fn(() => Promise.resolve(userRecord(PlatformRoleEnum.SuperAdmin))),
+      findActiveByPublicId: jest.fn(() => Promise.resolve(userRecord(PlatformRole.SUPER_ADMIN))),
       countActiveSuperAdmins: jest.fn(() => Promise.resolve(1)),
     } as unknown as UsersRepository;
-    const service = new UsersService(repository, transactionalPrisma as never);
+    const service = new UsersService(repository, audit as never, transactionalPrisma as never);
 
     await expect(
-      service.updatePlatformRole(actor(PlatformRoleEnum.SuperAdmin), 'usr_target', {
+      service.updatePlatformRole(actor(PlatformRole.SUPER_ADMIN), 'usr_target', {
         platformRole: 'USER',
       }),
     ).rejects.toBeInstanceOf(ConflictException);
@@ -77,9 +90,9 @@ describe('UsersService', () => {
       findByInternalId: jest.fn(() => Promise.resolve(userRecord())),
       findSoleOwnedPlace: jest.fn(() => Promise.resolve({ id: 'place-1' })),
     } as unknown as UsersRepository;
-    const service = new UsersService(repository, transactionalPrisma as never);
+    const service = new UsersService(repository, audit as never, transactionalPrisma as never);
 
-    await expect(service.requestDeletion(actor(PlatformRoleEnum.User))).rejects.toBeInstanceOf(
+    await expect(service.requestDeletion(actor(PlatformRole.USER))).rejects.toBeInstanceOf(
       ConflictException,
     );
   });
@@ -88,7 +101,7 @@ describe('UsersService', () => {
     const repository = {
       list: jest.fn(() => Promise.resolve({ users: [userRecord()], totalItems: 21 })),
     } as unknown as UsersRepository;
-    const service = new UsersService(repository, transactionalPrisma as never);
+    const service = new UsersService(repository, audit as never, transactionalPrisma as never);
     const result = await service.list({
       page: 2,
       limit: 20,

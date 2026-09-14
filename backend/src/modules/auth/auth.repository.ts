@@ -34,6 +34,13 @@ export class AuthRepository {
     return this.prisma.user.findUnique({ where: { email }, select: AUTH_USER_SELECT });
   }
 
+  findActivePrincipal(userId: string) {
+    return this.prisma.user.findFirst({
+      where: { userId, deletedAt: null, deletionRequestedAt: null },
+      select: { id: true, userId: true, platformRole: true },
+    });
+  }
+
   createRefreshSession(
     data: {
       id: string;

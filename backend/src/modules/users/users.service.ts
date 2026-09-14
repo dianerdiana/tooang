@@ -9,11 +9,11 @@ import { PlatformRole, Prisma } from '@/generated/prisma/client';
 
 import {
   type AuthenticatedUser,
-  MEMBERSHIP_PERMISSIONS,
-  PlaceMemberRoleEnum,
-  PLATFORM_PERMISSIONS,
-  PlatformRoleEnum,
+  getMembershipPermissions,
+  getPlatformPermissions,
 } from '@/common/auth';
+
+import { AuditService } from '@/modules/audit/audit.service';
 
 import { PrismaService } from '../../lib';
 
@@ -42,6 +42,7 @@ function safeUser(user: {
 export class UsersService {
   constructor(
     private readonly repository: UsersRepository,
+    private readonly audit: AuditService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -49,16 +50,14 @@ export class UsersService {
     const user = await this.repository.findMe(actor.id);
     if (!user) throw new NotFoundException('User not found');
 
-    const platformRole = user.platformRole as PlatformRoleEnum;
     return {
       ...safeUser(user),
-      permissions: [...PLATFORM_PERMISSIONS[platformRole]],
+      permissions: [...getPlatformPermissions(user.platformRole)],
       placeMemberships: user.placeMemberships.map((membership) => {
-        const role = membership.role as PlaceMemberRoleEnum;
         return {
           placeId: membership.placeId,
-          role,
-          permissions: [...MEMBERSHIP_PERMISSIONS[role]],
+          role: membership.role,
+          permissions: [...getMembershipPermissions(membership.role)],
         };
       }),
     };
@@ -70,41 +69,39 @@ export class UsersService {
   }
 
   async requestDeletion(actor: AuthenticatedUser) {
-    return this.prisma.$transaction(
-      async (tx) => {
-        const user = await this.repository.findByInternalId(actor.id, tx);
-        if (!user || user.deletedAt) throw new NotFoundException('User not found');
-        if (user.deletionRequestedAt) {
-          return {
-            userId: user.userId,
-            status: 'DELETION_PENDING' as const,
-            deletionRequestedAt: user.deletionRequestedAt.toISOString(),
-          };
-        }
-
-        if (await this.repository.findSoleOwnedPlace(user.id, tx)) {
-          throw new ConflictException('Transfer sole place ownership before deleting the account');
-        }
-        const now = new Date();
-        const updated = await this.repository.setDeletionRequested(user.id, now, tx);
-        await this.repository.revokeSessions(user.id, now, tx);
-        await this.repository.createAudit(
-          {
-            actorUserId: user.id,
-            action: 'ACCOUNT_DELETION_REQUESTED',
-            targetId: user.userId,
-            afterData: { deletionRequestedAt: now.toISOString() },
-          },
-          tx,
-        );
+    return this.inSerializableTransaction(async (tx) => {
+      const user = await this.repository.findByInternalId(actor.id, tx);
+      if (!user || user.deletedAt) throw new NotFoundException('User not found');
+      if (user.deletionRequestedAt) {
         return {
-          userId: updated.userId,
+          userId: user.userId,
           status: 'DELETION_PENDING' as const,
-          deletionRequestedAt: now.toISOString(),
+          deletionRequestedAt: user.deletionRequestedAt.toISOString(),
         };
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+      }
+
+      if (await this.repository.findSoleOwnedPlace(user.id, tx)) {
+        throw new ConflictException('Transfer sole place ownership before deleting the account');
+      }
+      const now = new Date();
+      const updated = await this.repository.setDeletionRequested(user.id, now, tx);
+      await this.repository.revokeSessions(user.id, now, tx);
+      await this.audit.append(
+        {
+          actorUserId: user.id,
+          action: 'ACCOUNT_DELETION_REQUESTED',
+          targetType: 'User',
+          targetId: user.userId,
+          afterData: { deletionRequestedAt: now.toISOString() },
+        },
+        tx,
+      );
+      return {
+        userId: updated.userId,
+        status: 'DELETION_PENDING' as const,
+        deletionRequestedAt: now.toISOString(),
+      };
+    });
   }
 
   async list(input: ListUsersInput) {
@@ -127,81 +124,94 @@ export class UsersService {
   }
 
   async updatePlatformRole(actor: AuthenticatedUser, userId: string, input: PlatformRoleInput) {
-    if (actor.platformRole !== PlatformRoleEnum.SuperAdmin) {
+    if (actor.platformRole !== PlatformRole.SUPER_ADMIN) {
       throw new ForbiddenException('Insufficient permissions');
     }
 
-    return this.prisma.$transaction(
-      async (tx) => {
-        const target = await this.repository.findActiveByPublicId(userId, tx);
-        if (!target) throw new NotFoundException('User not found');
-        if (target.platformRole === input.platformRole) return safeUser(target);
+    return this.inSerializableTransaction(async (tx) => {
+      const target = await this.repository.findActiveByPublicId(userId, tx);
+      if (!target) throw new NotFoundException('User not found');
+      if (target.platformRole === input.platformRole) return safeUser(target);
 
-        if (
-          target.platformRole === PlatformRole.SUPER_ADMIN &&
-          input.platformRole !== PlatformRole.SUPER_ADMIN &&
-          (await this.repository.countActiveSuperAdmins(tx)) <= 1
-        ) {
-          throw new ConflictException('The last active SUPER_ADMIN cannot be demoted');
-        }
+      if (
+        target.platformRole === PlatformRole.SUPER_ADMIN &&
+        input.platformRole !== PlatformRole.SUPER_ADMIN &&
+        (await this.repository.countActiveSuperAdmins(tx)) <= 1
+      ) {
+        throw new ConflictException('The last active SUPER_ADMIN cannot be demoted');
+      }
 
-        const updated = await this.repository.setPlatformRole(target.id, input.platformRole, tx);
-        await this.repository.createAudit(
-          {
-            actorUserId: actor.id,
-            action: 'PLATFORM_ROLE_UPDATED',
-            targetId: target.userId,
-            beforeData: { platformRole: target.platformRole },
-            afterData: { platformRole: updated.platformRole },
-          },
-          tx,
-        );
-        return safeUser(updated);
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+      const updated = await this.repository.setPlatformRole(target.id, input.platformRole, tx);
+      await this.audit.append(
+        {
+          actorUserId: actor.id,
+          action: 'PLATFORM_ROLE_UPDATED',
+          targetType: 'User',
+          targetId: target.userId,
+          beforeData: { platformRole: target.platformRole },
+          afterData: { platformRole: updated.platformRole },
+        },
+        tx,
+      );
+      return safeUser(updated);
+    });
   }
 
   async deactivate(actor: AuthenticatedUser, userId: string) {
-    return this.prisma.$transaction(
-      async (tx) => {
-        const target = await this.repository.findActiveByPublicId(userId, tx);
-        if (!target) throw new NotFoundException('User not found');
-        if (
-          actor.platformRole === PlatformRoleEnum.Admin &&
-          target.platformRole !== PlatformRole.USER
-        ) {
-          throw new ForbiddenException('ADMIN may deactivate only USER accounts');
-        }
-        if (
-          actor.platformRole !== PlatformRoleEnum.Admin &&
-          actor.platformRole !== PlatformRoleEnum.SuperAdmin
-        ) {
-          throw new ForbiddenException('Insufficient permissions');
-        }
-        if (
-          target.platformRole === PlatformRole.SUPER_ADMIN &&
-          (await this.repository.countActiveSuperAdmins(tx)) <= 1
-        ) {
-          throw new ConflictException('The last active SUPER_ADMIN cannot be deactivated');
-        }
-
-        const now = new Date();
-        await this.repository.deactivate(target.id, now, tx);
-        await this.repository.revokeSessions(target.id, now, tx);
-        await this.repository.createAudit(
-          {
-            actorUserId: actor.id,
-            action: 'USER_DEACTIVATED',
-            targetId: target.userId,
-            beforeData: { deletedAt: null },
-            afterData: { deletedAt: now.toISOString() },
-          },
-          tx,
+    return this.inSerializableTransaction(async (tx) => {
+      const target = await this.repository.findActiveByPublicId(userId, tx);
+      if (!target) throw new NotFoundException('User not found');
+      if (actor.platformRole === PlatformRole.ADMIN && target.platformRole !== PlatformRole.USER) {
+        throw new ForbiddenException('ADMIN may deactivate only USER accounts');
+      }
+      if (
+        actor.platformRole !== PlatformRole.ADMIN &&
+        actor.platformRole !== PlatformRole.SUPER_ADMIN
+      ) {
+        throw new ForbiddenException('Insufficient permissions');
+      }
+      if (
+        target.platformRole === PlatformRole.SUPER_ADMIN &&
+        (await this.repository.countActiveSuperAdmins(tx)) <= 1
+      ) {
+        throw new ConflictException('The last active SUPER_ADMIN cannot be deactivated');
+      }
+      if (await this.repository.findSoleOwnedPlace(target.id, tx)) {
+        throw new ConflictException(
+          'Transfer sole place ownership before deactivating the account',
         );
-        return { userId: target.userId, deletedAt: now.toISOString() };
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+      }
+
+      const now = new Date();
+      await this.repository.deactivate(target.id, now, tx);
+      await this.repository.revokeSessions(target.id, now, tx);
+      await this.audit.append(
+        {
+          actorUserId: actor.id,
+          action: 'USER_DEACTIVATED',
+          targetType: 'User',
+          targetId: target.userId,
+          beforeData: { deletedAt: null },
+          afterData: { deletedAt: now.toISOString() },
+        },
+        tx,
+      );
+      return { userId: target.userId, deletedAt: now.toISOString() };
+    });
+  }
+
+  private async inSerializableTransaction<T>(
+    callback: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await this.prisma.$transaction(callback, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+        throw new ConflictException('Concurrent account change; retry the request');
+      }
+      throw error;
+    }
   }
 }

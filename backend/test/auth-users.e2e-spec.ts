@@ -28,6 +28,7 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
   let app: INestApplication;
   let server: Server;
   let prisma: PrismaClient;
+  const membershipPlaceIds: string[] = [];
   const runId = randomUUID().replaceAll('-', '');
   const userEmail = `user-${runId}@example.com`;
   const updatedEmail = `updated-${runId}@example.com`;
@@ -85,6 +86,7 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
       await prisma.auditLog.deleteMany({ where: { actorUserId: { in: ids } } });
       await prisma.refreshSession.deleteMany({ where: { userId: { in: ids } } });
       await prisma.placeMember.deleteMany({ where: { userId: { in: ids } } });
+      await prisma.place.deleteMany({ where: { id: { in: membershipPlaceIds } } });
       await prisma.user.deleteMany({ where: { id: { in: ids } } });
       await prisma.$disconnect();
     }
@@ -113,6 +115,13 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
     expect(login.status).toBe(200);
     expect(login.headers['set-cookie']).toBeDefined();
     const originalAccessToken = (login.body as ApiBody).data.accessToken;
+    const accessPayload = JSON.parse(
+      Buffer.from(originalAccessToken.split('.')[1], 'base64url').toString('utf8'),
+    ) as Record<string, unknown>;
+    expect(accessPayload).toMatchObject({ tokenType: 'access' });
+    expect(accessPayload).not.toHaveProperty('platformRole');
+    expect(accessPayload).not.toHaveProperty('roles');
+    expect(accessPayload).not.toHaveProperty('permissions');
 
     const refresh = await agent.post('/api/v1/auth/refresh');
     expect(refresh.status).toBe(200);
@@ -138,11 +147,61 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
 
   it('enforces ADMIN and SUPER_ADMIN user-administration boundaries', async () => {
     const target = await prisma.user.findUniqueOrThrow({ where: { email: updatedEmail } });
+    const adminUser = await prisma.user.findUniqueOrThrow({ where: { email: adminEmail } });
+    const superUser = await prisma.user.findUniqueOrThrow({ where: { email: superAdminEmail } });
     const userLogin = await request(server)
       .post('/api/v1/auth/login')
       .send({ email: updatedEmail, password });
     const userToken = (userLogin.body as ApiBody).data.accessToken;
-    await request(server).get('/api/v1/users').auth(userToken, { type: 'bearer' }).expect(403);
+    await request(server)
+      .get('/api/v1/users')
+      .auth(userToken, { type: 'bearer' })
+      .set('x-platform-role', 'SUPER_ADMIN')
+      .set('x-permissions', 'user.read')
+      .expect(403);
+
+    const place = await prisma.place.create({
+      data: {
+        name: 'Authorization E2E Place',
+        slug: `authorization-${runId}`,
+        type: 'CAFE',
+        address: 'Test address',
+        timezone: 'Asia/Jakarta',
+        members: { create: { userId: target.id, role: 'OWNER' } },
+      },
+    });
+    membershipPlaceIds.push(place.id);
+    const foreignPlace = await prisma.place.create({
+      data: {
+        name: 'Foreign Authorization Place',
+        slug: `foreign-authorization-${runId}`,
+        type: 'CAFE',
+        address: 'Other test address',
+        timezone: 'Asia/Jakarta',
+        members: { create: { userId: superUser.id, role: 'OWNER' } },
+      },
+    });
+    membershipPlaceIds.push(foreignPlace.id);
+    await request(server)
+      .get(`/api/v1/places/${foreignPlace.id}/members`)
+      .auth(userToken, { type: 'bearer' })
+      .expect(404);
+    const meWithMembership = await request(server)
+      .get('/api/v1/me')
+      .auth(userToken, { type: 'bearer' });
+    expect(
+      (meWithMembership.body as ApiBody).data.user.placeMemberships as Array<{ placeId: string }>,
+    ).toEqual(expect.arrayContaining([expect.objectContaining({ placeId: place.id })]));
+    await prisma.placeMember.update({
+      where: { placeId_userId: { placeId: place.id, userId: target.id } },
+      data: { revokedAt: new Date() },
+    });
+    const meAfterRevocation = await request(server)
+      .get('/api/v1/me')
+      .auth(userToken, { type: 'bearer' });
+    expect(
+      (meAfterRevocation.body as ApiBody).data.user.placeMemberships as Array<{ placeId: string }>,
+    ).not.toEqual(expect.arrayContaining([expect.objectContaining({ placeId: place.id })]));
 
     const adminLogin = await request(server)
       .post('/api/v1/auth/login')
@@ -170,6 +229,7 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
       .send({ platformRole: 'ADMIN' });
     expect(roleChange.status).toBe(200);
     expect((roleChange.body as ApiBody).data.user.platformRole).toBe('ADMIN');
+    await request(server).get('/api/v1/users').auth(userToken, { type: 'bearer' }).expect(200);
 
     await request(server)
       .delete(`/api/v1/users/${target.userId}`)
@@ -180,6 +240,37 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
       .auth(superToken, { type: 'bearer' })
       .send({ platformRole: 'USER' })
       .expect(200);
+    await request(server).get('/api/v1/users').auth(userToken, { type: 'bearer' }).expect(403);
+
+    const assignOwner = await request(server)
+      .put(`/api/v1/places/${place.id}/members/${target.userId}`)
+      .auth(superToken, { type: 'bearer' })
+      .send({ role: 'OWNER' });
+    expect(assignOwner.status).toBe(200);
+    await request(server)
+      .put(`/api/v1/places/${place.id}/members/${target.userId}`)
+      .auth(adminToken, { type: 'bearer' })
+      .send({ role: 'OWNER' })
+      .expect(404);
+    await request(server)
+      .put(`/api/v1/places/${place.id}/members/${adminUser.userId}`)
+      .auth(userToken, { type: 'bearer' })
+      .send({ role: 'CASHIER' })
+      .expect(200);
+    await request(server)
+      .delete(`/api/v1/places/${place.id}/members/${adminUser.userId}`)
+      .auth(userToken, { type: 'bearer' })
+      .expect(200);
+    await request(server)
+      .delete(`/api/v1/places/${place.id}/members/${target.userId}`)
+      .auth(superToken, { type: 'bearer' })
+      .expect(409);
+    await request(server)
+      .put(`/api/v1/places/${place.id}/members/${superUser.userId}`)
+      .auth(superToken, { type: 'bearer' })
+      .send({ role: 'OWNER' })
+      .expect(200);
+
     const deactivation = await request(server)
       .delete(`/api/v1/users/${target.userId}`)
       .auth(adminToken, { type: 'bearer' });

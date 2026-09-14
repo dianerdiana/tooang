@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { PlatformRole } from '@/generated/prisma/client';
+
 const unicodeLength = (value: string) => Array.from(value).length;
 
 const fullName = z
@@ -25,15 +27,13 @@ export const listUsersSchema = z
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     search: z.string().trim().max(100).optional(),
-    platformRole: z.enum(['USER', 'ADMIN', 'SUPER_ADMIN']).optional(),
+    platformRole: z.enum(PlatformRole).optional(),
     sortBy: z.enum(['createdAt', 'fullName', 'email']).default('createdAt'),
     sortOrder: z.enum(['asc', 'desc']).default('desc'),
   })
   .strict();
 
-export const platformRoleSchema = z
-  .object({ platformRole: z.enum(['USER', 'ADMIN', 'SUPER_ADMIN']) })
-  .strict();
+export const platformRoleSchema = z.object({ platformRole: z.enum(PlatformRole) }).strict();
 
 export type UpdateMeInput = z.infer<typeof updateMeSchema>;
 export type UserIdParam = z.infer<typeof userIdParamSchema>;

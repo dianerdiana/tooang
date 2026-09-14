@@ -13,41 +13,31 @@ This document defines business rules that cannot be fully enforced by `prisma/sc
 
 ## 2. Identity and RBAC
 
-### User Roles
+### Platform Roles and Place Memberships
 
-- Every active user must have at least one `UserRole`.
-- Standard user registration must create the `User` and assign the `USER` role within a single transaction.
-- Only `SUPER_ADMIN` may add or remove roles.
-- A user's last role must not be removed while the user remains active.
-- A user who is a `PlaceOwner` must have the `OWNER` role.
-- The `OWNER` role must not be removed while the user still has a `PlaceOwner` relationship.
-- System roles in the `Role` table must be seeded and must not be deleted through general-purpose endpoints.
-- Authentication tokens must represent all active roles assigned to the user, or the service must reload roles from the database for sensitive operations. Do not rely on a single role.
+- Every active user has exactly one `User.platformRole`: `USER`, `ADMIN`, or `SUPER_ADMIN`.
+- Standard registration persists `platformRole = USER` on the new user row.
+- Only `SUPER_ADMIN` may change another user's platform role, and the last active `SUPER_ADMIN` cannot be demoted or deactivated.
+- Place authority is independent and is stored only in `PlaceMember(role=OWNER|CASHIER)`.
+- A user may hold memberships for multiple places, including while their platform role is ADMIN or SUPER_ADMIN.
+- Version 1 has no `Role`, `UserRole`, `Permission`, `RolePermission`, or `PlaceOwner` tables.
+- Access tokens contain identity only. Current account state and platform role are loaded for every protected request; relevant memberships are loaded for target-place operations.
 
 ### Access Matrix
 
-| Operation | USER | OWNER | SUPER_ADMIN |
-| --- | --- | --- | --- |
-| View published places/menus | Yes | Yes | Yes |
-| Write own reviews | Yes | Yes | Yes |
-| Manage own cart/orders | Yes | Yes | Yes |
-| Manage owned places | No | Yes | Yes |
-| View and process a place's orders | No | Owned places only | Yes |
-| Manage roles and all data | No | No | Yes |
-
-`ADMIN` is retained in the schema for compatibility with existing code, but its permissions must be explicitly defined before use. Do not automatically treat it as equivalent to `SUPER_ADMIN`.
+Endpoint access uses the code-defined permission matrix in `src/common/auth/permissions.ts`. Resource scopes such as own, member, owned, restricted, and global are resolved separately from permission identity. ADMIN and SUPER_ADMIN may bypass a membership only for permissions explicitly granted global scope.
 
 ### Ownership Checks
 
-- For OWNER operations, mutation queries must include a `placeId` restriction linked to `PlaceOwner.userId = authenticatedUser.id`.
-- Do not check only for the `OWNER` role; always verify ownership of the target place.
+- OWNER operations must query a current `PlaceMember(role=OWNER)` for the authenticated user and target place.
+- CASHIER operations must query a current `PlaceMember(role=CASHIER)` for the authenticated user and target place.
 - Child entities—business hours, categories, menus, administrative reviews, carts, and orders—must be traced back to `Place.id` before they are modified.
-- `SUPER_ADMIN` may bypass ownership checks but remains subject to business validation and auditing.
+- ADMIN and SUPER_ADMIN may bypass membership checks only for explicitly global permissions and remain subject to domain validation, target-account restrictions, and auditing.
 - If an entity exists but does not belong to the OWNER, the recommended response is `404` to avoid exposing the existence of another tenant's resource.
 
 ## 3. Places and Ownership
 
-- Creating a `Place`, assigning a `PlaceOwner`, and granting the `OWNER` role when necessary must be atomic within a single transaction.
+- Creating a `Place` and its initial `PlaceMember(role=OWNER)` must be atomic and must not change `User.platformRole`.
 - An active place must have at least one OWNER, unless it is temporarily managed by `SUPER_ADMIN` under a documented operational policy.
 - The last owner must not be removed from an active place.
 - The `slug` must be normalized, unique, and must not use reserved application paths.

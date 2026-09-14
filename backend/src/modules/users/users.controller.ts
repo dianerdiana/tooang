@@ -1,7 +1,7 @@
 import { Controller, Delete, Get, HttpCode, HttpStatus, Patch, Post, Put } from '@nestjs/common';
 
-import { type AuthenticatedUser, PlatformRoleEnum } from '@/common/auth';
-import { CurrentUser, Roles, ZodBody, ZodParam, ZodQuery } from '@/common/decorators';
+import type { AuthenticatedUser } from '@/common/auth';
+import { CurrentUser, RequirePermissions, ZodBody, ZodParam, ZodQuery } from '@/common/decorators';
 import { HttpResponse } from '@/common/responses';
 
 import {
@@ -21,12 +21,14 @@ export class MeController {
   constructor(private readonly service: UsersService) {}
 
   @Get()
+  @RequirePermissions('profile.read')
   async getMe(@CurrentUser() actor: AuthenticatedUser) {
     const user = await this.service.getMe(actor);
     return HttpResponse.success({ message: 'Profile retrieved', data: { user } });
   }
 
   @Patch()
+  @RequirePermissions('profile.update')
   async updateMe(
     @CurrentUser() actor: AuthenticatedUser,
     @ZodBody(updateMeSchema) input: UpdateMeInput,
@@ -36,6 +38,7 @@ export class MeController {
   }
 
   @Post('account-deletion-requests')
+  @RequirePermissions('account.deletion.request')
   @HttpCode(HttpStatus.ACCEPTED)
   async requestDeletion(@CurrentUser() actor: AuthenticatedUser) {
     const data = await this.service.requestDeletion(actor);
@@ -44,11 +47,11 @@ export class MeController {
 }
 
 @Controller('users')
-@Roles(PlatformRoleEnum.Admin, PlatformRoleEnum.SuperAdmin)
 export class UsersController {
   constructor(private readonly service: UsersService) {}
 
   @Get()
+  @RequirePermissions('user.read')
   async list(@ZodQuery(listUsersSchema) query: ListUsersInput) {
     const result = await this.service.list(query);
     return HttpResponse.success({
@@ -59,13 +62,14 @@ export class UsersController {
   }
 
   @Get(':userId')
+  @RequirePermissions('user.read')
   async get(@ZodParam(userIdParamSchema) params: UserIdParam) {
     const user = await this.service.get(params.userId);
     return HttpResponse.success({ message: 'User retrieved', data: { user } });
   }
 
   @Put(':userId/platform-role')
-  @Roles(PlatformRoleEnum.SuperAdmin)
+  @RequirePermissions('platform_role.update')
   async updatePlatformRole(
     @CurrentUser() actor: AuthenticatedUser,
     @ZodParam(userIdParamSchema) params: UserIdParam,
@@ -76,6 +80,7 @@ export class UsersController {
   }
 
   @Delete(':userId')
+  @RequirePermissions('user.deactivate')
   @HttpCode(HttpStatus.OK)
   async deactivate(
     @CurrentUser() actor: AuthenticatedUser,

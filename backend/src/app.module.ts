@@ -4,13 +4,15 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 import { HttpExceptionFilter } from './common/filters';
-import { JwtAuthGuard, RolesGuard } from './common/guards';
+import { PermissionsGuard } from './common/guards';
 
 import env from './config/env';
 
 import { LibModule } from './lib';
 
 import { AuthModule } from './modules/auth/auth.module';
+import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
+import { PlacesModule } from './modules/places/places.module';
 import { UsersModule } from './modules/users/users.module';
 
 import { AppController } from './app.controller';
@@ -32,12 +34,13 @@ import { AppService } from './app.service';
     LibModule,
     AuthModule,
     UsersModule,
+    PlacesModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
   ],
 })

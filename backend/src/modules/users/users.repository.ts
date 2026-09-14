@@ -30,7 +30,7 @@ export class UsersRepository {
       select: {
         ...SAFE_USER_SELECT,
         placeMemberships: {
-          where: { revokedAt: null },
+          where: { revokedAt: null, place: { deletedAt: null } },
           select: { placeId: true, role: true },
           orderBy: { createdAt: 'asc' },
         },
@@ -96,6 +96,7 @@ export class UsersRepository {
                 userId: { not: userId },
                 role: PlaceMemberRole.OWNER,
                 revokedAt: null,
+                user: { deletedAt: null, deletionRequestedAt: null },
               },
             },
           },
@@ -143,21 +144,6 @@ export class UsersRepository {
         deletedAt: null,
         deletionRequestedAt: null,
       },
-    });
-  }
-
-  createAudit(
-    data: {
-      actorUserId: string;
-      action: string;
-      targetId: string;
-      beforeData?: Prisma.InputJsonValue;
-      afterData?: Prisma.InputJsonValue;
-    },
-    db: DbClient,
-  ) {
-    return db.auditLog.create({
-      data: { ...data, targetType: 'User' },
     });
   }
 }

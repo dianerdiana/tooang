@@ -1,4 +1,4 @@
-import { PlatformRoleEnum } from '../auth';
+import type { PlatformRoleType } from '../auth';
 
 type UserRecord = {
   userId: string;
@@ -6,14 +6,14 @@ type UserRecord = {
   email: string;
   createdAt: Date;
   updatedAt: Date;
-  platformRole: string;
+  platformRole: PlatformRoleType;
 };
 
 export type SafeUserResponse = {
   userId: string;
   fullName: string;
   email: string;
-  platformRole: PlatformRoleEnum;
+  platformRole: PlatformRoleType;
   createdAt: string;
   updatedAt: string;
 };
@@ -23,7 +23,7 @@ export function toSafeUserResponse(user: UserRecord): SafeUserResponse {
     userId: user.userId,
     fullName: user.fullName,
     email: user.email,
-    platformRole: user.platformRole as PlatformRoleEnum,
+    platformRole: user.platformRole,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };

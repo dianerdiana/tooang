@@ -20,10 +20,15 @@ async function main() {
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    await prisma.user.update({
-      where: { id: existing.id },
-      data: { platformRole: PlatformRole.SUPER_ADMIN },
-    });
+    if (
+      existing.platformRole !== PlatformRole.SUPER_ADMIN ||
+      existing.deletedAt ||
+      existing.deletionRequestedAt
+    ) {
+      throw new Error(
+        'Refusing to promote or reactivate an existing account during seed; use an audited administrative workflow',
+      );
+    }
     return;
   }
 

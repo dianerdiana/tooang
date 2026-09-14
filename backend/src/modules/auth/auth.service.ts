@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 
-import { Prisma } from '@/generated/prisma/client';
+import { type PlatformRole, Prisma } from '@/generated/prisma/client';
 
 import { BcryptHashingService, PrismaService, UserJwtService } from '../../lib';
 
@@ -16,7 +16,7 @@ function publicUser(user: {
   userId: string;
   fullName: string;
   email: string;
-  platformRole: string;
+  platformRole: PlatformRole;
   createdAt?: Date;
   updatedAt?: Date;
 }) {

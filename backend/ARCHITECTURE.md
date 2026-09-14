@@ -49,7 +49,7 @@ Separate DTO classes are unnecessary if Zod schemas and inferred types already m
 
 Services are the center of use cases and business rules:
 
-- Check roles and resource ownership.
+- Check permissions, resource scope, and domain invariants.
 - Coordinate the flow of a use case.
 - Calculate prices and totals using `Prisma.Decimal`.
 - Open transactions for operations that must be atomic.
@@ -148,7 +148,7 @@ Responsibilities:
 - Registration, login, token refresh, and logout when refresh tokens are stored server-side.
 - Password hashing and verification through `BcryptHashingService`.
 - JWT creation and verification through `UserJwtService`.
-- Build token payloads from all of the user's active roles.
+- Build identity-only access-token payloads; current roles and memberships are resolved server-side.
 
 Auth does not manage profiles, role assignments, places, or place ownership.
 
@@ -157,12 +157,10 @@ Auth does not manage profiles, role assignments, places, or place ownership.
 Responsibilities:
 
 - User profiles.
-- User role lists.
-- Role assignment and revocation by `SUPER_ADMIN`.
-- User deactivation or soft deletion.
-- Ensure that active users have at least one role.
+- Singular `User.platformRole` updates by `SUPER_ADMIN`.
+- User deactivation or soft deletion, including the last-active-SUPER_ADMIN invariant.
 
-Role management belongs in this module to avoid creating a very small `RolesModule`. Separate it into its own module only if permissions become dynamic and complex.
+Platform roles are schema-defined values. Version 1 does not have dynamic roles or a `RolesModule`.
 
 ### PlacesModule
 
@@ -170,12 +168,12 @@ Responsibilities:
 
 - Restaurant, cafe, or dining-place profiles.
 - Publishing and `isOrderingEnabled` settings.
-- OWNER assignment through `PlaceOwner`.
+- OWNER and CASHIER assignments through `PlaceMember`.
 - Business hours.
 - Public place searches and details.
 - Provide `PlaceAccessService` to check an OWNER's access to a `placeId`.
 
-`PlaceAccessService` may be exported by `PlacesModule`. It must accept an authenticated user and target `placeId`, then allow either `SUPER_ADMIN` or an OWNER who actually owns the place.
+`PlaceAccessService` may be exported by `PlacesModule`. It accepts an authenticated user, target `placeId`, and permission. It allows an explicitly global ADMIN/SUPER_ADMIN permission or a current `PlaceMember` whose role grants the requested capability. Membership predicates are applied in the repository, and foreign-tenant resources are returned as not found.
 
 ### MenusModule
 
@@ -219,7 +217,7 @@ Responsibilities:
 - Item snapshots and subtotal calculations.
 - Generate `orderCode` and use `verificationToken` for QR codes/links.
 - User order history.
-- Per-place order queues for OWNERs.
+- Per-place order queues for OWNER and CASHIER members, plus explicitly granted global administration.
 - Order verification by cashiers.
 - Status-transition validation and order expiry.
 
@@ -255,7 +253,7 @@ Contains framework-facing code that can be used across features:
 
 - Authenticated user and role types.
 - `@CurrentUser()` and `@Public()` decorators.
-- Authentication/role guards.
+- Authentication and permission guards.
 - Zod validation pipe.
 - Response shapes and application constants.
 
@@ -277,22 +275,22 @@ Contains adapters for technologies or external services:
 Authentication and authorization are two distinct stages:
 
 1. `JwtAuthGuard` verifies the token and attaches the authenticated user to the request.
-2. A role guard or decorator checks endpoint-level role access.
-3. The service checks ownership of the actual resource in the database.
+2. `PermissionsGuard` checks code-defined platform permissions for endpoint-level access.
+3. The service checks target-resource scope using current database state.
 
 Example menu mutation flow:
 
 ```text
 PATCH /places/:placeId/menu-items/:menuItemId
   → JwtAuthGuard
-  → RolesGuard(OWNER, SUPER_ADMIN)
+  → PermissionsGuard(menu.update)
   → MenusController
   → MenusService.updateMenuItem()
-  → PlaceAccessService.assertCanManage(placeId, actor)
+  → PlaceAccessService.assertPermission(actor, placeId, menu.update)
   → MenusRepository.updateOwnedMenuItem(placeId, menuItemId, data)
 ```
 
-Roles in the JWT are useful for early rejection. For sensitive operations such as role assignment and ownership changes, roles must be reloaded from the database so permission changes take effect immediately without waiting for the token to expire.
+Access JWTs carry identity only. `JwtAuthGuard` reloads the active user and current `User.platformRole` on every protected request. Place-scoped services load the relevant current `PlaceMember` record for the target place. Token claims, request bodies, and frontend permission metadata are never authoritative for authorization.
 
 ## 8. Transaction Pattern
 
@@ -324,9 +322,9 @@ return this.prisma.$transaction(async (tx) => {
 
 Operations that must be atomic include:
 
-- User registration and initial role assignment.
-- Place creation and initial OWNER assignment.
-- Removing a role or OWNER after checking for the last role/owner.
+- User registration with the default `User.platformRole = USER`.
+- Place creation and initial `PlaceMember(role=OWNER)` assignment.
+- Platform-role changes and membership changes after checking last-SUPER_ADMIN/last-OWNER invariants.
 - Checkout, order-item snapshots, and cart clearing.
 - Order-status transitions and their associated timestamps.
 - Soft deletion/restoration that affects multiple records.
@@ -398,8 +396,8 @@ Repositories and the database do not need to be mocked in integration tests. In 
 
 ## 13. Recommended Implementation Order
 
-1. Complete AuthModule and multi-role support in the JWT/current user.
-2. Implement UsersModule and role assignment.
+1. Complete identity-only JWT authentication and current server-side principal resolution.
+2. Implement UsersModule and singular platform-role administration.
 3. Implement PlacesModule and `PlaceAccessService`.
 4. Implement MenusModule.
 5. Implement ReviewsModule.

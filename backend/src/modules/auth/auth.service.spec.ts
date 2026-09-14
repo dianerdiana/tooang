@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 
 import { jest } from '@jest/globals';
 
-import { PLATFORM_PERMISSIONS, PlatformRoleEnum } from '@/common/auth';
+import { PLATFORM_PERMISSIONS, PlatformRole } from '@/common/auth';
 
 import { BcryptHashingService } from '../../lib/bcrypt-hashing.service';
 
@@ -58,8 +58,8 @@ describe('authentication contract', () => {
   });
 
   it('maps USER permissions without administrative capabilities', () => {
-    expect(PLATFORM_PERMISSIONS[PlatformRoleEnum.User]).toContain('profile.read');
-    expect(PLATFORM_PERMISSIONS[PlatformRoleEnum.User]).not.toContain('user.read');
+    expect(PLATFORM_PERMISSIONS[PlatformRole.USER]).toContain('profile.read');
+    expect(PLATFORM_PERMISSIONS[PlatformRole.USER]).not.toContain('user.read');
   });
 
   it('revokes a refresh family when a rotated token is reused', async () => {
