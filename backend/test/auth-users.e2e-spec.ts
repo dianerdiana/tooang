@@ -153,6 +153,17 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
     expect(me.status).toBe(200);
     expect((me.body as ApiBody).data.user.email).toBe(userEmail);
     expect((me.body as ApiBody).data.user).toHaveProperty('permissions');
+    expect((me.body as ApiBody).data.user).not.toHaveProperty('id');
+    expect((me.body as ApiBody).data.user).not.toHaveProperty('deletedAt');
+    expect((me.body as ApiBody).data.user).not.toHaveProperty('deletionRequestedAt');
+    expect((me.body as ApiBody).data.user).not.toHaveProperty('anonymizedAt');
+    expect((me.body as ApiBody).data.user).not.toHaveProperty('passwordHash');
+
+    await request(server)
+      .patch('/api/v1/me')
+      .auth(accessToken, { type: 'bearer' })
+      .send({ platformRole: 'SUPER_ADMIN' })
+      .expect(400);
 
     const update = await request(server)
       .patch('/api/v1/me')
@@ -209,6 +220,18 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
 
     await request(server).get('/api/v1/me').auth(accessToken, { type: 'bearer' }).expect(401);
     await agent.post('/api/v1/auth/refresh').expect(401);
+
+    const pending = await prisma.user.findUniqueOrThrow({ where: { email: pendingEmail } });
+    expect(pending.deletionRequestedAt).not.toBeNull();
+    expect(pending.deletedAt).toBeNull();
+    const sessions = await prisma.refreshSession.findMany({ where: { userId: pending.id } });
+    expect(sessions.length).toBeGreaterThan(0);
+    expect(sessions.every(({ revokedAt }) => revokedAt !== null)).toBe(true);
+    await expect(
+      prisma.auditLog.count({
+        where: { actorUserId: pending.id, action: 'ACCOUNT_DELETION_REQUESTED' },
+      }),
+    ).resolves.toBe(1);
   });
 
   it('enforces ADMIN and SUPER_ADMIN user-administration boundaries', async () => {
@@ -258,6 +281,14 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
     expect(
       (meWithMembership.body as ApiBody).data.user.placeMemberships as Array<{ placeId: string }>,
     ).toEqual(expect.arrayContaining([expect.objectContaining({ placeId: place.id })]));
+    const targetMembership = (
+      (meWithMembership.body as ApiBody).data.user.placeMemberships as Array<{
+        placeId: string;
+        permissions: string[];
+        effectivePermissions: string[];
+      }>
+    ).find(({ placeId }) => placeId === place.id);
+    expect(targetMembership?.effectivePermissions).toEqual(targetMembership?.permissions);
     await request(server)
       .get(`/api/v1/places/${place.id}/members`)
       .auth(userToken, { type: 'bearer' })
@@ -286,6 +317,19 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
       .auth(adminToken, { type: 'bearer' });
     expect(list.status).toBe(200);
     expect((list.body as ApiBody).meta.totalItems).toBeGreaterThanOrEqual(3);
+    const pendingList = await request(server)
+      .get(`/api/v1/users?search=${encodeURIComponent(pendingEmail)}`)
+      .auth(adminToken, { type: 'bearer' });
+    expect(pendingList.status).toBe(200);
+    expect((pendingList.body as { data: { users: unknown[] } }).data.users).toEqual([]);
+    await request(server)
+      .get('/api/v1/users?limit=101')
+      .auth(adminToken, { type: 'bearer' })
+      .expect(400);
+    await request(server)
+      .get(`/api/v1/users/${target.userId}`)
+      .auth(adminToken, { type: 'bearer' })
+      .expect(200);
 
     await request(server)
       .put(`/api/v1/users/${target.userId}/platform-role`)
@@ -297,12 +341,34 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
       .post('/api/v1/auth/login')
       .send({ email: superAdminEmail, password });
     const superToken = (superLogin.body as ApiBody).data.accessToken;
+    const superMe = await request(server).get('/api/v1/me').auth(superToken, { type: 'bearer' });
+    const superMembership = (
+      (superMe.body as ApiBody).data.user.placeMemberships as Array<{
+        placeId: string;
+        effectivePermissions: string[];
+      }>
+    ).find(({ placeId }) => placeId === foreignPlace.id);
+    expect(superMembership?.effectivePermissions).toContain('owner.assign');
+    expect(superMembership?.effectivePermissions).toContain('owner.revoke');
     const roleChange = await request(server)
       .put(`/api/v1/users/${target.userId}/platform-role`)
       .auth(superToken, { type: 'bearer' })
       .send({ platformRole: 'ADMIN' });
     expect(roleChange.status).toBe(200);
     expect((roleChange.body as ApiBody).data.user.platformRole).toBe('ADMIN');
+    const roleAuditCount = await prisma.auditLog.count({
+      where: { targetId: target.userId, action: 'PLATFORM_ROLE_UPDATED' },
+    });
+    await request(server)
+      .put(`/api/v1/users/${target.userId}/platform-role`)
+      .auth(superToken, { type: 'bearer' })
+      .send({ platformRole: 'ADMIN' })
+      .expect(200);
+    await expect(
+      prisma.auditLog.count({
+        where: { targetId: target.userId, action: 'PLATFORM_ROLE_UPDATED' },
+      }),
+    ).resolves.toBe(roleAuditCount);
     await request(server).get('/api/v1/users').auth(userToken, { type: 'bearer' }).expect(200);
 
     await request(server)
@@ -331,6 +397,16 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
       .auth(userToken, { type: 'bearer' })
       .send({ role: 'CASHIER' })
       .expect(200);
+    const adminMe = await request(server).get('/api/v1/me').auth(adminToken, { type: 'bearer' });
+    const adminMembership = (
+      (adminMe.body as ApiBody).data.user.placeMemberships as Array<{
+        placeId: string;
+        effectivePermissions: string[];
+      }>
+    ).find(({ placeId }) => placeId === place.id);
+    expect(adminMembership?.effectivePermissions).toContain('place.update');
+    expect(adminMembership?.effectivePermissions).toContain('review.moderate');
+    expect(adminMembership?.effectivePermissions).not.toContain('user.read');
     await request(server)
       .delete(`/api/v1/places/${place.id}/members/${adminUser.userId}`)
       .auth(userToken, { type: 'bearer' })
@@ -351,5 +427,12 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
     expect(deactivation.status).toBe(200);
     expect((deactivation.body as ApiBody).data.deletedAt).toBeDefined();
     await request(server).get('/api/v1/me').auth(userToken, { type: 'bearer' }).expect(401);
+    const targetSessions = await prisma.refreshSession.findMany({ where: { userId: target.id } });
+    expect(targetSessions.every(({ revokedAt }) => revokedAt !== null)).toBe(true);
+    await expect(
+      prisma.auditLog.count({
+        where: { targetId: target.userId, action: 'USER_DEACTIVATED' },
+      }),
+    ).resolves.toBe(1);
   });
 });

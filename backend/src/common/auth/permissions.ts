@@ -174,6 +174,13 @@ const EMPTY_PERMISSIONS = Object.freeze([]) as readonly Permission[];
 const EMPTY_PLATFORM_SCOPES = Object.freeze([]) as readonly PlatformPermissionScope[];
 const EMPTY_MEMBERSHIP_ROLES = Object.freeze([]) as readonly PlaceMemberRoleType[];
 const PERMISSION_SET: ReadonlySet<string> = new Set(PERMISSIONS);
+const PLACE_CONTEXT_PERMISSION_SET: ReadonlySet<Permission> = new Set([
+  ...Object.keys(PLACE_MEMBER_ROLE_GRANTS[PlaceMemberRole.CASHIER]),
+  ...Object.keys(PLACE_MEMBER_ROLE_GRANTS[PlaceMemberRole.OWNER]),
+  PERMISSION.REVIEW_MODERATE,
+  PERMISSION.OWNER_ASSIGN,
+  PERMISSION.OWNER_REVOKE,
+] as Permission[]);
 
 function permissionIds(grants: PlatformGrantMap | MembershipGrantMap): readonly Permission[] {
   return Object.freeze(PERMISSIONS.filter((permission) => grants[permission] !== undefined));
@@ -225,6 +232,30 @@ export function getMembershipPermissionScope(
 
 export function getMembershipPermissions(role: unknown): readonly Permission[] {
   return isPlaceMemberRole(role) ? MEMBERSHIP_PERMISSIONS[role] : EMPTY_PERMISSIONS;
+}
+
+/**
+ * Capability identifiers effective for a target-place context. This is client
+ * metadata only: resource scope and domain checks remain server-authoritative.
+ */
+export function getEffectivePlacePermissions(
+  platformRole: unknown,
+  membershipRole: unknown,
+): readonly Permission[] {
+  if (!isPlatformRole(platformRole) || !isPlaceMemberRole(membershipRole)) {
+    return EMPTY_PERMISSIONS;
+  }
+
+  return Object.freeze(
+    PERMISSIONS.filter(
+      (permission) =>
+        getMembershipPermissionScope(membershipRole, permission) !== undefined ||
+        (PLACE_CONTEXT_PERMISSION_SET.has(permission) &&
+          getPlatformPermissionScopes(platformRole, permission).includes(
+            PLATFORM_PERMISSION_SCOPE.GLOBAL,
+          )),
+    ),
+  );
 }
 
 export function getMembershipRolesForPermission(

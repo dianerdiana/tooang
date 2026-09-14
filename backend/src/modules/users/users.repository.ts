@@ -8,16 +8,21 @@ import type { ListUsersInput, UpdateMeInput } from './users.schema';
 
 type DbClient = PrismaService | Prisma.TransactionClient;
 
-export const SAFE_USER_SELECT = {
-  id: true,
+export const USER_RESPONSE_SELECT = {
   userId: true,
   fullName: true,
   email: true,
   platformRole: true,
   createdAt: true,
   updatedAt: true,
+} satisfies Prisma.UserSelect;
+
+export const USER_LIFECYCLE_SELECT = {
+  id: true,
+  ...USER_RESPONSE_SELECT,
   deletedAt: true,
   deletionRequestedAt: true,
+  anonymizedAt: true,
 } satisfies Prisma.UserSelect;
 
 @Injectable()
@@ -26,37 +31,42 @@ export class UsersRepository {
 
   findMe(id: string) {
     return this.prisma.user.findFirst({
-      where: { id, deletedAt: null, deletionRequestedAt: null },
+      where: { id, deletedAt: null, deletionRequestedAt: null, anonymizedAt: null },
       select: {
-        ...SAFE_USER_SELECT,
+        ...USER_RESPONSE_SELECT,
         placeMemberships: {
           where: { revokedAt: null, place: { deletedAt: null } },
           select: { placeId: true, role: true },
-          orderBy: { createdAt: 'asc' },
+          orderBy: { placeId: 'asc' },
         },
       },
     });
   }
 
   findByInternalId(id: string, db: DbClient = this.prisma) {
-    return db.user.findUnique({ where: { id }, select: SAFE_USER_SELECT });
+    return db.user.findUnique({ where: { id }, select: USER_LIFECYCLE_SELECT });
   }
 
   findActiveByPublicId(userId: string, db: DbClient = this.prisma) {
     return db.user.findFirst({
-      where: { userId, deletedAt: null, deletionRequestedAt: null },
-      select: SAFE_USER_SELECT,
+      where: { userId, deletedAt: null, deletionRequestedAt: null, anonymizedAt: null },
+      select: USER_LIFECYCLE_SELECT,
     });
   }
 
   updateProfile(id: string, data: UpdateMeInput) {
-    return this.prisma.user.update({ where: { id }, data, select: SAFE_USER_SELECT });
+    return this.prisma.user.update({
+      where: { id, deletedAt: null, deletionRequestedAt: null, anonymizedAt: null },
+      data,
+      select: USER_RESPONSE_SELECT,
+    });
   }
 
   async list(input: ListUsersInput) {
     const where: Prisma.UserWhereInput = {
       deletedAt: null,
       deletionRequestedAt: null,
+      anonymizedAt: null,
       ...(input.platformRole ? { platformRole: input.platformRole } : {}),
       ...(input.search
         ? {
@@ -70,10 +80,10 @@ export class UsersRepository {
     const [users, totalItems] = await this.prisma.$transaction([
       this.prisma.user.findMany({
         where,
-        select: SAFE_USER_SELECT,
+        select: USER_RESPONSE_SELECT,
         skip: (input.page - 1) * input.limit,
         take: input.limit,
-        orderBy: { [input.sortBy]: input.sortOrder },
+        orderBy: [{ [input.sortBy]: input.sortOrder }, { userId: 'asc' }],
       }),
       this.prisma.user.count({ where }),
     ]);
@@ -96,7 +106,7 @@ export class UsersRepository {
                 userId: { not: userId },
                 role: PlaceMemberRole.OWNER,
                 revokedAt: null,
-                user: { deletedAt: null, deletionRequestedAt: null },
+                user: { deletedAt: null, deletionRequestedAt: null, anonymizedAt: null },
               },
             },
           },
@@ -106,11 +116,10 @@ export class UsersRepository {
     });
   }
 
-  setDeletionRequested(id: string, at: Date, db: DbClient) {
-    return db.user.update({
-      where: { id },
+  setDeletionRequestedIfActive(id: string, at: Date, db: DbClient) {
+    return db.user.updateMany({
+      where: { id, deletedAt: null, deletionRequestedAt: null, anonymizedAt: null },
       data: { deletionRequestedAt: at },
-      select: SAFE_USER_SELECT,
     });
   }
 
@@ -118,7 +127,7 @@ export class UsersRepository {
     return db.user.update({
       where: { id },
       data: { platformRole },
-      select: SAFE_USER_SELECT,
+      select: USER_LIFECYCLE_SELECT,
     });
   }
 
@@ -126,7 +135,7 @@ export class UsersRepository {
     return db.user.update({
       where: { id },
       data: { deletedAt: at },
-      select: SAFE_USER_SELECT,
+      select: USER_LIFECYCLE_SELECT,
     });
   }
 
@@ -143,6 +152,7 @@ export class UsersRepository {
         platformRole: 'SUPER_ADMIN',
         deletedAt: null,
         deletionRequestedAt: null,
+        anonymizedAt: null,
       },
     });
   }

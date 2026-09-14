@@ -1,10 +1,10 @@
 # Users API Specification
 
-| Attribute | Value |
-| --- | --- |
-| Base paths | `/api/v1/me` and `/api/v1/users` |
-| Content type | `application/json; charset=utf-8` |
-| Authentication | `Authorization: Bearer <access-token>` |
+| Attribute       | Value                                                                                                                              |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Base paths      | `/api/v1/me` and `/api/v1/users`                                                                                                   |
+| Content type    | `application/json; charset=utf-8`                                                                                                  |
+| Authentication  | `Authorization: Bearer <access-token>`                                                                                             |
 | Source of truth | [`software-requirement-specification.md`](../software-requirement-specification.md) and [`ARCHITECTURE.md`](../../ARCHITECTURE.md) |
 
 This contract follows the SRS v1.3 authorization model. `platformRole` is exactly one of `USER`, `ADMIN`, or `SUPER_ADMIN`. Place authority is represented separately in `placeMemberships`, whose role is `OWNER` or `CASHIER`. Role and permission values returned to clients are capability metadata, never proof of authorization.
@@ -47,7 +47,7 @@ Common failures are `401 Unauthorized` for missing/invalid authentication, `403 
 
 `GET /api/v1/me`
 
-Returns the authenticated user's current profile, authoritative platform role, effective platform permissions, and active place memberships.
+Returns the authenticated user's current profile, authoritative platform role, effective platform permissions, and active place memberships. An active user has null `deletedAt`, `deletionRequestedAt`, and `anonymizedAt`; an active membership has null `revokedAt` and belongs to a non-deleted place.
 
 ### Request
 
@@ -59,9 +59,9 @@ Authorization: Bearer <access-token>
 
 ### Response
 
-| Status | Meaning |
-| --- | --- |
-| `200 OK` | Active profile returned |
+| Status             | Meaning                                                          |
+| ------------------ | ---------------------------------------------------------------- |
+| `200 OK`           | Active profile returned                                          |
 | `401 Unauthorized` | Token is missing/invalid or account is inactive/deletion-pending |
 
 ### JSON example of response
@@ -115,6 +115,30 @@ Authorization: Bearer <access-token>
             "cashier.revoke",
             "media.upload",
             "media.delete"
+          ],
+          "effectivePermissions": [
+            "order.read",
+            "order.cancel",
+            "order.confirm",
+            "order.prepare",
+            "order.ready",
+            "order.complete",
+            "place.read",
+            "place.update",
+            "place.publish",
+            "place.delete",
+            "table.read",
+            "table.create",
+            "table.update",
+            "table.delete",
+            "menu.create",
+            "menu.update",
+            "menu.delete",
+            "place_member.read",
+            "cashier.assign",
+            "cashier.revoke",
+            "media.upload",
+            "media.delete"
           ]
         }
       ],
@@ -124,6 +148,8 @@ Authorization: Bearer <access-token>
   }
 }
 ```
+
+The top-level `permissions` array contains platform-role capabilities. Membership `permissions` retains the membership-role allowlist for compatibility. Membership `effectivePermissions` adds any applicable global platform grant for that place context. All three are rendering metadata only; the backend reloads current state and independently enforces scope and domain invariants.
 
 ## Update my profile
 
@@ -137,10 +163,10 @@ Updates supported fields on the authenticated user's profile. Omitted fields rem
 
 At least one field is required.
 
-| Field | Type | Required | Rules |
-| --- | --- | --- | --- |
-| `fullName` | string | No | Trimmed; 1–100 characters |
-| `email` | string | No | Valid email; maximum 254 characters; normalized to lowercase |
+| Field      | Type   | Required | Rules                                                        |
+| ---------- | ------ | -------- | ------------------------------------------------------------ |
+| `fullName` | string | No       | Trimmed; 1–100 characters                                    |
+| `email`    | string | No       | Valid email; maximum 254 characters; normalized to lowercase |
 
 ```json
 {
@@ -151,12 +177,12 @@ At least one field is required.
 
 ### Response
 
-| Status | Meaning |
-| --- | --- |
-| `200 OK` | Profile updated |
-| `400 Bad Request` | Invalid or empty update body |
-| `401 Unauthorized` | Authentication failed |
-| `409 Conflict` | Normalized email is already used by another account |
+| Status             | Meaning                                             |
+| ------------------ | --------------------------------------------------- |
+| `200 OK`           | Profile updated                                     |
+| `400 Bad Request`  | Invalid or empty update body                        |
+| `401 Unauthorized` | Authentication failed                               |
+| `409 Conflict`     | Normalized email is already used by another account |
 
 ### JSON example of response
 
@@ -185,6 +211,8 @@ At least one field is required.
 
 Creates or returns the authenticated user's deletion-pending request. It does not hard-delete the database record. Acceptance immediately blocks login and protected access and atomically revokes active refresh sessions. Required anonymization/removal follows the retention policy and completes within 30 days.
 
+The persisted transition is idempotent: an authenticated request that encounters an already-pending state returns the original request timestamp without creating another audit record. Once the first request commits, the account is no longer an active principal, so a later HTTP retry using its old access token receives `401 Unauthorized`.
+
 ### Request
 
 No body is required. The operation is idempotent; retrying after acceptance does not create another request.
@@ -195,11 +223,11 @@ Authorization: Bearer <access-token>
 
 ### Response
 
-| Status | Meaning |
-| --- | --- |
-| `202 Accepted` | New or existing deletion request accepted |
-| `401 Unauthorized` | Authentication failed |
-| `409 Conflict` | User is the only active OWNER of an active place or another lifecycle invariant prevents deletion |
+| Status             | Meaning                                                                                                                            |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `202 Accepted`     | New or existing deletion request accepted                                                                                          |
+| `401 Unauthorized` | Authentication failed                                                                                                              |
+| `409 Conflict`     | User is the only active OWNER of an active place, is the last active SUPER_ADMIN, or another lifecycle invariant prevents deletion |
 
 ### JSON example of response
 
@@ -225,14 +253,14 @@ Returns active users for platform-support workflows. Requires `user.read`, avail
 
 ### Request
 
-| Query parameter | Type | Required | Default | Rules |
-| --- | --- | --- | --- | --- |
-| `page` | integer | No | `1` | Minimum `1` |
-| `limit` | integer | No | `20` | `1`–`100` |
-| `search` | string | No | — | Matches normalized email or full name; maximum 100 characters |
-| `platformRole` | enum | No | — | `USER`, `ADMIN`, or `SUPER_ADMIN` |
-| `sortBy` | enum | No | `createdAt` | `createdAt`, `fullName`, or `email` |
-| `sortOrder` | enum | No | `desc` | `asc` or `desc` |
+| Query parameter | Type    | Required | Default     | Rules                                                         |
+| --------------- | ------- | -------- | ----------- | ------------------------------------------------------------- |
+| `page`          | integer | No       | `1`         | Minimum `1`                                                   |
+| `limit`         | integer | No       | `20`        | `1`–`100`                                                     |
+| `search`        | string  | No       | —           | Matches normalized email or full name; maximum 100 characters |
+| `platformRole`  | enum    | No       | —           | `USER`, `ADMIN`, or `SUPER_ADMIN`                             |
+| `sortBy`        | enum    | No       | `createdAt` | `createdAt`, `fullName`, or `email`                           |
+| `sortOrder`     | enum    | No       | `desc`      | `asc` or `desc`                                               |
 
 ```http
 GET /api/v1/users?page=1&limit=20&platformRole=USER&sortBy=createdAt&sortOrder=desc
@@ -241,12 +269,12 @@ Authorization: Bearer <access-token>
 
 ### Response
 
-| Status | Meaning |
-| --- | --- |
-| `200 OK` | Page returned |
-| `400 Bad Request` | Invalid query |
-| `401 Unauthorized` | Authentication failed |
-| `403 Forbidden` | Actor lacks `user.read` |
+| Status             | Meaning                 |
+| ------------------ | ----------------------- |
+| `200 OK`           | Page returned           |
+| `400 Bad Request`  | Invalid query           |
+| `401 Unauthorized` | Authentication failed   |
+| `403 Forbidden`    | Actor lacks `user.read` |
 
 ### JSON example of response
 
@@ -285,20 +313,20 @@ Returns one active user. Requires `user.read`, available to `ADMIN` and `SUPER_A
 
 ### Request
 
-| Path parameter | Type | Required | Rules |
-| --- | --- | --- | --- |
-| `userId` | string | Yes | Public user identifier |
+| Path parameter | Type   | Required | Rules                  |
+| -------------- | ------ | -------- | ---------------------- |
+| `userId`       | string | Yes      | Public user identifier |
 
 No body or query parameters.
 
 ### Response
 
-| Status | Meaning |
-| --- | --- |
-| `200 OK` | User returned |
-| `401 Unauthorized` | Authentication failed |
-| `403 Forbidden` | Actor lacks `user.read` |
-| `404 Not Found` | Active user does not exist |
+| Status             | Meaning                    |
+| ------------------ | -------------------------- |
+| `200 OK`           | User returned              |
+| `401 Unauthorized` | Authentication failed      |
+| `403 Forbidden`    | Actor lacks `user.read`    |
+| `404 Not Found`    | Active user does not exist |
 
 ### JSON example of response
 
@@ -329,10 +357,10 @@ Sets the user's single platform role. Requires `platform_role.update` and is res
 
 ### Request
 
-| Field | Location | Type | Required | Rules |
-| --- | --- | --- | --- | --- |
-| `userId` | Path | string | Yes | Public user identifier |
-| `platformRole` | Body | enum | Yes | `USER`, `ADMIN`, or `SUPER_ADMIN` |
+| Field          | Location | Type   | Required | Rules                             |
+| -------------- | -------- | ------ | -------- | --------------------------------- |
+| `userId`       | Path     | string | Yes      | Public user identifier            |
+| `platformRole` | Body     | enum   | Yes      | `USER`, `ADMIN`, or `SUPER_ADMIN` |
 
 ```json
 {
@@ -344,14 +372,14 @@ Sets the user's single platform role. Requires `platform_role.update` and is res
 
 Setting the role to its current value is idempotent and returns `200 OK`. The mutation and audit record are committed atomically when feasible.
 
-| Status | Meaning |
-| --- | --- |
-| `200 OK` | Role set, or already had requested value |
-| `400 Bad Request` | Unsupported role or invalid request |
-| `401 Unauthorized` | Authentication failed |
-| `403 Forbidden` | Actor is not authorized to change platform roles |
-| `404 Not Found` | Active user does not exist |
-| `409 Conflict` | Change would violate the last-active-SUPER_ADMIN or another invariant |
+| Status             | Meaning                                                               |
+| ------------------ | --------------------------------------------------------------------- |
+| `200 OK`           | Role set, or already had requested value                              |
+| `400 Bad Request`  | Unsupported role or invalid request                                   |
+| `401 Unauthorized` | Authentication failed                                                 |
+| `403 Forbidden`    | Actor is not authorized to change platform roles                      |
+| `404 Not Found`    | Active user does not exist                                            |
+| `409 Conflict`     | Change would violate the last-active-SUPER_ADMIN or another invariant |
 
 ### JSON example of response
 
@@ -386,21 +414,21 @@ Soft-deactivates an eligible account and revokes all active refresh sessions ato
 
 ### Request
 
-| Path parameter | Type | Required | Rules |
-| --- | --- | --- | --- |
-| `userId` | string | Yes | Public user identifier |
+| Path parameter | Type   | Required | Rules                  |
+| -------------- | ------ | -------- | ---------------------- |
+| `userId`       | string | Yes      | Public user identifier |
 
 No body or query parameters.
 
 ### Response
 
-| Status | Meaning |
-| --- | --- |
-| `200 OK` | Account deactivated and sessions revoked |
-| `401 Unauthorized` | Authentication failed |
-| `403 Forbidden` | Actor cannot deactivate the target account |
-| `404 Not Found` | Active user does not exist |
-| `409 Conflict` | Deactivation would violate the last-active-SUPER_ADMIN or another invariant |
+| Status             | Meaning                                                                     |
+| ------------------ | --------------------------------------------------------------------------- |
+| `200 OK`           | Account deactivated and sessions revoked                                    |
+| `401 Unauthorized` | Authentication failed                                                       |
+| `403 Forbidden`    | Actor cannot deactivate the target account                                  |
+| `404 Not Found`    | Active user does not exist                                                  |
+| `409 Conflict`     | Deactivation would violate the last-active-SUPER_ADMIN or another invariant |
 
 ### JSON example of response
 

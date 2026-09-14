@@ -9,6 +9,7 @@ import { PlatformRole, Prisma } from '@/generated/prisma/client';
 
 import {
   type AuthenticatedActor,
+  getEffectivePlacePermissions,
   getMembershipPermissions,
   getPlatformPermissions,
 } from '@/common/auth';
@@ -58,6 +59,9 @@ export class UsersService {
           placeId: membership.placeId,
           role: membership.role,
           permissions: [...getMembershipPermissions(membership.role)],
+          effectivePermissions: [
+            ...getEffectivePlacePermissions(user.platformRole, membership.role),
+          ],
         };
       }),
     };
@@ -69,39 +73,66 @@ export class UsersService {
   }
 
   async requestDeletion(actor: AuthenticatedActor) {
-    return this.inSerializableTransaction(async (tx) => {
-      const user = await this.repository.findByInternalId(actor.id, tx);
-      if (!user || user.deletedAt) throw new NotFoundException('User not found');
-      if (user.deletionRequestedAt) {
-        return {
-          userId: user.userId,
-          status: 'DELETION_PENDING' as const,
-          deletionRequestedAt: user.deletionRequestedAt.toISOString(),
-        };
-      }
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        return await this.executeSerializableTransaction(async (tx) => {
+          const user = await this.repository.findByInternalId(actor.id, tx);
+          if (!user || user.deletedAt || user.anonymizedAt) {
+            throw new NotFoundException('User not found');
+          }
+          if (user.deletionRequestedAt) return this.deletionPendingResponse(user);
 
-      if (await this.repository.findSoleOwnedPlace(user.id, tx)) {
-        throw new ConflictException('Transfer sole place ownership before deleting the account');
+          if (
+            user.platformRole === PlatformRole.SUPER_ADMIN &&
+            (await this.repository.countActiveSuperAdmins(tx)) <= 1
+          ) {
+            throw new ConflictException(
+              'The last active SUPER_ADMIN cannot request account deletion',
+            );
+          }
+          if (await this.repository.findSoleOwnedPlace(user.id, tx)) {
+            throw new ConflictException(
+              'Transfer sole place ownership before deleting the account',
+            );
+          }
+
+          const now = new Date();
+          const changed = await this.repository.setDeletionRequestedIfActive(user.id, now, tx);
+          if (changed.count !== 1) {
+            const current = await this.repository.findByInternalId(user.id, tx);
+            if (current?.deletionRequestedAt) return this.deletionPendingResponse(current);
+            throw new ConflictException('Concurrent account change; retry the request');
+          }
+          await this.repository.revokeSessions(user.id, now, tx);
+          await this.audit.append(
+            {
+              actorUserId: user.id,
+              action: 'ACCOUNT_DELETION_REQUESTED',
+              targetType: 'User',
+              targetId: user.userId,
+              afterData: {
+                status: 'DELETION_PENDING',
+                deletionRequestedAt: now.toISOString(),
+              },
+            },
+            tx,
+          );
+          return this.deletionPendingResponse({ ...user, deletionRequestedAt: now });
+        });
+      } catch (error) {
+        if (!this.isWriteConflict(error)) throw error;
+
+        const current = await this.repository.findByInternalId(actor.id);
+        if (current?.deletionRequestedAt && !current.deletedAt && !current.anonymizedAt) {
+          return this.deletionPendingResponse(current);
+        }
+        if (attempt === 1) {
+          throw new ConflictException('Concurrent account change; retry the request');
+        }
       }
-      const now = new Date();
-      const updated = await this.repository.setDeletionRequested(user.id, now, tx);
-      await this.repository.revokeSessions(user.id, now, tx);
-      await this.audit.append(
-        {
-          actorUserId: user.id,
-          action: 'ACCOUNT_DELETION_REQUESTED',
-          targetType: 'User',
-          targetId: user.userId,
-          afterData: { deletionRequestedAt: now.toISOString() },
-        },
-        tx,
-      );
-      return {
-        userId: updated.userId,
-        status: 'DELETION_PENDING' as const,
-        deletionRequestedAt: now.toISOString(),
-      };
-    });
+    }
+
+    throw new ConflictException('Concurrent account change; retry the request');
   }
 
   async list(input: ListUsersInput) {
@@ -191,8 +222,8 @@ export class UsersService {
           action: 'USER_DEACTIVATED',
           targetType: 'User',
           targetId: target.userId,
-          beforeData: { deletedAt: null },
-          afterData: { deletedAt: now.toISOString() },
+          beforeData: { platformRole: target.platformRole, deletedAt: null },
+          afterData: { platformRole: target.platformRole, deletedAt: now.toISOString() },
         },
         tx,
       );
@@ -204,14 +235,35 @@ export class UsersService {
     callback: (tx: Prisma.TransactionClient) => Promise<T>,
   ): Promise<T> {
     try {
-      return await this.prisma.$transaction(callback, {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      });
+      return await this.executeSerializableTransaction(callback);
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+      if (this.isWriteConflict(error)) {
         throw new ConflictException('Concurrent account change; retry the request');
       }
       throw error;
     }
+  }
+
+  private executeSerializableTransaction<T>(
+    callback: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction(callback, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
+  }
+
+  private deletionPendingResponse(user: { userId: string; deletionRequestedAt: Date | null }) {
+    if (!user.deletionRequestedAt) {
+      throw new ConflictException('Account deletion request is not pending');
+    }
+    return {
+      userId: user.userId,
+      status: 'DELETION_PENDING' as const,
+      deletionRequestedAt: user.deletionRequestedAt.toISOString(),
+    };
+  }
+
+  private isWriteConflict(error: unknown): boolean {
+    return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034';
   }
 }

@@ -2,6 +2,7 @@ import { PlaceMemberRole, PlatformRole } from '@/generated/prisma/client';
 
 import {
   canAttemptPermission,
+  getEffectivePlacePermissions,
   getMembershipPermissions,
   getMembershipPermissionScope,
   getMembershipRolesForPermission,
@@ -299,6 +300,33 @@ describe('SRS v1.3 permission contract', () => {
       },
     ]);
     expect(new Set(userCashier.map(({ permission }) => permission)).size).toBe(userCashier.length);
+  });
+
+  it('returns deterministic effective place metadata without unrelated platform capabilities', () => {
+    expect(getEffectivePlacePermissions(PlatformRole.USER, PlaceMemberRole.CASHIER)).toEqual(
+      MEMBERSHIP_PERMISSIONS[PlaceMemberRole.CASHIER],
+    );
+
+    const adminCashier = getEffectivePlacePermissions(PlatformRole.ADMIN, PlaceMemberRole.CASHIER);
+    expect(adminCashier).toContain(PERMISSION.REVIEW_MODERATE);
+    expect(adminCashier).toContain(PERMISSION.PLACE_UPDATE);
+    expect(adminCashier).toContain(PERMISSION.MENU_DELETE);
+    expect(adminCashier).not.toContain(PERMISSION.PROFILE_READ);
+    expect(adminCashier).not.toContain(PERMISSION.PLACE_CREATE);
+    expect(adminCashier).not.toContain(PERMISSION.USER_READ);
+    expect(new Set(adminCashier).size).toBe(adminCashier.length);
+    expect(adminCashier).toEqual(
+      PERMISSIONS.filter((permission) => adminCashier.includes(permission)),
+    );
+
+    const superAdminOwner = getEffectivePlacePermissions(
+      PlatformRole.SUPER_ADMIN,
+      PlaceMemberRole.OWNER,
+    );
+    expect(superAdminOwner).toContain(PERMISSION.OWNER_ASSIGN);
+    expect(superAdminOwner).toContain(PERMISSION.OWNER_REVOKE);
+    expect(getEffectivePlacePermissions('UNKNOWN', PlaceMemberRole.OWNER)).toEqual([]);
+    expect(getEffectivePlacePermissions(PlatformRole.USER, 'UNKNOWN')).toEqual([]);
   });
 
   it('resolves membership-capable roles separately from permission identity', () => {
