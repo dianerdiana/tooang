@@ -281,7 +281,7 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
       .put(`/api/v1/places/${place.id}/members/${target.userId}`)
       .auth(adminToken, { type: 'bearer' })
       .send({ role: 'OWNER' })
-      .expect(404);
+      .expect(403);
     await request(server)
       .put(`/api/v1/places/${place.id}/members/${adminUser.userId}`)
       .auth(userToken, { type: 'bearer' })

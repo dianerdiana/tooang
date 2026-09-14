@@ -23,7 +23,7 @@ export class PlaceMembersService {
   async list(actor: AuthenticatedActor, placeId: string) {
     const access = await this.access.assertPermission(actor, placeId, PERMISSION.PLACE_MEMBER_READ);
     const onlyUserId =
-      access.scope === 'membership' && access.membershipRole === PlaceMemberRole.CASHIER
+      access.source === 'membership' && access.membershipRole === PlaceMemberRole.CASHIER
         ? actor.id
         : undefined;
     const members = await this.repository.listActiveMembers(placeId, onlyUserId);

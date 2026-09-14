@@ -173,7 +173,7 @@ Responsibilities:
 - Public place searches and details.
 - Provide `PlaceAccessService` to check an OWNER's access to a `placeId`.
 
-`PlaceAccessService` may be exported by `PlacesModule`. It accepts an authenticated user, target `placeId`, and permission. It allows an explicitly global ADMIN/SUPER_ADMIN permission or a current `PlaceMember` whose role grants the requested capability. Membership predicates are applied in the repository, and foreign-tenant resources are returned as not found.
+`PlaceAccessService` is exported by `PlacesModule`. `resolveScope(actor, permission)` returns a database-neutral global or membership query scope. `assertPermission(actor, placeId, permission, db?)` allows an explicitly global ADMIN/SUPER_ADMIN permission or verifies a current `PlaceMember` whose role grants the requested capability. Membership predicates are applied in repositories, and foreign-tenant resources are returned as not found.
 
 ### MenusModule
 
@@ -275,8 +275,8 @@ Contains adapters for technologies or external services:
 Authentication and authorization are two distinct stages:
 
 1. `JwtAuthGuard` verifies the token and attaches the authenticated user to the request.
-2. `PermissionsGuard` checks code-defined platform permissions for endpoint-level access.
-3. The service checks target-resource scope using current database state.
+2. `PermissionsGuard` performs coarse endpoint admission from code-defined platform and membership-role mappings.
+3. The service checks the exact permission and target-resource scope using current database state.
 
 Example menu mutation flow:
 
@@ -291,6 +291,8 @@ PATCH /places/:placeId/menu-items/:menuItemId
 ```
 
 Access JWTs carry identity only. `JwtAuthGuard` reloads the active user and current `User.platformRole` on every protected request. Place-scoped services load the relevant current `PlaceMember` record for the target place. Token claims, request bodies, and frontend permission metadata are never authoritative for authorization.
+
+A coarse guard decision is never sufficient authorization for a place-scoped resource. The guard does not query memberships or inspect route, body, target-account, or domain state. `PlaceAccessService` returns global scope only for an explicitly global platform grant; otherwise repositories constrain queries by actor ID, allowed membership roles, active membership state, and active place state. Permissions from platform and membership roles are additive, but tenant and domain restrictions remain mandatory.
 
 ## 8. Transaction Pattern
 
@@ -350,8 +352,8 @@ Use built-in NestJS exceptions consistently:
 
 - `BadRequestException`: invalid input format or rules.
 - `UnauthorizedException`: missing or invalid token.
-- `ForbiddenException`: the role lacks the required global capability.
-- `NotFoundException`: the entity does not exist, has been deleted, or belongs to another tenant.
+- `ForbiddenException`: the actor has no platform or membership-role permission path for the operation.
+- `NotFoundException`: the entity does not exist, has been deleted, or is hidden by missing, revoked, wrong-role, or foreign-tenant membership.
 - `ConflictException`: a unique-constraint or state-transition conflict.
 
 A global exception filter may be added after the error format has been agreed upon. Do not catch every error in each controller. Known database errors are translated in the service or a shared helper; unknown errors are passed to the global handler and logger.

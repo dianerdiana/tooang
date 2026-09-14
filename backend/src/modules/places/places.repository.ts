@@ -55,14 +55,20 @@ export class PlacesRepository {
     });
   }
 
-  findActiveMembership(placeId: string, userId: string, db: PlacesDbClient = this.prisma) {
+  findActiveMembership(
+    placeId: string,
+    userId: string,
+    allowedRoles: readonly PlaceMemberRole[],
+    db: PlacesDbClient = this.prisma,
+  ) {
     return db.placeMember.findFirst({
       where: {
         placeId,
         userId,
+        role: { in: [...allowedRoles] },
         revokedAt: null,
         place: { deletedAt: null },
-        user: { deletedAt: null, deletionRequestedAt: null },
+        user: { deletedAt: null, deletionRequestedAt: null, anonymizedAt: null },
       },
       select: { id: true, role: true },
     });
@@ -77,7 +83,7 @@ export class PlacesRepository {
 
   findActiveUser(userId: string, db: PlacesDbClient = this.prisma) {
     return db.user.findFirst({
-      where: { userId, deletedAt: null, deletionRequestedAt: null },
+      where: { userId, deletedAt: null, deletionRequestedAt: null, anonymizedAt: null },
       select: { id: true, userId: true },
     });
   }
@@ -88,7 +94,7 @@ export class PlacesRepository {
         placeId,
         ...(onlyUserId ? { userId: onlyUserId } : {}),
         revokedAt: null,
-        user: { deletedAt: null, deletionRequestedAt: null },
+        user: { deletedAt: null, deletionRequestedAt: null, anonymizedAt: null },
       },
       select: MEMBER_SELECT,
       orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
@@ -118,7 +124,7 @@ export class PlacesRepository {
         placeId,
         role: 'OWNER',
         revokedAt: null,
-        user: { deletedAt: null, deletionRequestedAt: null },
+        user: { deletedAt: null, deletionRequestedAt: null, anonymizedAt: null },
       },
     });
   }

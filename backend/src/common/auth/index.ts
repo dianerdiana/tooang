@@ -5,9 +5,11 @@ export type {
   AuthenticationRequest,
 } from './authenticated-actor';
 export {
+  canAttemptPermission,
   type EffectivePermissionGrant,
   getMembershipPermissions,
   getMembershipPermissionScope,
+  getMembershipRolesForPermission,
   getPlatformPermissions,
   getPlatformPermissionScopes,
   hasGlobalPlatformPermission,

@@ -1,8 +1,10 @@
 import { PlaceMemberRole, PlatformRole } from '@/generated/prisma/client';
 
 import {
+  canAttemptPermission,
   getMembershipPermissions,
   getMembershipPermissionScope,
+  getMembershipRolesForPermission,
   getPlatformPermissions,
   getPlatformPermissionScopes,
   hasGlobalPlatformPermission,
@@ -299,6 +301,21 @@ describe('SRS v1.3 permission contract', () => {
     expect(new Set(userCashier.map(({ permission }) => permission)).size).toBe(userCashier.length);
   });
 
+  it('resolves membership-capable roles separately from permission identity', () => {
+    expect(getMembershipRolesForPermission(PERMISSION.PLACE_UPDATE)).toEqual([
+      PlaceMemberRole.OWNER,
+    ]);
+    expect(getMembershipRolesForPermission(PERMISSION.ORDER_CONFIRM)).toEqual([
+      PlaceMemberRole.OWNER,
+      PlaceMemberRole.CASHIER,
+    ]);
+    expect(getMembershipRolesForPermission(PERMISSION.OWNER_ASSIGN)).toEqual([]);
+
+    expect(canAttemptPermission(PlatformRole.USER, PERMISSION.PLACE_UPDATE)).toBe(true);
+    expect(canAttemptPermission(PlatformRole.ADMIN, PERMISSION.OWNER_ASSIGN)).toBe(false);
+    expect(canAttemptPermission(PlatformRole.SUPER_ADMIN, PERMISSION.OWNER_ASSIGN)).toBe(true);
+  });
+
   it('keeps platform authority and membership independent', () => {
     const ownerOnly = resolveEffectivePermissions(undefined, PlaceMemberRole.OWNER);
     expect(ownerOnly.some(({ permission }) => permission === PERMISSION.PLACE_UPDATE)).toBe(true);
@@ -326,6 +343,8 @@ describe('SRS v1.3 permission contract', () => {
     expect(hasPlatformPermission('UNKNOWN', PERMISSION.USER_READ)).toBe(false);
     expect(hasMembershipPermission(undefined, PERMISSION.ORDER_READ)).toBe(false);
     expect(hasGlobalPlatformPermission(null, PERMISSION.PLACE_READ)).toBe(false);
+    expect(getMembershipRolesForPermission('unknown.permission')).toEqual([]);
+    expect(canAttemptPermission('UNKNOWN', 'unknown.permission')).toBe(false);
     expect(resolveEffectivePermissions('UNKNOWN', 'UNKNOWN')).toEqual([]);
     expect(PLATFORM_PERMISSION_SCOPE.RESTRICTED).toBe('restricted');
   });

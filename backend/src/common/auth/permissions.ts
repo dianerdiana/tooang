@@ -172,6 +172,7 @@ export const PLACE_MEMBER_ROLE_GRANTS = {
 
 const EMPTY_PERMISSIONS = Object.freeze([]) as readonly Permission[];
 const EMPTY_PLATFORM_SCOPES = Object.freeze([]) as readonly PlatformPermissionScope[];
+const EMPTY_MEMBERSHIP_ROLES = Object.freeze([]) as readonly PlaceMemberRoleType[];
 const PERMISSION_SET: ReadonlySet<string> = new Set(PERMISSIONS);
 
 function permissionIds(grants: PlatformGrantMap | MembershipGrantMap): readonly Permission[] {
@@ -226,6 +227,18 @@ export function getMembershipPermissions(role: unknown): readonly Permission[] {
   return isPlaceMemberRole(role) ? MEMBERSHIP_PERMISSIONS[role] : EMPTY_PERMISSIONS;
 }
 
+export function getMembershipRolesForPermission(
+  permission: unknown,
+): readonly PlaceMemberRoleType[] {
+  if (!isPermission(permission)) return EMPTY_MEMBERSHIP_ROLES;
+
+  return Object.freeze(
+    Object.values(PlaceMemberRole).filter(
+      (role) => PLACE_MEMBER_ROLE_GRANTS[role][permission] !== undefined,
+    ),
+  );
+}
+
 export function hasPlatformPermission(role: unknown, permission: unknown): boolean {
   return getPlatformPermissionScopes(role, permission).length > 0;
 }
@@ -236,6 +249,17 @@ export function hasGlobalPlatformPermission(role: unknown, permission: unknown):
 
 export function hasMembershipPermission(role: unknown, permission: unknown): boolean {
   return getMembershipPermissionScope(role, permission) !== undefined;
+}
+
+/**
+ * Coarse endpoint admission only. A positive result does not prove that the actor
+ * has a current membership for a target place.
+ */
+export function canAttemptPermission(platformRole: unknown, permission: unknown): boolean {
+  return (
+    hasPlatformPermission(platformRole, permission) ||
+    getMembershipRolesForPermission(permission).length > 0
+  );
 }
 
 export function resolveEffectivePermissions(

@@ -1,7 +1,13 @@
 import { Controller, Delete, Get, HttpCode, HttpStatus, Put } from '@nestjs/common';
 
-import type { AuthenticatedActor } from '@/common/auth';
-import { CurrentActor, ZodBody, ZodParam } from '@/common/decorators';
+import { type AuthenticatedActor, PERMISSION } from '@/common/auth';
+import {
+  CurrentActor,
+  RequireAnyPermission,
+  RequirePermissions,
+  ZodBody,
+  ZodParam,
+} from '@/common/decorators';
 import { HttpResponse } from '@/common/responses';
 
 import { PlaceMembersService } from './place-members.service';
@@ -19,6 +25,7 @@ export class PlaceMembersController {
   constructor(private readonly service: PlaceMembersService) {}
 
   @Get()
+  @RequirePermissions(PERMISSION.PLACE_MEMBER_READ)
   async list(
     @CurrentActor() actor: AuthenticatedActor,
     @ZodParam(placeIdParamSchema) params: PlaceIdParam,
@@ -28,6 +35,7 @@ export class PlaceMembersController {
   }
 
   @Put(':userId')
+  @RequireAnyPermission(PERMISSION.CASHIER_ASSIGN, PERMISSION.OWNER_ASSIGN)
   async setRole(
     @CurrentActor() actor: AuthenticatedActor,
     @ZodParam(placeMemberParamSchema) params: PlaceMemberParam,
@@ -38,6 +46,7 @@ export class PlaceMembersController {
   }
 
   @Delete(':userId')
+  @RequireAnyPermission(PERMISSION.CASHIER_REVOKE, PERMISSION.OWNER_REVOKE)
   @HttpCode(HttpStatus.OK)
   async revoke(
     @CurrentActor() actor: AuthenticatedActor,
