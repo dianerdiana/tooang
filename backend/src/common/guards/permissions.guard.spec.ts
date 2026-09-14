@@ -1,4 +1,4 @@
-import { type ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { type ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
 import { jest } from '@jest/globals';
@@ -10,6 +10,7 @@ import {
   PlatformRole,
   type PlatformRoleType,
 } from '../auth';
+
 import { PermissionsGuard } from './permissions.guard';
 
 function contextFor(user?: AuthenticatedUser): ExecutionContext {
@@ -58,7 +59,7 @@ describe('PermissionsGuard', () => {
 
   it('denies a protected route when the principal is missing', () => {
     expect(() => guardFor([PERMISSION.PROFILE_READ]).canActivate(contextFor())).toThrow(
-      ForbiddenException,
+      UnauthorizedException,
     );
   });
 });

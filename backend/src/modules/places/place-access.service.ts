@@ -3,7 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { PlaceMemberRole } from '@/generated/prisma/client';
 
 import {
-  type AuthenticatedUser,
+  type AuthenticatedActor,
   hasGlobalPlatformPermission,
   hasMembershipPermission,
   type Permission,
@@ -21,7 +21,7 @@ export class PlaceAccessService {
   constructor(private readonly repository: PlacesRepository) {}
 
   async assertPermission(
-    actor: AuthenticatedUser,
+    actor: AuthenticatedActor,
     placeId: string,
     permission: Permission,
     db?: PlacesDbClient,

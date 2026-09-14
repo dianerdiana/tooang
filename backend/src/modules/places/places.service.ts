@@ -2,7 +2,7 @@ import { ConflictException, Injectable } from '@nestjs/common';
 
 import { Prisma } from '@/generated/prisma/client';
 
-import type { AuthenticatedUser } from '@/common/auth';
+import type { AuthenticatedActor } from '@/common/auth';
 
 import { AuditService } from '@/modules/audit/audit.service';
 
@@ -19,7 +19,7 @@ export class PlacesService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async create(actor: AuthenticatedUser, input: CreatePlaceInput) {
+  async create(actor: AuthenticatedActor, input: CreatePlaceInput) {
     try {
       return await this.prisma.$transaction(
         async (tx) => {

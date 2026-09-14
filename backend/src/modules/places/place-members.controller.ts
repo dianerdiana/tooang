@@ -1,7 +1,7 @@
 import { Controller, Delete, Get, HttpCode, HttpStatus, Put } from '@nestjs/common';
 
-import type { AuthenticatedUser } from '@/common/auth';
-import { CurrentUser, ZodBody, ZodParam } from '@/common/decorators';
+import type { AuthenticatedActor } from '@/common/auth';
+import { CurrentActor, ZodBody, ZodParam } from '@/common/decorators';
 import { HttpResponse } from '@/common/responses';
 
 import { PlaceMembersService } from './place-members.service';
@@ -20,7 +20,7 @@ export class PlaceMembersController {
 
   @Get()
   async list(
-    @CurrentUser() actor: AuthenticatedUser,
+    @CurrentActor() actor: AuthenticatedActor,
     @ZodParam(placeIdParamSchema) params: PlaceIdParam,
   ) {
     const members = await this.service.list(actor, params.placeId);
@@ -29,7 +29,7 @@ export class PlaceMembersController {
 
   @Put(':userId')
   async setRole(
-    @CurrentUser() actor: AuthenticatedUser,
+    @CurrentActor() actor: AuthenticatedActor,
     @ZodParam(placeMemberParamSchema) params: PlaceMemberParam,
     @ZodBody(placeMemberRoleSchema) input: PlaceMemberRoleInput,
   ) {
@@ -40,7 +40,7 @@ export class PlaceMembersController {
   @Delete(':userId')
   @HttpCode(HttpStatus.OK)
   async revoke(
-    @CurrentUser() actor: AuthenticatedUser,
+    @CurrentActor() actor: AuthenticatedActor,
     @ZodParam(placeMemberParamSchema) params: PlaceMemberParam,
   ) {
     const member = await this.service.revoke(actor, params.placeId, params.userId);

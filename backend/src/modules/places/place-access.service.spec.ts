@@ -2,12 +2,13 @@ import { NotFoundException } from '@nestjs/common';
 
 import { jest } from '@jest/globals';
 
-import { PERMISSION } from '@/common/auth';
 import {
   PlaceMemberRole,
   PlatformRole,
   type PlatformRole as PlatformRoleType,
 } from '@/generated/prisma/client';
+
+import { PERMISSION } from '@/common/auth';
 
 import { PlaceAccessService } from './place-access.service';
 import type { PlacesRepository } from './places.repository';

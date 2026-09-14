@@ -1,10 +1,16 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { createParamDecorator, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 
-import type { AuthenticatedUser } from '../auth';
+import type { AuthenticatedActor, AuthenticationRequest } from '../auth';
 
-export const CurrentUser = createParamDecorator(
-  (_data: unknown, context: ExecutionContext): AuthenticatedUser | undefined => {
-    const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>();
-    return request.user;
-  },
+export function currentActorFrom(context: ExecutionContext): AuthenticatedActor {
+  const actor = context.switchToHttp().getRequest<AuthenticationRequest>().user;
+  if (!actor) throw new UnauthorizedException();
+  return actor;
+}
+
+export const CurrentActor = createParamDecorator(
+  (_data: unknown, context: ExecutionContext): AuthenticatedActor => currentActorFrom(context),
 );
+
+/** @deprecated Prefer CurrentActor for new code. */
+export const CurrentUser = CurrentActor;

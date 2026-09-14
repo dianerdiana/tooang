@@ -2,7 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 
 import { PlaceMemberRole, Prisma } from '@/generated/prisma/client';
 
-import { type AuthenticatedUser, PERMISSION, type Permission } from '@/common/auth';
+import { type AuthenticatedActor, PERMISSION, type Permission } from '@/common/auth';
 
 import { AuditService } from '@/modules/audit/audit.service';
 
@@ -20,7 +20,7 @@ export class PlaceMembersService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async list(actor: AuthenticatedUser, placeId: string) {
+  async list(actor: AuthenticatedActor, placeId: string) {
     const access = await this.access.assertPermission(actor, placeId, PERMISSION.PLACE_MEMBER_READ);
     const onlyUserId =
       access.scope === 'membership' && access.membershipRole === PlaceMemberRole.CASHIER
@@ -31,7 +31,7 @@ export class PlaceMembersService {
   }
 
   async setRole(
-    actor: AuthenticatedUser,
+    actor: AuthenticatedActor,
     placeId: string,
     publicUserId: string,
     role: PlaceMemberRole,
@@ -78,7 +78,7 @@ export class PlaceMembersService {
     });
   }
 
-  async revoke(actor: AuthenticatedUser, placeId: string, publicUserId: string) {
+  async revoke(actor: AuthenticatedActor, placeId: string, publicUserId: string) {
     return this.inSerializableTransaction(async (tx) => {
       await this.access.assertPermission(actor, placeId, PERMISSION.PLACE_MEMBER_READ, tx);
       const target = await this.repository.findActiveUser(publicUserId, tx);

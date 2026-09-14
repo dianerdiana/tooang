@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import type { AuthenticatedUser } from '@/common/auth';
+import { type AuthenticatedActor, isPlatformRole } from '@/common/auth';
 
 import { AuthRepository } from './auth.repository';
 
@@ -8,7 +8,22 @@ import { AuthRepository } from './auth.repository';
 export class AuthPrincipalService {
   constructor(private readonly repository: AuthRepository) {}
 
-  async resolve(userId: string): Promise<AuthenticatedUser | null> {
-    return this.repository.findActivePrincipal(userId);
+  async resolveActiveActor(userId: string): Promise<AuthenticatedActor | null> {
+    const user = await this.repository.findPrincipalCandidate(userId);
+    if (
+      !user ||
+      user.deletedAt ||
+      user.deletionRequestedAt ||
+      user.anonymizedAt ||
+      !isPlatformRole(user.platformRole)
+    ) {
+      return null;
+    }
+
+    return Object.freeze({
+      id: user.id,
+      userId: user.userId,
+      platformRole: user.platformRole,
+    });
   }
 }

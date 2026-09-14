@@ -8,7 +8,7 @@ import {
 import { PlatformRole, Prisma } from '@/generated/prisma/client';
 
 import {
-  type AuthenticatedUser,
+  type AuthenticatedActor,
   getMembershipPermissions,
   getPlatformPermissions,
 } from '@/common/auth';
@@ -46,7 +46,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async getMe(actor: AuthenticatedUser) {
+  async getMe(actor: AuthenticatedActor) {
     const user = await this.repository.findMe(actor.id);
     if (!user) throw new NotFoundException('User not found');
 
@@ -63,12 +63,12 @@ export class UsersService {
     };
   }
 
-  async updateMe(actor: AuthenticatedUser, input: UpdateMeInput) {
+  async updateMe(actor: AuthenticatedActor, input: UpdateMeInput) {
     const user = await this.repository.updateProfile(actor.id, input);
     return safeUser(user);
   }
 
-  async requestDeletion(actor: AuthenticatedUser) {
+  async requestDeletion(actor: AuthenticatedActor) {
     return this.inSerializableTransaction(async (tx) => {
       const user = await this.repository.findByInternalId(actor.id, tx);
       if (!user || user.deletedAt) throw new NotFoundException('User not found');
@@ -123,7 +123,7 @@ export class UsersService {
     return safeUser(user);
   }
 
-  async updatePlatformRole(actor: AuthenticatedUser, userId: string, input: PlatformRoleInput) {
+  async updatePlatformRole(actor: AuthenticatedActor, userId: string, input: PlatformRoleInput) {
     if (actor.platformRole !== PlatformRole.SUPER_ADMIN) {
       throw new ForbiddenException('Insufficient permissions');
     }
@@ -157,7 +157,7 @@ export class UsersService {
     });
   }
 
-  async deactivate(actor: AuthenticatedUser, userId: string) {
+  async deactivate(actor: AuthenticatedActor, userId: string) {
     return this.inSerializableTransaction(async (tx) => {
       const target = await this.repository.findActiveByPublicId(userId, tx);
       if (!target) throw new NotFoundException('User not found');

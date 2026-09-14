@@ -58,6 +58,7 @@ export class AuthService {
       user &&
       !user.deletedAt &&
       !user.deletionRequestedAt &&
+      !user.anonymizedAt &&
       (await this.hashing.compare(input.password, user.passwordHash));
     if (!allowed) throw new UnauthorizedException('Invalid email or password');
 
@@ -107,7 +108,12 @@ export class AuthService {
       await this.repository.revokeFamily(session.familyId, now);
       throw new UnauthorizedException();
     }
-    if (session.expiresAt <= now || session.user.deletedAt || session.user.deletionRequestedAt) {
+    if (
+      session.expiresAt <= now ||
+      session.user.deletedAt ||
+      session.user.deletionRequestedAt ||
+      session.user.anonymizedAt
+    ) {
       throw new UnauthorizedException();
     }
 

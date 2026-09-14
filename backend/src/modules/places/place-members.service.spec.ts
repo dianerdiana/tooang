@@ -2,8 +2,9 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 
 import { jest } from '@jest/globals';
 
-import { PERMISSION } from '@/common/auth';
 import { PlaceMemberRole, PlatformRole } from '@/generated/prisma/client';
+
+import { PERMISSION } from '@/common/auth';
 
 import type { PlaceAccessService } from './place-access.service';
 import { PlaceMembersService } from './place-members.service';

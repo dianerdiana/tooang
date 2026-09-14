@@ -18,7 +18,11 @@ export class UserJwtService {
     const duration = this.getDuration(APP_CONFIG.jwtAccessTokenExpire);
     const token = await this.jwtService.signAsync(
       { sub: userId, tokenType: 'access' },
-      { secret: this.getSecret(APP_CONFIG.jwtAccessToken), expiresIn: duration.signValue },
+      {
+        secret: this.getSecret(APP_CONFIG.jwtAccessToken),
+        expiresIn: duration.signValue,
+        algorithm: 'HS256',
+      },
     );
     return { token, expiresIn: duration.seconds };
   }
@@ -34,14 +38,22 @@ export class UserJwtService {
     );
     const token = await this.jwtService.signAsync(
       { sub: userId, sessionId, familyId, tokenType: 'refresh' },
-      { secret: this.getSecret(APP_CONFIG.jwtRefreshToken), expiresIn: duration.signValue },
+      {
+        secret: this.getSecret(APP_CONFIG.jwtRefreshToken),
+        expiresIn: duration.signValue,
+        algorithm: 'HS256',
+      },
     );
     return { token, expiresIn: duration.seconds };
   }
 
   async verifyAccessToken(token: string): Promise<AccessTokenPayload> {
     const payload = await this.verify(token, this.getSecret(APP_CONFIG.jwtAccessToken));
-    if (payload.tokenType !== 'access' || typeof payload.sub !== 'string') {
+    if (
+      payload.tokenType !== 'access' ||
+      typeof payload.sub !== 'string' ||
+      !/^usr_[A-Za-z0-9]+$/.test(payload.sub)
+    ) {
       throw new UnauthorizedException('Invalid authentication token payload');
     }
     return { userId: payload.sub };
@@ -72,7 +84,10 @@ export class UserJwtService {
 
   private async verify(token: string, secret: string): Promise<Record<string, unknown>> {
     try {
-      return await this.jwtService.verifyAsync<Record<string, unknown>>(token, { secret });
+      return await this.jwtService.verifyAsync<Record<string, unknown>>(token, {
+        secret,
+        algorithms: ['HS256'],
+      });
     } catch {
       throw new UnauthorizedException();
     }

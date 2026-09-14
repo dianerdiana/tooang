@@ -40,6 +40,7 @@ Errors use this envelope. Validation errors may include field-level `details`.
 The API returns the access token in the response body and the refresh token only in a `refresh_token` cookie. The cookie is `HttpOnly`, `SameSite=Lax`, and has `Path=/api/v1/auth`. It is `Secure` in production and may be non-secure only for localhost development.
 
 - Access-token lifetime: 15 minutes.
+- Access tokens contain identity only. Protected requests reload current account state and `platformRole` from PostgreSQL; token role or permission claims are never authoritative.
 - Standard refresh-session lifetime: 30 days.
 - Remember-me refresh-session lifetime: up to 90 days.
 - Passwords are 8–128 Unicode characters. Password input is not trimmed or normalized.

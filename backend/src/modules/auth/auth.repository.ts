@@ -17,6 +17,16 @@ export const AUTH_USER_SELECT = {
   updatedAt: true,
   deletedAt: true,
   deletionRequestedAt: true,
+  anonymizedAt: true,
+} satisfies Prisma.UserSelect;
+
+export const AUTH_PRINCIPAL_SELECT = {
+  id: true,
+  userId: true,
+  platformRole: true,
+  deletedAt: true,
+  deletionRequestedAt: true,
+  anonymizedAt: true,
 } satisfies Prisma.UserSelect;
 
 @Injectable()
@@ -34,10 +44,10 @@ export class AuthRepository {
     return this.prisma.user.findUnique({ where: { email }, select: AUTH_USER_SELECT });
   }
 
-  findActivePrincipal(userId: string) {
-    return this.prisma.user.findFirst({
-      where: { userId, deletedAt: null, deletionRequestedAt: null },
-      select: { id: true, userId: true, platformRole: true },
+  findPrincipalCandidate(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { userId },
+      select: AUTH_PRINCIPAL_SELECT,
     });
   }
 
@@ -63,6 +73,7 @@ export class AuthRepository {
             userId: true,
             deletedAt: true,
             deletionRequestedAt: true,
+            anonymizedAt: true,
           },
         },
       },

@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
-import type { AuthenticatedUser } from '@/common/auth';
+import type { AuthenticationRequest } from '@/common/auth';
 import { IS_PUBLIC_KEY } from '@/common/decorators';
 
 import { UserJwtService } from '../../lib';
@@ -23,19 +23,15 @@ export class JwtAuthGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
-    const request = context.switchToHttp().getRequest<{
-      headers: Record<string, string | string[] | undefined>;
-      user?: AuthenticatedUser;
-    }>();
+    const request = context.switchToHttp().getRequest<AuthenticationRequest>();
+    delete request.user;
     const authorization = request.headers.authorization;
-    const header = Array.isArray(authorization) ? authorization[0] : authorization;
-    if (!header?.startsWith('Bearer ')) throw new UnauthorizedException();
+    if (typeof authorization !== 'string') throw new UnauthorizedException();
+    const match = /^Bearer ([^\s]+)$/i.exec(authorization);
+    if (!match) throw new UnauthorizedException();
 
-    const token = header.slice('Bearer '.length).trim();
-    if (!token) throw new UnauthorizedException();
-
-    const payload = await this.jwtService.verifyAccessToken(token);
-    const principal = await this.principals.resolve(payload.userId);
+    const payload = await this.jwtService.verifyAccessToken(match[1]);
+    const principal = await this.principals.resolveActiveActor(payload.userId);
     if (!principal) throw new UnauthorizedException();
 
     request.user = principal;

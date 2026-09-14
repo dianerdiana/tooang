@@ -34,6 +34,7 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
   const updatedEmail = `updated-${runId}@example.com`;
   const adminEmail = `admin-${runId}@example.com`;
   const superAdminEmail = `super-${runId}@example.com`;
+  const pendingEmail = `pending-${runId}@example.com`;
   const password = 'correct-horse-battery-staple';
 
   beforeAll(async () => {
@@ -79,7 +80,9 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
     if (app) await app.close();
     if (prisma) {
       const users = await prisma.user.findMany({
-        where: { email: { in: [userEmail, updatedEmail, adminEmail, superAdminEmail] } },
+        where: {
+          email: { in: [userEmail, updatedEmail, adminEmail, superAdminEmail, pendingEmail] },
+        },
         select: { id: true },
       });
       const ids = users.map(({ id }) => id);
@@ -145,6 +148,25 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
     await agent.post('/api/v1/auth/refresh').expect(401);
   });
 
+  it('blocks the existing access and refresh tokens after a deletion request', async () => {
+    await request(server)
+      .post('/api/v1/auth/register')
+      .send({ fullName: 'Pending Deletion User', email: pendingEmail, password })
+      .expect(201);
+
+    const agent = request.agent(server);
+    const login = await agent.post('/api/v1/auth/login').send({ email: pendingEmail, password });
+    const accessToken = (login.body as ApiBody).data.accessToken;
+
+    await request(server)
+      .post('/api/v1/me/account-deletion-requests')
+      .auth(accessToken, { type: 'bearer' })
+      .expect(202);
+
+    await request(server).get('/api/v1/me').auth(accessToken, { type: 'bearer' }).expect(401);
+    await agent.post('/api/v1/auth/refresh').expect(401);
+  });
+
   it('enforces ADMIN and SUPER_ADMIN user-administration boundaries', async () => {
     const target = await prisma.user.findUniqueOrThrow({ where: { email: updatedEmail } });
     const adminUser = await prisma.user.findUniqueOrThrow({ where: { email: adminEmail } });
@@ -192,6 +214,10 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
     expect(
       (meWithMembership.body as ApiBody).data.user.placeMemberships as Array<{ placeId: string }>,
     ).toEqual(expect.arrayContaining([expect.objectContaining({ placeId: place.id })]));
+    await request(server)
+      .get(`/api/v1/places/${place.id}/members`)
+      .auth(userToken, { type: 'bearer' })
+      .expect(200);
     await prisma.placeMember.update({
       where: { placeId_userId: { placeId: place.id, userId: target.id } },
       data: { revokedAt: new Date() },
@@ -202,6 +228,10 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
     expect(
       (meAfterRevocation.body as ApiBody).data.user.placeMemberships as Array<{ placeId: string }>,
     ).not.toEqual(expect.arrayContaining([expect.objectContaining({ placeId: place.id })]));
+    await request(server)
+      .get(`/api/v1/places/${place.id}/members`)
+      .auth(userToken, { type: 'bearer' })
+      .expect(404);
 
     const adminLogin = await request(server)
       .post('/api/v1/auth/login')

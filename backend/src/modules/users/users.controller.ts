@@ -1,7 +1,7 @@
 import { Controller, Delete, Get, HttpCode, HttpStatus, Patch, Post, Put } from '@nestjs/common';
 
-import { type AuthenticatedUser, PERMISSION } from '@/common/auth';
-import { CurrentUser, RequirePermissions, ZodBody, ZodParam, ZodQuery } from '@/common/decorators';
+import { type AuthenticatedActor, PERMISSION } from '@/common/auth';
+import { CurrentActor, RequirePermissions, ZodBody, ZodParam, ZodQuery } from '@/common/decorators';
 import { HttpResponse } from '@/common/responses';
 
 import {
@@ -22,7 +22,7 @@ export class MeController {
 
   @Get()
   @RequirePermissions(PERMISSION.PROFILE_READ)
-  async getMe(@CurrentUser() actor: AuthenticatedUser) {
+  async getMe(@CurrentActor() actor: AuthenticatedActor) {
     const user = await this.service.getMe(actor);
     return HttpResponse.success({ message: 'Profile retrieved', data: { user } });
   }
@@ -30,7 +30,7 @@ export class MeController {
   @Patch()
   @RequirePermissions(PERMISSION.PROFILE_UPDATE)
   async updateMe(
-    @CurrentUser() actor: AuthenticatedUser,
+    @CurrentActor() actor: AuthenticatedActor,
     @ZodBody(updateMeSchema) input: UpdateMeInput,
   ) {
     const user = await this.service.updateMe(actor, input);
@@ -40,7 +40,7 @@ export class MeController {
   @Post('account-deletion-requests')
   @RequirePermissions(PERMISSION.ACCOUNT_DELETION_REQUEST)
   @HttpCode(HttpStatus.ACCEPTED)
-  async requestDeletion(@CurrentUser() actor: AuthenticatedUser) {
+  async requestDeletion(@CurrentActor() actor: AuthenticatedActor) {
     const data = await this.service.requestDeletion(actor);
     return HttpResponse.success({ message: 'Account deletion request accepted', data });
   }
@@ -71,7 +71,7 @@ export class UsersController {
   @Put(':userId/platform-role')
   @RequirePermissions(PERMISSION.PLATFORM_ROLE_UPDATE)
   async updatePlatformRole(
-    @CurrentUser() actor: AuthenticatedUser,
+    @CurrentActor() actor: AuthenticatedActor,
     @ZodParam(userIdParamSchema) params: UserIdParam,
     @ZodBody(platformRoleSchema) input: PlatformRoleInput,
   ) {
@@ -83,7 +83,7 @@ export class UsersController {
   @RequirePermissions(PERMISSION.USER_DEACTIVATE)
   @HttpCode(HttpStatus.OK)
   async deactivate(
-    @CurrentUser() actor: AuthenticatedUser,
+    @CurrentActor() actor: AuthenticatedActor,
     @ZodParam(userIdParamSchema) params: UserIdParam,
   ) {
     const data = await this.service.deactivate(actor, params.userId);

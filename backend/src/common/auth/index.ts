@@ -1,3 +1,9 @@
+export type {
+  AuthenticatedActor,
+  AuthenticatedRequest,
+  AuthenticatedUser,
+  AuthenticationRequest,
+} from './authenticated-actor';
 export {
   type EffectivePermissionGrant,
   getMembershipPermissions,
@@ -8,21 +14,22 @@ export {
   hasMembershipPermission,
   hasPlatformPermission,
   isPermission,
-  type MembershipGrantMap,
   MEMBERSHIP_PERMISSIONS,
+  type MembershipGrantMap,
   PERMISSION,
+  type Permission,
+  PERMISSIONS,
   PLACE_MEMBER_ROLE_GRANTS,
   PLACE_PERMISSION_SCOPE,
   type PlacePermissionScope,
-  type PlatformGrantMap,
   PLATFORM_PERMISSION_SCOPE,
-  type PlatformPermissionScope,
-  type Permission,
-  PERMISSIONS,
   PLATFORM_PERMISSIONS,
   PLATFORM_ROLE_GRANTS,
+  type PlatformGrantMap,
+  type PlatformPermissionScope,
   resolveEffectivePermissions,
 } from './permissions';
+export type { AccessTokenPayload, RefreshTokenPayload } from './token-payload';
 export {
   isPlaceMemberRole,
   isPlatformRole,
@@ -31,8 +38,3 @@ export {
   PlatformRole,
   type PlatformRoleType,
 } from './user-role.type';
-export type {
-  AccessTokenPayload,
-  AuthenticatedUser,
-  RefreshTokenPayload,
-} from './user-token.payload';
