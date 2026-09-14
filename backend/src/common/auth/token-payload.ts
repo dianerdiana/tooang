@@ -6,4 +6,5 @@ export interface RefreshTokenPayload {
   readonly userId: string;
   readonly sessionId: string;
   readonly familyId: string;
+  readonly sessionMode?: 'standard' | 'remember';
 }

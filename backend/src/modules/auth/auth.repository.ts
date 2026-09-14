@@ -6,15 +6,22 @@ import { PrismaService } from '../../lib';
 
 type DbClient = PrismaService | Prisma.TransactionClient;
 
-export const AUTH_USER_SELECT = {
+export const AUTH_PUBLIC_USER_SELECT = {
+  userId: true,
+  fullName: true,
+  email: true,
+  platformRole: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.UserSelect;
+
+export const AUTH_LOGIN_USER_SELECT = {
   id: true,
   userId: true,
   fullName: true,
   email: true,
   passwordHash: true,
   platformRole: true,
-  createdAt: true,
-  updatedAt: true,
   deletedAt: true,
   deletionRequestedAt: true,
   anonymizedAt: true,
@@ -33,15 +40,18 @@ export const AUTH_PRINCIPAL_SELECT = {
 export class AuthRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  createUser(data: { userId: string; fullName: string; email: string; passwordHash: string }) {
-    return this.prisma.user.create({
+  createUser(
+    data: { userId: string; fullName: string; email: string; passwordHash: string },
+    db: DbClient = this.prisma,
+  ) {
+    return db.user.create({
       data: { ...data, platformRole: PlatformRole.USER },
-      select: AUTH_USER_SELECT,
+      select: AUTH_PUBLIC_USER_SELECT,
     });
   }
 
   findUserByEmail(email: string) {
-    return this.prisma.user.findUnique({ where: { email }, select: AUTH_USER_SELECT });
+    return this.prisma.user.findUnique({ where: { email }, select: AUTH_LOGIN_USER_SELECT });
   }
 
   findPrincipalCandidate(userId: string) {
@@ -67,7 +77,14 @@ export class AuthRepository {
   findRefreshSession(tokenHash: string) {
     return this.prisma.refreshSession.findUnique({
       where: { tokenHash },
-      include: {
+      select: {
+        id: true,
+        familyId: true,
+        userId: true,
+        expiresAt: true,
+        revokedAt: true,
+        replacedById: true,
+        createdAt: true,
         user: {
           select: {
             userId: true,
@@ -80,7 +97,7 @@ export class AuthRepository {
     });
   }
 
-  replaceRefreshSession(sessionId: string, replacedById: string, revokedAt: Date, db: DbClient) {
+  consumeRefreshSession(sessionId: string, revokedAt: Date, db: DbClient) {
     return db.refreshSession.updateMany({
       where: {
         id: sessionId,
@@ -88,8 +105,12 @@ export class AuthRepository {
         replacedById: null,
         expiresAt: { gt: revokedAt },
       },
-      data: { revokedAt, replacedById },
+      data: { revokedAt },
     });
+  }
+
+  linkRefreshReplacement(sessionId: string, replacedById: string, db: DbClient) {
+    return db.refreshSession.update({ where: { id: sessionId }, data: { replacedById } });
   }
 
   revokeFamily(familyId: string, revokedAt: Date) {

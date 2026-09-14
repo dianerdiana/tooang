@@ -110,6 +110,7 @@ No authentication is required.
 Validates credentials, returns a short-lived access token, and establishes a refresh session. Invalid credentials always produce the same response, whether or not the email exists.
 
 Baseline rate limit: 10 attempts per 15 minutes per source IP, with progressively stricter throttling for repeated abuse.
+Counters are shared through PostgreSQL. A second limit of 30 attempts per hour applies to the same pseudonymized source IP. Rate-limited responses include `Retry-After`; failed attempts never create an account lock.
 
 ### Request
 
@@ -132,6 +133,7 @@ No authentication is required.
 ### Response
 
 On success, the response also includes a `Set-Cookie` header containing the opaque refresh token.
+Credential verification performs equivalent bcrypt work for unknown and known accounts. Well-formed invalid credentials and inactive account states use the same `401` response.
 
 | Status | Meaning |
 | --- | --- |

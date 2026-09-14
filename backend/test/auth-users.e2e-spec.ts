@@ -35,12 +35,15 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
   const adminEmail = `admin-${runId}@example.com`;
   const superAdminEmail = `super-${runId}@example.com`;
   const pendingEmail = `pending-${runId}@example.com`;
+  const concurrentEmail = `concurrent-${runId}@example.com`;
   const password = 'correct-horse-battery-staple';
 
   beforeAll(async () => {
     process.env.DATABASE_URL = testDatabaseUrl!;
-    process.env.JWT_ACCESS_TOKEN ||= 'e2e-access-secret';
-    process.env.JWT_REFRESH_TOKEN ||= 'e2e-refresh-secret';
+    process.env.NODE_ENV = 'test';
+    process.env.JWT_ACCESS_TOKEN = 'e2e-access-secret-with-at-least-32-bytes';
+    process.env.JWT_REFRESH_TOKEN = 'e2e-refresh-secret-with-at-least-32-bytes';
+    process.env.RATE_LIMIT_SOURCE_HMAC_SECRET = 'e2e-rate-limit-secret-with-32-bytes';
     process.env.JWT_ACCESS_TOKEN_EXPIRE ||= '15m';
     process.env.JWT_REFRESH_TOKEN_EXPIRE ||= '30d';
     process.env.JWT_REMEMBER_ME_REFRESH_TOKEN_EXPIRE ||= '90d';
@@ -81,7 +84,16 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
     if (prisma) {
       const users = await prisma.user.findMany({
         where: {
-          email: { in: [userEmail, updatedEmail, adminEmail, superAdminEmail, pendingEmail] },
+          email: {
+            in: [
+              userEmail,
+              updatedEmail,
+              adminEmail,
+              superAdminEmail,
+              pendingEmail,
+              concurrentEmail,
+            ],
+          },
         },
         select: { id: true },
       });
@@ -91,6 +103,7 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
       await prisma.placeMember.deleteMany({ where: { userId: { in: ids } } });
       await prisma.place.deleteMany({ where: { id: { in: membershipPlaceIds } } });
       await prisma.user.deleteMany({ where: { id: { in: ids } } });
+      await prisma.authRateLimitBucket.deleteMany();
       await prisma.$disconnect();
     }
   });
@@ -117,6 +130,10 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
     const login = await agent.post('/api/v1/auth/login').send({ email: userEmail, password });
     expect(login.status).toBe(200);
     expect(login.headers['set-cookie']).toBeDefined();
+    expect(String(login.headers['set-cookie'])).toContain('HttpOnly');
+    expect(String(login.headers['set-cookie'])).toContain('SameSite=Lax');
+    expect(String(login.headers['set-cookie'])).toContain('Path=/api/v1/auth');
+    expect(String(login.headers['set-cookie'])).not.toContain('Secure');
     const originalAccessToken = (login.body as ApiBody).data.accessToken;
     const accessPayload = JSON.parse(
       Buffer.from(originalAccessToken.split('.')[1], 'base64url').toString('utf8'),
@@ -146,6 +163,33 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
 
     await agent.post('/api/v1/auth/logout').expect(200);
     await agent.post('/api/v1/auth/refresh').expect(401);
+  });
+
+  it('revokes the whole family when the same refresh token is submitted concurrently', async () => {
+    await request(server)
+      .post('/api/v1/auth/register')
+      .send({ fullName: 'Concurrent Refresh User', email: concurrentEmail, password })
+      .expect(201);
+    const login = await request(server)
+      .post('/api/v1/auth/login')
+      .send({ email: concurrentEmail, password })
+      .expect(200);
+    const originalCookie = String(login.headers['set-cookie']).split(';')[0];
+
+    const results = await Promise.all([
+      request(server).post('/api/v1/auth/refresh').set('Cookie', originalCookie),
+      request(server).post('/api/v1/auth/refresh').set('Cookie', originalCookie),
+    ]);
+    expect(results.map(({ status }) => status).sort()).toEqual([200, 401]);
+
+    const successful = results.find(({ status }) => status === 200)!;
+    const successorCookie = String(successful.headers['set-cookie']).split(';')[0];
+    await request(server).post('/api/v1/auth/refresh').set('Cookie', successorCookie).expect(401);
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: concurrentEmail } });
+    const sessions = await prisma.refreshSession.findMany({ where: { userId: user.id } });
+    expect(sessions).toHaveLength(2);
+    expect(sessions.every(({ revokedAt }) => revokedAt !== null)).toBe(true);
   });
 
   it('blocks the existing access and refresh tokens after a deletion request', async () => {

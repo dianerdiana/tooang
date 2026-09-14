@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
@@ -37,7 +39,14 @@ export class UserJwtService {
       rememberMe ? APP_CONFIG.jwtRememberMeRefreshTokenExpire : APP_CONFIG.jwtRefreshTokenExpire,
     );
     const token = await this.jwtService.signAsync(
-      { sub: userId, sessionId, familyId, tokenType: 'refresh' },
+      {
+        sub: userId,
+        sessionId,
+        familyId,
+        jti: randomBytes(32).toString('base64url'),
+        sessionMode: rememberMe ? 'remember' : 'standard',
+        tokenType: 'refresh',
+      },
       {
         secret: this.getSecret(APP_CONFIG.jwtRefreshToken),
         expiresIn: duration.signValue,
@@ -64,8 +73,14 @@ export class UserJwtService {
     if (
       payload.tokenType !== 'refresh' ||
       typeof payload.sub !== 'string' ||
+      !/^usr_[A-Za-z0-9]+$/.test(payload.sub) ||
       typeof payload.sessionId !== 'string' ||
-      typeof payload.familyId !== 'string'
+      typeof payload.familyId !== 'string' ||
+      (payload.jti !== undefined &&
+        (typeof payload.jti !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(payload.jti))) ||
+      (payload.sessionMode !== undefined &&
+        payload.sessionMode !== 'standard' &&
+        payload.sessionMode !== 'remember')
     ) {
       throw new UnauthorizedException('Invalid authentication token payload');
     }
@@ -73,6 +88,7 @@ export class UserJwtService {
       userId: payload.sub,
       sessionId: payload.sessionId,
       familyId: payload.familyId,
+      ...(payload.sessionMode ? { sessionMode: payload.sessionMode } : {}),
     };
   }
 

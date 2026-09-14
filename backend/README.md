@@ -143,6 +143,9 @@ Create a `.env` file in the `backend` directory. Never commit real credentials o
 # Application
 NODE_ENV=development
 PORT=3000
+PUBLIC_API_ORIGIN=http://localhost:3000
+CORS_ALLOWED_ORIGINS=http://localhost:5173
+# TRUST_PROXY=1 # required behind the production proxy
 
 # PostgreSQL
 DATABASE_URL=postgresql://<username>:<password>@localhost:5432/<database>?schema=public
@@ -154,6 +157,8 @@ JWT_ACCESS_TOKEN_EXPIRE=15m
 JWT_REFRESH_TOKEN_EXPIRE=30d
 JWT_REMEMBER_ME_REFRESH_TOKEN_EXPIRE=90d
 BCRYPT_ROUNDS=12
+RATE_LIMIT_SOURCE_HMAC_SECRET=<replace-with-another-long-random-secret>
+# PASSWORD_DENYLIST_PATH=/run/secrets/additional-common-passwords.txt
 
 # Optional seed account
 SEED_SUPER_ADMIN_EMAIL=<admin@example.com>
@@ -172,6 +177,9 @@ CACHE_TTL=60
 | ---------------------------- | -------- | ----------------------- | --------------------------------------------------------------------------------------- |
 | `NODE_ENV`                   | No       | `development`           | Application environment.                                                                |
 | `PORT`                       | No       | `3000`                  | HTTP server port.                                                                       |
+| `PUBLIC_API_ORIGIN`          | Production | localhost             | Public API origin; HTTP is accepted only for loopback development.                      |
+| `CORS_ALLOWED_ORIGINS`       | Production | localhost frontend    | Comma-separated credentialed CORS allowlist; wildcard is rejected.                      |
+| `TRUST_PROXY`                | Production | Disabled              | Trusted proxy hop count or comma-separated addresses/CIDRs.                             |
 | `DATABASE_URL`               | Yes      | None                    | PostgreSQL connection string used by Prisma.                                            |
 | `JWT_ACCESS_TOKEN`           | Yes      | None                    | Secret used to sign access tokens.                                                      |
 | `JWT_REFRESH_TOKEN`          | Yes      | None                    | Secret used to sign refresh tokens. Use a different value from the access-token secret. |
@@ -179,14 +187,20 @@ CACHE_TTL=60
 | `JWT_REFRESH_TOKEN_EXPIRE`   | No       | `30d`                   | Standard refresh-session lifetime.                                                      |
 | `JWT_REMEMBER_ME_REFRESH_TOKEN_EXPIRE` | No | `90d`              | Remember-me refresh-session lifetime.                                                   |
 | `BCRYPT_ROUNDS`              | No       | `12`                    | Bcrypt work factor applied after SHA-256 password pre-hashing.                          |
+| `RATE_LIMIT_SOURCE_HMAC_SECRET` | Production | Development-only fallback | HMAC secret used to pseudonymize rate-limit source IPs.                             |
+| `PASSWORD_DENYLIST_PATH`     | No       | Bundled top-10,000 list | Optional newline-delimited additional common-password denylist.                         |
 | `SEED_SUPER_ADMIN_EMAIL`     | No       | None                    | Email for an optional seeded super administrator.                                       |
-| `SEED_SUPER_ADMIN_PASSWORD`  | No       | None                    | Password for the optional seed account; must contain at least 8 bytes.                  |
+| `SEED_SUPER_ADMIN_PASSWORD`  | No       | None                    | Password for the optional seed account; follows the 8–128 Unicode-character denylist policy. |
 | `SEED_SUPER_ADMIN_FULL_NAME` | No       | `Super Administrator`   | Display name for the optional seed account.                                             |
 | `GEMINI_API_KEY`             | No       | None                    | Reserved Gemini integration API key.                                                    |
 | `GEMINI_MODEL`               | No       | `gemini-3.5-flash`      | Reserved primary Gemini model name.                                                     |
 | `GEMINI_FALLBACK_MODEL`      | No       | `gemini-3.1-flash-lite` | Reserved fallback Gemini model name.                                                    |
 | `CACHE_REDIS_URL`            | No       | None                    | Reserved Redis connection URL.                                                          |
 | `CACHE_TTL`                  | No       | `60`                    | Reserved cache lifetime in seconds.                                                     |
+
+The built-in common-password policy is supplied by the pinned ISC-licensed
+`common-password` package and its 10,000-password list. `PASSWORD_DENYLIST_PATH`
+adds deployment-specific entries without disabling the built-in list.
 
 For a production environment, store secrets in the deployment platform's secret manager instead of an environment file.
 

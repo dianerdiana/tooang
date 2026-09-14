@@ -25,6 +25,7 @@ const STATUS_CODES: Record<number, string> = {
   404: 'NOT_FOUND',
   409: 'CONFLICT',
   429: 'TOO_MANY_REQUESTS',
+  503: 'SERVICE_UNAVAILABLE',
   500: 'INTERNAL_SERVER_ERROR',
 };
 

@@ -26,10 +26,10 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^12.0.1",
     "@nestjs/platform-express": "^11.0.1",
-    "@nestjs/throttler": "^6.5.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "bcrypt": "^6.0.0",
+    "common-password": "0.1.2",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "pg": "^8.23.0",
@@ -85,9 +85,17 @@
       "^@/lib/(.*)$": "<rootDir>/lib/$1"
     },
     "testRegex": ".*\\.spec\\.ts$",
-    "extensionsToTreatAsEsm": [".ts"],
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
     "transform": {
-      "^.+\\.ts$": ["ts-jest", { "useESM": true, "tsconfig": "tsconfig.spec.json" }]
+      "^.+\\.ts$": [
+        "ts-jest",
+        {
+          "useESM": true,
+          "tsconfig": "tsconfig.spec.json"
+        }
+      ]
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

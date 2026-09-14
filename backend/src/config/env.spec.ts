@@ -1,0 +1,62 @@
+import env from './env';
+
+describe('environment authentication configuration', () => {
+  const original = { ...process.env };
+
+  beforeEach(() => {
+    process.env = {
+      ...original,
+      NODE_ENV: 'test',
+      DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
+      JWT_ACCESS_TOKEN: 'a'.repeat(32),
+      JWT_REFRESH_TOKEN: 'b'.repeat(32),
+      RATE_LIMIT_SOURCE_HMAC_SECRET: 'c'.repeat(32),
+      JWT_ACCESS_TOKEN_EXPIRE: '15m',
+      JWT_REFRESH_TOKEN_EXPIRE: '30d',
+      JWT_REMEMBER_ME_REFRESH_TOKEN_EXPIRE: '90d',
+      BCRYPT_ROUNDS: '4',
+      PUBLIC_API_ORIGIN: 'http://localhost:3000',
+      CORS_ALLOWED_ORIGINS: 'http://localhost:5173',
+    };
+    delete process.env.TRUST_PROXY;
+  });
+
+  afterAll(() => {
+    process.env = original;
+  });
+
+  it('accepts the exact SRS lifetimes and loopback development cookie transport', () => {
+    const config = env();
+    expect(config.jwt).toEqual(
+      expect.objectContaining({
+        accessTokenExpire: '15m',
+        refreshTokenExpire: '30d',
+        rememberMeRefreshTokenExpire: '90d',
+      }),
+    );
+    expect(config.security.refreshCookieSecure).toBe(false);
+  });
+
+  it('rejects noncompliant lifetimes and weak or shared secrets', () => {
+    process.env.JWT_ACCESS_TOKEN_EXPIRE = '16m';
+    expect(env).toThrow('exactly 15m');
+
+    process.env.JWT_ACCESS_TOKEN_EXPIRE = '15m';
+    process.env.JWT_REFRESH_TOKEN = process.env.JWT_ACCESS_TOKEN;
+    expect(env).toThrow('must be distinct');
+  });
+
+  it('requires HTTPS, explicit CORS, and explicit proxy trust in production', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.BCRYPT_ROUNDS = '12';
+    process.env.PUBLIC_API_ORIGIN = 'https://api.example.com';
+    delete process.env.CORS_ALLOWED_ORIGINS;
+    expect(env).toThrow('CORS_ALLOWED_ORIGINS');
+
+    process.env.CORS_ALLOWED_ORIGINS = 'https://app.example.com';
+    expect(env).toThrow('TRUST_PROXY');
+
+    process.env.TRUST_PROXY = '1';
+    expect(env().security.refreshCookieSecure).toBe(true);
+  });
+});

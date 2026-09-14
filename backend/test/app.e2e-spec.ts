@@ -13,8 +13,10 @@ describeDatabase('AppController (e2e)', () => {
 
   beforeEach(async () => {
     process.env.DATABASE_URL = testDatabaseUrl!;
-    process.env.JWT_ACCESS_TOKEN ||= 'e2e-access-secret';
-    process.env.JWT_REFRESH_TOKEN ||= 'e2e-refresh-secret';
+    process.env.NODE_ENV = 'test';
+    process.env.JWT_ACCESS_TOKEN = 'e2e-access-secret-with-at-least-32-bytes';
+    process.env.JWT_REFRESH_TOKEN = 'e2e-refresh-secret-with-at-least-32-bytes';
+    process.env.RATE_LIMIT_SOURCE_HMAC_SECRET = 'e2e-rate-limit-secret-with-32-bytes';
     const { AppModule } = await import('./../src/app.module.js');
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],

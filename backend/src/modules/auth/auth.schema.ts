@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const unicodeLength = (value: string) => Array.from(value).length;
+import { unicodeLength } from './password-policy.service';
 
 const fullName = z
   .string()
@@ -10,7 +10,7 @@ const fullName = z
 
 const email = z.string().trim().toLowerCase().email().max(254);
 
-const password = z
+const registrationPassword = z
   .string()
   .refine((value) => unicodeLength(value) >= 8, 'Must contain at least 8 characters')
   .refine((value) => unicodeLength(value) <= 128, 'Must contain at most 128 characters');
@@ -19,14 +19,16 @@ export const registerSchema = z
   .object({
     fullName,
     email,
-    password,
+    password: registrationPassword,
   })
   .strict();
 
 export const loginSchema = z
   .object({
     email,
-    password,
+    password: z
+      .string()
+      .refine((value) => unicodeLength(value) <= 128, 'Must contain at most 128 characters'),
     rememberMe: z.boolean().default(false),
   })
   .strict();

@@ -13,7 +13,7 @@ export class WinstonLoggerService implements LoggerService {
     const isProduction = this.env.app.nodeEnv === 'production';
 
     this.logger = winston.createLogger({
-      level: isProduction ? 'warn' : 'debug',
+      level: isProduction ? 'info' : 'debug',
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.printf(({ level, message, timestamp }) => {
@@ -49,16 +49,16 @@ export class WinstonLoggerService implements LoggerService {
     });
   }
 
-  log(message: string) {
-    this.logger.info(message);
+  log(message: string, context?: Record<string, unknown>) {
+    this.logger.info(message, context);
   }
 
-  error(message: string, trace?: string) {
-    this.logger.error(`${message} - ${trace}`);
+  error(message: string, trace?: string, context?: Record<string, unknown>) {
+    this.logger.error(message, { ...context, ...(trace ? { trace } : {}) });
   }
 
-  warn(message: string) {
-    this.logger.warn(message);
+  warn(message: string, context?: Record<string, unknown>) {
+    this.logger.warn(message, context);
   }
 
   debug(message: string) {

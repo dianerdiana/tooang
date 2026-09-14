@@ -1,6 +1,9 @@
 export const APP_CONFIG = {
   nodeEnv: 'app.nodeEnv',
   port: 'app.port',
+  publicApiOrigin: 'app.publicApiOrigin',
+  corsOrigins: 'app.corsOrigins',
+  trustProxy: 'app.trustProxy',
 
   dbConnectionString: 'database.connectionString',
 
@@ -11,6 +14,9 @@ export const APP_CONFIG = {
   jwtRememberMeRefreshTokenExpire: 'jwt.rememberMeRefreshTokenExpire',
 
   bcryptRounds: 'security.bcryptRounds',
+  passwordDenylistPath: 'security.passwordDenylistPath',
+  rateLimitSourceSecret: 'security.rateLimitSourceSecret',
+  refreshCookieSecure: 'security.refreshCookieSecure',
 
   cacheRedisUrl: 'cache.redisUrl',
   cacheTtl: 'cache.ttl',

@@ -111,6 +111,19 @@ model RefreshSession {
   @@map("refresh_sessions")
 }
 
+model AuthRateLimitBucket {
+  sourceHash      String   @map("source_hash") @db.VarChar(64)
+  policy          String   @db.VarChar(50)
+  windowStartedAt DateTime @map("window_started_at")
+  attemptCount    Int      @default(0) @map("attempt_count")
+  expiresAt       DateTime @map("expires_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@id([sourceHash, policy])
+  @@index([expiresAt])
+  @@map("auth_rate_limit_buckets")
+}
+
 model AuditLog {
   id          String   @id @default(uuid())
   actorUserId String   @map("actor_user_id")
