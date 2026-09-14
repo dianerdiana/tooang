@@ -174,6 +174,7 @@ model Place {
 
   @@index([isPublished, deletedAt, createdAt])
   @@index([type, isPublished, deletedAt])
+  @@index([city, isPublished, deletedAt])
   @@map("places")
 }
 

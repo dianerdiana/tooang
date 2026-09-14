@@ -109,6 +109,9 @@ describe('PlaceMembersService', () => {
       PlaceMemberRole.CASHIER,
       expect.anything(),
     );
-    expect(audit.append).toHaveBeenCalledWith(expect.any(Object), expect.anything());
+    expect(audit.append).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'PLACE_MEMBER_REACTIVATED' }),
+      expect.anything(),
+    );
   });
 });

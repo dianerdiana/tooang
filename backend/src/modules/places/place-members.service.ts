@@ -37,7 +37,12 @@ export class PlaceMembersService {
     role: PlaceMemberRole,
   ) {
     return this.inSerializableTransaction(async (tx) => {
-      await this.access.assertPermission(actor, placeId, this.assignmentPermission(role), tx);
+      const access = await this.access.assertPermission(
+        actor,
+        placeId,
+        this.assignmentPermission(role),
+        tx,
+      );
       const target = await this.repository.findActiveUser(publicUserId, tx);
       if (!target) throw new NotFoundException('User not found');
 
@@ -64,7 +69,11 @@ export class PlaceMembersService {
       await this.audit.append(
         {
           actorUserId: actor.id,
-          action: existing ? 'PLACE_MEMBER_ROLE_UPDATED' : 'PLACE_MEMBER_ASSIGNED',
+          action: !existing
+            ? 'PLACE_MEMBER_ASSIGNED'
+            : existing.revokedAt
+              ? 'PLACE_MEMBER_REACTIVATED'
+              : 'PLACE_MEMBER_ROLE_UPDATED',
           targetType: 'PlaceMember',
           targetId: updated.id,
           beforeData: existing
@@ -74,6 +83,27 @@ export class PlaceMembersService {
         },
         tx,
       );
+      if (access.source === 'platform') {
+        await this.audit.append(
+          {
+            actorUserId: actor.id,
+            action: 'ADMIN_CROSS_PLACE_MUTATION',
+            targetType: 'PlaceMember',
+            targetId: updated.id,
+            afterData: {
+              operation: existing?.revokedAt
+                ? 'PLACE_MEMBER_REACTIVATED'
+                : existing
+                  ? 'PLACE_MEMBER_ROLE_UPDATED'
+                  : 'PLACE_MEMBER_ASSIGNED',
+              permission: access.permission,
+              placeId,
+              changedFields: ['role', 'revokedAt'],
+            },
+          },
+          tx,
+        );
+      }
       return this.toResponse(updated);
     });
   }
@@ -86,7 +116,7 @@ export class PlaceMembersService {
       const membership = await this.repository.findMembership(placeId, target.id, tx);
       if (!membership || membership.revokedAt) throw new NotFoundException('Membership not found');
 
-      await this.access.assertPermission(
+      const access = await this.access.assertPermission(
         actor,
         placeId,
         this.revocationPermission(membership.role),
@@ -112,6 +142,23 @@ export class PlaceMembersService {
         },
         tx,
       );
+      if (access.source === 'platform') {
+        await this.audit.append(
+          {
+            actorUserId: actor.id,
+            action: 'ADMIN_CROSS_PLACE_MUTATION',
+            targetType: 'PlaceMember',
+            targetId: membership.id,
+            afterData: {
+              operation: 'PLACE_MEMBER_REVOKED',
+              permission: access.permission,
+              placeId,
+              changedFields: ['revokedAt'],
+            },
+          },
+          tx,
+        );
+      }
       return this.toResponse(revoked);
     });
   }
@@ -132,7 +179,10 @@ export class PlaceMembersService {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === 'P2002' || error.code === 'P2034')
+      ) {
         throw new ConflictException('Concurrent membership change; retry the request');
       }
       throw error;
