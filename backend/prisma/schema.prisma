@@ -88,7 +88,7 @@ model User {
 
   @@index([platformRole, deletedAt])
   @@index([deletedAt, createdAt])
-  @@index([deletionRequestedAt])
+  @@index([anonymizedAt, deletionRequestedAt])
   @@map("users")
 }
 
@@ -124,6 +124,7 @@ model AuditLog {
 
   @@index([actorUserId, createdAt])
   @@index([targetType, targetId, createdAt])
+  @@index([createdAt])
   @@map("audit_logs")
 }
 
@@ -247,6 +248,7 @@ model MenuCategory {
   menuItems      MenuItem[]
 
   @@unique([placeId, normalizedName])
+  @@unique([id, placeId])
   @@index([placeId, isActive, deletedAt, sortOrder])
   @@map("menu_categories")
 }
@@ -266,14 +268,15 @@ model MenuItem {
   updatedAt    DateTime         @updatedAt @map("updated_at")
   deletedAt    DateTime?        @map("deleted_at")
   place        Place            @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  category     MenuCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  category     MenuCategory     @relation(fields: [categoryId, placeId], references: [id, placeId], onDelete: Restrict)
   imageAsset   MediaAsset?      @relation(fields: [imageAssetId], references: [id], onDelete: SetNull)
   reviews      MenuItemReview[]
   cartItems    CartItem[]
   orderItems   OrderItem[]
 
-  @@index([placeId, type, isAvailable, deletedAt])
-  @@index([categoryId, isAvailable, deletedAt])
+  @@unique([id, placeId])
+  @@index([placeId, type, isAvailable, deletedAt, sortOrder])
+  @@index([categoryId, isAvailable, deletedAt, sortOrder])
   @@map("menu_items")
 }
 
@@ -327,6 +330,7 @@ model Cart {
   items     CartItem[]
 
   @@unique([userId, placeId])
+  @@unique([id, placeId])
   @@index([placeId])
   @@map("carts")
 }
@@ -334,13 +338,14 @@ model Cart {
 model CartItem {
   id         String   @id @default(uuid())
   cartId     String   @map("cart_id")
+  placeId    String   @map("place_id")
   menuItemId String   @map("menu_item_id")
   quantity   Int      @default(1)
   note       String?  @db.VarChar(500)
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
-  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  cart       Cart     @relation(fields: [cartId, placeId], references: [id, placeId], onDelete: Cascade)
+  menuItem   MenuItem @relation(fields: [menuItemId, placeId], references: [id, placeId], onDelete: Cascade)
 
   @@unique([cartId, menuItemId])
   @@index([menuItemId])
@@ -362,7 +367,7 @@ model Order {
   customerNote           String?          @map("customer_note") @db.VarChar(500)
   cancellationReason     String?          @map("cancellation_reason") @db.VarChar(500)
   subtotal               Decimal          @db.Decimal(15, 2)
-  expiresAt              DateTime         @map("expires_at")
+  expiresAt              DateTime         @default(dbgenerated("CURRENT_TIMESTAMP + INTERVAL '15 minutes'")) @map("expires_at")
   verificationDisabledAt DateTime?        @map("verification_disabled_at")
   confirmedAt            DateTime?        @map("confirmed_at")
   completedAt            DateTime?        @map("completed_at")
@@ -379,6 +384,7 @@ model Order {
   @@index([userId, createdAt])
   @@index([placeId, status, createdAt])
   @@index([status, expiresAt])
+  @@index([createdAt])
   @@map("orders")
 }
 
@@ -386,7 +392,7 @@ model OrderItem {
   id         String       @id @default(uuid())
   orderId    String       @map("order_id")
   menuItemId String?      @map("menu_item_id")
-  itemName   String       @map("item_name")
+  itemName   String       @map("item_name") @db.VarChar(120)
   itemType   MenuItemType @map("item_type")
   unitPrice  Decimal      @map("unit_price") @db.Decimal(15, 2)
   quantity   Int
@@ -409,7 +415,7 @@ model IdempotencyKey {
   responseStatus Int      @map("response_status")
   responseBody   Json     @map("response_body")
   createdAt      DateTime @default(now()) @map("created_at")
-  expiresAt      DateTime @map("expires_at")
+  expiresAt      DateTime @default(dbgenerated("CURRENT_TIMESTAMP + INTERVAL '24 hours'")) @map("expires_at")
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, endpoint, key])
