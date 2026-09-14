@@ -44,6 +44,9 @@ describe('UsersService', () => {
     const result = await service.getMe(actor(PlatformRole.USER));
 
     expect(result.permissions).toContain('profile.read');
+    expect(result.permissions).not.toContain('place.read');
+    expect(result.permissions).not.toContain('table.read');
+    expect(result.permissions).not.toContain('place_member.read');
     expect(result.placeMemberships[0].permissions).toContain('order.confirm');
     expect(result).not.toHaveProperty('id');
   });

@@ -1,6 +1,6 @@
 import { Controller, Delete, Get, HttpCode, HttpStatus, Patch, Post, Put } from '@nestjs/common';
 
-import type { AuthenticatedUser } from '@/common/auth';
+import { type AuthenticatedUser, PERMISSION } from '@/common/auth';
 import { CurrentUser, RequirePermissions, ZodBody, ZodParam, ZodQuery } from '@/common/decorators';
 import { HttpResponse } from '@/common/responses';
 
@@ -21,14 +21,14 @@ export class MeController {
   constructor(private readonly service: UsersService) {}
 
   @Get()
-  @RequirePermissions('profile.read')
+  @RequirePermissions(PERMISSION.PROFILE_READ)
   async getMe(@CurrentUser() actor: AuthenticatedUser) {
     const user = await this.service.getMe(actor);
     return HttpResponse.success({ message: 'Profile retrieved', data: { user } });
   }
 
   @Patch()
-  @RequirePermissions('profile.update')
+  @RequirePermissions(PERMISSION.PROFILE_UPDATE)
   async updateMe(
     @CurrentUser() actor: AuthenticatedUser,
     @ZodBody(updateMeSchema) input: UpdateMeInput,
@@ -38,7 +38,7 @@ export class MeController {
   }
 
   @Post('account-deletion-requests')
-  @RequirePermissions('account.deletion.request')
+  @RequirePermissions(PERMISSION.ACCOUNT_DELETION_REQUEST)
   @HttpCode(HttpStatus.ACCEPTED)
   async requestDeletion(@CurrentUser() actor: AuthenticatedUser) {
     const data = await this.service.requestDeletion(actor);
@@ -51,7 +51,7 @@ export class UsersController {
   constructor(private readonly service: UsersService) {}
 
   @Get()
-  @RequirePermissions('user.read')
+  @RequirePermissions(PERMISSION.USER_READ)
   async list(@ZodQuery(listUsersSchema) query: ListUsersInput) {
     const result = await this.service.list(query);
     return HttpResponse.success({
@@ -62,14 +62,14 @@ export class UsersController {
   }
 
   @Get(':userId')
-  @RequirePermissions('user.read')
+  @RequirePermissions(PERMISSION.USER_READ)
   async get(@ZodParam(userIdParamSchema) params: UserIdParam) {
     const user = await this.service.get(params.userId);
     return HttpResponse.success({ message: 'User retrieved', data: { user } });
   }
 
   @Put(':userId/platform-role')
-  @RequirePermissions('platform_role.update')
+  @RequirePermissions(PERMISSION.PLATFORM_ROLE_UPDATE)
   async updatePlatformRole(
     @CurrentUser() actor: AuthenticatedUser,
     @ZodParam(userIdParamSchema) params: UserIdParam,
@@ -80,7 +80,7 @@ export class UsersController {
   }
 
   @Delete(':userId')
-  @RequirePermissions('user.deactivate')
+  @RequirePermissions(PERMISSION.USER_DEACTIVATE)
   @HttpCode(HttpStatus.OK)
   async deactivate(
     @CurrentUser() actor: AuthenticatedUser,

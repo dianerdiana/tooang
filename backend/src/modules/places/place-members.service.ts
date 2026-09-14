@@ -2,7 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 
 import { PlaceMemberRole, Prisma } from '@/generated/prisma/client';
 
-import type { AuthenticatedUser, Permission } from '@/common/auth';
+import { type AuthenticatedUser, PERMISSION, type Permission } from '@/common/auth';
 
 import { AuditService } from '@/modules/audit/audit.service';
 
@@ -21,7 +21,7 @@ export class PlaceMembersService {
   ) {}
 
   async list(actor: AuthenticatedUser, placeId: string) {
-    const access = await this.access.assertPermission(actor, placeId, 'place_member.read');
+    const access = await this.access.assertPermission(actor, placeId, PERMISSION.PLACE_MEMBER_READ);
     const onlyUserId =
       access.scope === 'membership' && access.membershipRole === PlaceMemberRole.CASHIER
         ? actor.id
@@ -80,7 +80,7 @@ export class PlaceMembersService {
 
   async revoke(actor: AuthenticatedUser, placeId: string, publicUserId: string) {
     return this.inSerializableTransaction(async (tx) => {
-      await this.access.assertPermission(actor, placeId, 'place_member.read', tx);
+      await this.access.assertPermission(actor, placeId, PERMISSION.PLACE_MEMBER_READ, tx);
       const target = await this.repository.findActiveUser(publicUserId, tx);
       if (!target) throw new NotFoundException('User not found');
       const membership = await this.repository.findMembership(placeId, target.id, tx);
@@ -117,11 +117,11 @@ export class PlaceMembersService {
   }
 
   private assignmentPermission(role: PlaceMemberRole): Permission {
-    return role === PlaceMemberRole.OWNER ? 'owner.assign' : 'cashier.assign';
+    return role === PlaceMemberRole.OWNER ? PERMISSION.OWNER_ASSIGN : PERMISSION.CASHIER_ASSIGN;
   }
 
   private revocationPermission(role: PlaceMemberRole): Permission {
-    return role === PlaceMemberRole.OWNER ? 'owner.revoke' : 'cashier.revoke';
+    return role === PlaceMemberRole.OWNER ? PERMISSION.OWNER_REVOKE : PERMISSION.CASHIER_REVOKE;
   }
 
   private async inSerializableTransaction<T>(

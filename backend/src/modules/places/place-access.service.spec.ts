@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 
 import { jest } from '@jest/globals';
 
+import { PERMISSION } from '@/common/auth';
 import {
   PlaceMemberRole,
   PlatformRole,
@@ -26,10 +27,10 @@ describe('PlaceAccessService', () => {
     const service = new PlaceAccessService(repository);
 
     await expect(
-      service.assertPermission(actor(PlatformRole.ADMIN), 'place-id', 'place.update'),
+      service.assertPermission(actor(PlatformRole.ADMIN), 'place-id', PERMISSION.PLACE_UPDATE),
     ).resolves.toEqual({ scope: 'global' });
     await expect(
-      service.assertPermission(actor(PlatformRole.ADMIN), 'place-id', 'order.confirm'),
+      service.assertPermission(actor(PlatformRole.ADMIN), 'place-id', PERMISSION.ORDER_CONFIRM),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -43,12 +44,14 @@ describe('PlaceAccessService', () => {
     } as unknown as PlacesRepository;
     const service = new PlaceAccessService(repository);
 
-    await expect(service.assertPermission(actor(), 'place-id', 'order.confirm')).resolves.toEqual({
+    await expect(
+      service.assertPermission(actor(), 'place-id', PERMISSION.ORDER_CONFIRM),
+    ).resolves.toEqual({
       scope: 'membership',
       membershipRole: PlaceMemberRole.CASHIER,
     });
     await expect(
-      service.assertPermission(actor(), 'other-place', 'order.confirm'),
+      service.assertPermission(actor(), 'other-place', PERMISSION.ORDER_CONFIRM),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -59,7 +62,7 @@ describe('PlaceAccessService', () => {
     const service = new PlaceAccessService(repository);
 
     await expect(
-      service.assertPermission(actor(PlatformRole.SUPER_ADMIN), 'missing', 'place.read'),
+      service.assertPermission(actor(PlatformRole.SUPER_ADMIN), 'missing', PERMISSION.PLACE_READ),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

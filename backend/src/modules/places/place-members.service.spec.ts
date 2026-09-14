@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 
 import { jest } from '@jest/globals';
 
+import { PERMISSION } from '@/common/auth';
 import { PlaceMemberRole, PlatformRole } from '@/generated/prisma/client';
 
 import type { PlaceAccessService } from './place-access.service';
@@ -71,14 +72,14 @@ describe('PlaceMembersService', () => {
       1,
       actor,
       'place-id',
-      'cashier.assign',
+      PERMISSION.CASHIER_ASSIGN,
       expect.anything(),
     );
     expect(access.assertPermission).toHaveBeenNthCalledWith(
       2,
       actor,
       'place-id',
-      'owner.revoke',
+      PERMISSION.OWNER_REVOKE,
       expect.anything(),
     );
   });

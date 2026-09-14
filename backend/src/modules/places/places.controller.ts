@@ -1,6 +1,6 @@
 import { Controller, Post } from '@nestjs/common';
 
-import type { AuthenticatedUser } from '@/common/auth';
+import { type AuthenticatedUser, PERMISSION } from '@/common/auth';
 import { CurrentUser, RequirePermissions, ZodBody } from '@/common/decorators';
 import { HttpResponse } from '@/common/responses';
 
@@ -12,7 +12,7 @@ export class PlacesController {
   constructor(private readonly service: PlacesService) {}
 
   @Post()
-  @RequirePermissions('place.create')
+  @RequirePermissions(PERMISSION.PLACE_CREATE)
   async create(
     @CurrentUser() actor: AuthenticatedUser,
     @ZodBody(createPlaceSchema) input: CreatePlaceInput,
