@@ -16,6 +16,7 @@ import { MediaModule } from './modules/media/media.module';
 import { MenusModule } from './modules/menus/menus.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PlacesModule } from './modules/places/places.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UsersModule } from './modules/users/users.module';
 
 import { AppController } from './app.controller';
@@ -34,6 +35,7 @@ import { AppService } from './app.service';
     MenusModule,
     CartsModule,
     OrdersModule,
+    ReviewsModule,
     MediaModule,
   ],
   controllers: [AppController],
