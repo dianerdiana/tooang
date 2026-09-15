@@ -42,4 +42,25 @@ describe('AuthRateLimitService', () => {
       expect.any(Date),
     );
   });
+
+  it('applies the public verification policy', async () => {
+    const repository = {
+      consume: jest.fn(() =>
+        Promise.resolve([
+          { policy: 'order-verification-1m', attemptCount: 1, windowStartedAt: new Date() },
+        ]),
+      ),
+    };
+    const service = new AuthRateLimitService(
+      repository as unknown as AuthRateLimitRepository,
+      logger as never,
+      new ConfigService({ security: { rateLimitSourceSecret: 'x'.repeat(32) } }),
+    );
+    await expect(service.consume('order-verification', '127.0.0.1')).resolves.toBeNull();
+    expect(repository.consume).toHaveBeenCalledWith(
+      expect.any(String),
+      [{ name: 'order-verification-1m', limit: 30, windowSeconds: 60 }],
+      expect.any(Date),
+    );
+  });
 });

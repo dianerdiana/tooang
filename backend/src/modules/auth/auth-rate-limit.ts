@@ -1,6 +1,7 @@
 import { SetMetadata } from '@nestjs/common';
 
-export type AuthRateLimitPolicy = 'registration' | 'login' | 'refresh' | 'logout';
+export type AuthRateLimitPolicy =
+  'registration' | 'login' | 'refresh' | 'logout' | 'order-verification' | 'order-code-lookup';
 
 export const AUTH_RATE_LIMIT_KEY = 'tooang:auth-rate-limit';
 export const AuthRateLimit = (policy: AuthRateLimitPolicy) =>
@@ -17,4 +18,6 @@ export const AUTH_RATE_LIMIT_POLICIES: Record<
   ],
   refresh: [{ name: 'refresh-15m', limit: 30, windowSeconds: 900 }],
   logout: [{ name: 'logout-15m', limit: 60, windowSeconds: 900 }],
+  'order-verification': [{ name: 'order-verification-1m', limit: 30, windowSeconds: 60 }],
+  'order-code-lookup': [{ name: 'order-code-lookup-1m', limit: 60, windowSeconds: 60 }],
 };

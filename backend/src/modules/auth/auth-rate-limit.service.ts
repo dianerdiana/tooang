@@ -67,8 +67,8 @@ export class AuthRateLimitService implements OnModuleInit, OnModuleDestroy {
         return Math.max(longest, remaining);
       }, 0);
       if (retryAfter) {
-        this.logger.warn('Authentication rate limit exceeded', {
-          event: 'auth.rate_limit.exceeded',
+        this.logger.warn('Request rate limit exceeded', {
+          event: 'request.rate_limit.exceeded',
           policy: policyName,
           sourceHash,
           requestId,
@@ -76,8 +76,8 @@ export class AuthRateLimitService implements OnModuleInit, OnModuleDestroy {
       }
       return retryAfter || null;
     } catch (error) {
-      this.logger.error('Authentication rate-limit datastore failure', this.errorTrace(error));
-      throw new ServiceUnavailableException('Authentication service temporarily unavailable');
+      this.logger.error('Request rate-limit datastore failure', this.errorTrace(error));
+      throw new ServiceUnavailableException('Rate-limit service temporarily unavailable');
     }
   }
 
@@ -85,7 +85,7 @@ export class AuthRateLimitService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.repository.deleteExpired(new Date());
     } catch (error) {
-      this.logger.error('Authentication rate-limit cleanup failed', this.errorTrace(error));
+      this.logger.error('Request rate-limit cleanup failed', this.errorTrace(error));
     }
   }
 
