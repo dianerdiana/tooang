@@ -619,6 +619,50 @@ describeDatabase('Database constraints (PostgreSQL E2E)', () => {
     );
   });
 
+  it('enforces upload-intent target and size consistency', async () => {
+    const common = {
+      actorUserId: userId,
+      placeId,
+      providerTokenHash: id().replaceAll('-', ''),
+      expectedFileName: 'asset.png',
+      expectedFilePath: '/tooang/asset.png',
+      expectedMimeType: 'image/png',
+      expiresAt: new Date(Date.now() + 300_000),
+    };
+    await expectDatabaseRejection(
+      prisma.mediaUploadIntent.create({
+        data: {
+          ...common,
+          target: 'PLACE_LOGO',
+          menuItemId,
+          expectedSizeBytes: 100,
+        },
+      }),
+    );
+    await expectDatabaseRejection(
+      prisma.mediaUploadIntent.create({
+        data: {
+          ...common,
+          providerTokenHash: id().replaceAll('-', ''),
+          target: 'MENU_ITEM_IMAGE',
+          menuItemId,
+          expectedSizeBytes: 5_242_881,
+        },
+      }),
+    );
+    await expectDatabaseRejection(
+      prisma.mediaUploadIntent.create({
+        data: {
+          ...common,
+          providerTokenHash: id().replaceAll('-', ''),
+          target: 'MENU_ITEM_IMAGE',
+          menuItemId: otherMenuItemId,
+          expectedSizeBytes: 100,
+        },
+      }),
+    );
+  });
+
   it('installs the retention and active-data indexes', async () => {
     const indexes = await prisma.$queryRaw<Array<{ indexname: string }>>`
       SELECT indexname
@@ -635,6 +679,7 @@ describeDatabase('Database constraints (PostgreSQL E2E)', () => {
       'idempotency_keys_expires_at_idx',
       'place_members_place_id_revoked_at_role_idx',
       'place_members_user_id_revoked_at_role_idx',
+      'media_upload_intents_completed_at_expires_at_idx',
     ]) {
       expect(names.has(expectedName)).toBe(true);
     }

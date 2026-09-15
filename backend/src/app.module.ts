@@ -11,6 +11,8 @@ import { LibModule } from './lib';
 
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
+import { MediaModule } from './modules/media/media.module';
+import { MenusModule } from './modules/menus/menus.module';
 import { PlacesModule } from './modules/places/places.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -27,6 +29,8 @@ import { AppService } from './app.service';
     AuthModule,
     UsersModule,
     PlacesModule,
+    MenusModule,
+    MediaModule,
   ],
   controllers: [AppController],
   providers: [

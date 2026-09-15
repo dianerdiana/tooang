@@ -77,6 +77,26 @@ export default () => {
       : rawTrustProxy.split(',').map((value) => value.trim())
     : false;
 
+  const imageKitEnabled = process.env.IMAGEKIT_ENABLED === 'true';
+  if (process.env.IMAGEKIT_ENABLED && !['true', 'false'].includes(process.env.IMAGEKIT_ENABLED)) {
+    throw new Error('IMAGEKIT_ENABLED must be true or false');
+  }
+  if (nodeEnv === 'production' && !imageKitEnabled) {
+    throw new Error('IMAGEKIT_ENABLED must be true in production');
+  }
+  const imageKitPublicKey = process.env.IMAGEKIT_PUBLIC_KEY?.trim();
+  const imageKitPrivateKey = process.env.IMAGEKIT_PRIVATE_KEY?.trim();
+  const imageKitUrlEndpoint = process.env.IMAGEKIT_URL_ENDPOINT?.trim();
+  if (imageKitEnabled && (!imageKitPublicKey || !imageKitPrivateKey || !imageKitUrlEndpoint)) {
+    throw new Error('Enabled ImageKit requires public key, private key, and URL endpoint');
+  }
+  if (imageKitUrlEndpoint && new URL(imageKitUrlEndpoint).protocol !== 'https:') {
+    throw new Error('IMAGEKIT_URL_ENDPOINT must use HTTPS');
+  }
+  const imageKitUploadFolder = `/${(process.env.IMAGEKIT_UPLOAD_FOLDER ?? '/tooang')
+    .trim()
+    .replace(/^\/+|\/+$/g, '')}`;
+
   return {
     app: {
       nodeEnv,
@@ -107,6 +127,13 @@ export default () => {
     cache: {
       redisUrl: process.env.CACHE_REDIS_URL,
       ttl: Number(process.env.CACHE_TTL ?? 60),
+    },
+    imageKit: {
+      enabled: imageKitEnabled,
+      publicKey: imageKitPublicKey,
+      privateKey: imageKitPrivateKey,
+      urlEndpoint: imageKitUrlEndpoint?.replace(/\/+$/, ''),
+      uploadFolder: imageKitUploadFolder,
     },
   };
 };

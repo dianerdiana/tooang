@@ -291,11 +291,21 @@ export class PlacesService {
     throw error;
   }
 
-  private toResponse<T extends { latitude: unknown; longitude: unknown }>(place: T) {
+  private toResponse<
+    T extends {
+      latitude: unknown;
+      longitude: unknown;
+      logoAsset?: { status: string; deliveryUrl: string } | null;
+      coverAsset?: { status: string; deliveryUrl: string } | null;
+    },
+  >(place: T) {
+    const { logoAsset, coverAsset, ...safePlace } = place;
     return {
-      ...place,
+      ...safePlace,
       latitude: place.latitude === null ? null : Number(place.latitude),
       longitude: place.longitude === null ? null : Number(place.longitude),
+      logoUrl: logoAsset?.status === 'ACTIVE' ? logoAsset.deliveryUrl : null,
+      coverUrl: coverAsset?.status === 'ACTIVE' ? coverAsset.deliveryUrl : null,
     };
   }
 }

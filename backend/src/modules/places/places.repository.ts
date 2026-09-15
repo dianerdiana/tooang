@@ -38,6 +38,8 @@ export const SAFE_PLACE_SELECT = {
   isOrderingEnabled: true,
   createdAt: true,
   updatedAt: true,
+  logoAsset: { select: { status: true, deliveryUrl: true } },
+  coverAsset: { select: { status: true, deliveryUrl: true } },
 } satisfies Prisma.PlaceSelect;
 
 const BUSINESS_HOUR_SELECT = {

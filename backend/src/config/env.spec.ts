@@ -17,6 +17,7 @@ describe('environment authentication configuration', () => {
       BCRYPT_ROUNDS: '4',
       PUBLIC_API_ORIGIN: 'http://localhost:3000',
       CORS_ALLOWED_ORIGINS: 'http://localhost:5173',
+      IMAGEKIT_ENABLED: 'false',
     };
     delete process.env.TRUST_PROXY;
   });
@@ -57,6 +58,20 @@ describe('environment authentication configuration', () => {
     expect(env).toThrow('TRUST_PROXY');
 
     process.env.TRUST_PROXY = '1';
+    process.env.IMAGEKIT_ENABLED = 'true';
+    process.env.IMAGEKIT_PUBLIC_KEY = 'public_test';
+    process.env.IMAGEKIT_PRIVATE_KEY = 'private_test';
+    process.env.IMAGEKIT_URL_ENDPOINT = 'https://ik.imagekit.io/test';
     expect(env().security.refreshCookieSecure).toBe(true);
+  });
+
+  it('allows disabled media locally and requires complete HTTPS ImageKit configuration', () => {
+    expect(env().imageKit.enabled).toBe(false);
+    process.env.IMAGEKIT_ENABLED = 'true';
+    expect(env).toThrow('requires public key');
+    process.env.IMAGEKIT_PUBLIC_KEY = 'public_test';
+    process.env.IMAGEKIT_PRIVATE_KEY = 'private_test';
+    process.env.IMAGEKIT_URL_ENDPOINT = 'http://example.com';
+    expect(env).toThrow('must use HTTPS');
   });
 });

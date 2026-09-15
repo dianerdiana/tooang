@@ -65,6 +65,12 @@ enum MediaAssetStatus {
   DELETED
 }
 
+enum MediaTargetType {
+  PLACE_LOGO
+  PLACE_COVER
+  MENU_ITEM_IMAGE
+}
+
 model User {
   id                  String           @id @default(uuid())
   userId              String           @unique @map("id_user")
@@ -85,6 +91,7 @@ model User {
   idempotencyKeys     IdempotencyKey[]
   refreshSessions     RefreshSession[]
   auditLogs           AuditLog[]       @relation("AuditActor")
+  mediaUploadIntents  MediaUploadIntent[]
 
   @@index([platformRole, deletedAt])
   @@index([deletedAt, createdAt])
@@ -171,6 +178,7 @@ model Place {
   orders            Order[]
   logoAsset         MediaAsset?    @relation("PlaceLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
   coverAsset        MediaAsset?    @relation("PlaceCover", fields: [coverAssetId], references: [id], onDelete: SetNull)
+  mediaUploadIntents MediaUploadIntent[]
 
   @@index([isPublished, deletedAt, createdAt])
   @@index([type, isPublished, deletedAt])
@@ -242,9 +250,37 @@ model MediaAsset {
   logoForPlace       Place?           @relation("PlaceLogo")
   coverForPlace      Place?           @relation("PlaceCover")
   menuItem           MenuItem?
+  completedByIntent  MediaUploadIntent?
 
   @@index([status, cleanupRequestedAt])
   @@map("media_assets")
+}
+
+model MediaUploadIntent {
+  id                   String          @id @default(uuid())
+  actorUserId          String          @map("actor_user_id")
+  placeId              String          @map("place_id")
+  menuItemId           String?         @map("menu_item_id")
+  target               MediaTargetType
+  providerTokenHash    String          @unique @map("provider_token_hash") @db.VarChar(64)
+  expectedFileName     String          @map("expected_file_name") @db.VarChar(255)
+  expectedFilePath     String          @map("expected_file_path")
+  expectedMimeType     String          @map("expected_mime_type") @db.VarChar(50)
+  expectedSizeBytes    Int             @map("expected_size_bytes")
+  expiresAt            DateTime        @map("expires_at")
+  completedAt          DateTime?       @map("completed_at")
+  completedAssetId     String?         @unique @map("completed_asset_id")
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
+  actor                 User            @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  place                 Place           @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  menuItem              MenuItem?       @relation(fields: [menuItemId, placeId], references: [id, placeId], onDelete: Cascade)
+  completedAsset        MediaAsset?     @relation(fields: [completedAssetId], references: [id], onDelete: Restrict)
+
+  @@index([actorUserId, expiresAt])
+  @@index([completedAt, expiresAt])
+  @@index([placeId, target])
+  @@map("media_upload_intents")
 }
 
 model MenuCategory {
@@ -287,6 +323,7 @@ model MenuItem {
   reviews      MenuItemReview[]
   cartItems    CartItem[]
   orderItems   OrderItem[]
+  mediaUploadIntents MediaUploadIntent[]
 
   @@unique([id, placeId])
   @@index([placeId, type, isAvailable, deletedAt, sortOrder])
