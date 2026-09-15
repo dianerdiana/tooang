@@ -11,6 +11,8 @@ export type ResponseMeta = {
 export type ApiErrorItem = {
   field?: string;
   message: string;
+  code?: string;
+  resourceId?: string;
 };
 
 export class HttpResponse<TData = unknown> {

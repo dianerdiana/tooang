@@ -6,4 +6,4 @@ export {
   RequirePermissions,
 } from './permissions.decorator';
 export { IS_PUBLIC_KEY, Public } from './public.decorator';
-export { ZodBody, ZodParam, ZodQuery } from './zod.decorator';
+export { ZodBody, ZodHeader, ZodParam, ZodQuery } from './zod.decorator';

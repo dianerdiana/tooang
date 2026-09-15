@@ -15,7 +15,7 @@ import { WinstonLoggerService } from '@/lib/winston-logger.service';
 type ExceptionBody = {
   message?: string | string[];
   code?: string;
-  details?: Array<{ field?: string; message: string }>;
+  details?: Array<{ field?: string; message: string; code?: string; resourceId?: string }>;
 };
 
 const STATUS_CODES: Record<number, string> = {

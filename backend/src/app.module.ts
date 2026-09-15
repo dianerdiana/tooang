@@ -11,8 +11,10 @@ import { LibModule } from './lib';
 
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
+import { CartsModule } from './modules/carts/carts.module';
 import { MediaModule } from './modules/media/media.module';
 import { MenusModule } from './modules/menus/menus.module';
+import { OrdersModule } from './modules/orders/orders.module';
 import { PlacesModule } from './modules/places/places.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -30,6 +32,8 @@ import { AppService } from './app.service';
     UsersModule,
     PlacesModule,
     MenusModule,
+    CartsModule,
+    OrdersModule,
     MediaModule,
   ],
   controllers: [AppController],
