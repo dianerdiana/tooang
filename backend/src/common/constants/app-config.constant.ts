@@ -18,6 +18,8 @@ export const APP_CONFIG = {
   rateLimitSourceSecret: 'security.rateLimitSourceSecret',
   refreshCookieSecure: 'security.refreshCookieSecure',
 
+  filesystemLoggingEnabled: 'logging.filesystemEnabled',
+
   cacheRedisUrl: 'cache.redisUrl',
   cacheTtl: 'cache.ttl',
 } as const;

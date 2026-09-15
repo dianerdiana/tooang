@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { paginationFields } from '@/common/schemas';
+
 const unicodeLength = (value: string) => Array.from(value).length;
 const normalizeUuid = (value: string) => value.toLowerCase();
 const uuid = z.string().uuid().transform(normalizeUuid);
@@ -32,8 +34,7 @@ export const updateReviewSchema = z
 
 export const reviewListSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(20),
+    ...paginationFields,
   })
   .strict();
 

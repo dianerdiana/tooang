@@ -68,7 +68,7 @@ export class PlaceMembersService {
       const updated = await this.repository.setMembership(placeId, target.id, role, tx);
       await this.audit.append(
         {
-          actorUserId: actor.id,
+          actor: { kind: 'USER', userId: actor.id },
           action: !existing
             ? 'PLACE_MEMBER_ASSIGNED'
             : existing.revokedAt
@@ -86,7 +86,7 @@ export class PlaceMembersService {
       if (access.source === 'platform') {
         await this.audit.append(
           {
-            actorUserId: actor.id,
+            actor: { kind: 'USER', userId: actor.id },
             action: 'ADMIN_CROSS_PLACE_MUTATION',
             targetType: 'PlaceMember',
             targetId: updated.id,
@@ -133,7 +133,7 @@ export class PlaceMembersService {
       const revoked = await this.repository.revokeMembership(membership.id, now, tx);
       await this.audit.append(
         {
-          actorUserId: actor.id,
+          actor: { kind: 'USER', userId: actor.id },
           action: 'PLACE_MEMBER_REVOKED',
           targetType: 'PlaceMember',
           targetId: membership.id,
@@ -145,7 +145,7 @@ export class PlaceMembersService {
       if (access.source === 'platform') {
         await this.audit.append(
           {
-            actorUserId: actor.id,
+            actor: { kind: 'USER', userId: actor.id },
             action: 'ADMIN_CROSS_PLACE_MUTATION',
             targetType: 'PlaceMember',
             targetId: membership.id,

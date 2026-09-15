@@ -1,4 +1,8 @@
-import { ConflictException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  ConflictException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 
 import { jest } from '@jest/globals';
 
@@ -174,5 +178,23 @@ describe('MediaService', () => {
     await expect(service.complete(actor, intent.id, 'provider-id')).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
+  });
+
+  it('maps provider rejection to 502 and transport failure to 503', async () => {
+    (imageKit.getFile as jest.Mock).mockRejectedValueOnce(new Error('private provider detail'));
+    await expect(service.complete(actor, intent.id, 'provider-id')).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+
+    (imageKit.getFile as jest.Mock).mockRejectedValueOnce(new Error('private transport detail'));
+    (imageKit.providerErrorCategory as jest.Mock).mockReturnValueOnce('transport');
+    await expect(service.complete(actor, intent.id, 'provider-id')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Media provider operation failed',
+      expect.objectContaining({ category: 'transport', operation: 'get_file' }),
+    );
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain('private transport detail');
   });
 });

@@ -6,7 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 
 import { Prisma } from '@/generated/prisma/client';
 
@@ -25,6 +25,7 @@ const STATUS_CODES: Record<number, string> = {
   404: 'NOT_FOUND',
   409: 'CONFLICT',
   429: 'TOO_MANY_REQUESTS',
+  502: 'BAD_GATEWAY',
   503: 'SERVICE_UNAVAILABLE',
   500: 'INTERNAL_SERVER_ERROR',
 };
@@ -35,10 +36,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
+    const request = host.switchToHttp().getRequest<Request & { route?: { path?: string } }>();
     const normalized = this.normalize(exception);
 
     if (normalized.status >= 500) {
-      this.logger.error('Unhandled request exception', this.errorTrace(exception));
+      this.logger.error('Unhandled request exception', this.errorTrace(exception), {
+        requestId: request.header('x-request-id'),
+        method: request.method,
+        route: (request as unknown as { route?: { path?: string } }).route?.path ?? 'unmatched',
+        status: normalized.status,
+        errorCategory: exception instanceof Error ? exception.name : 'UnknownError',
+      });
     }
 
     response.status(normalized.status).json({
@@ -68,6 +76,24 @@ export class HttpExceptionFilter implements ExceptionFilter {
           code: 'CONFLICT',
         };
       }
+      if (exception.code === 'P2000') {
+        return {
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Input value is too long',
+          code: 'BAD_REQUEST',
+        };
+      }
+    }
+
+    if (
+      exception instanceof Prisma.PrismaClientInitializationError ||
+      exception instanceof Prisma.PrismaClientRustPanicError
+    ) {
+      return {
+        status: HttpStatus.SERVICE_UNAVAILABLE,
+        message: 'Service temporarily unavailable',
+        code: 'SERVICE_UNAVAILABLE',
+      };
     }
 
     if (exception instanceof HttpException) {

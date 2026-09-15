@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import { FulfillmentType, OrderStatus } from '@/generated/prisma/client';
 
+import { paginationFields } from '@/common/schemas';
+
 import { normalizeNote, normalizeUuid } from '@/modules/carts/carts.schema';
 
 const unicodeLength = (value: string) => Array.from(value).length;
@@ -52,24 +54,19 @@ export const idempotencyKeySchema = z
   .max(255)
   .regex(/^[A-Za-z0-9._:-]+$/u, 'Idempotency-Key contains unsupported characters');
 
-const pagination = {
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-};
-
 const orderFilters = {
   status: z.enum(OrderStatus).optional(),
   fulfillmentType: z.enum(FulfillmentType).optional(),
 };
 
 export const listMyOrdersSchema = z
-  .object({ ...pagination, ...orderFilters, placeId: uuid.optional() })
+  .object({ ...paginationFields, ...orderFilters, placeId: uuid.optional() })
   .strict();
 
-export const listPlaceOrdersSchema = z.object({ ...pagination, ...orderFilters }).strict();
+export const listPlaceOrdersSchema = z.object({ ...paginationFields, ...orderFilters }).strict();
 
 export const listGlobalOrdersSchema = z
-  .object({ ...pagination, ...orderFilters, placeId: uuid.optional() })
+  .object({ ...paginationFields, ...orderFilters, placeId: uuid.optional() })
   .strict();
 
 export const orderIdParamSchema = z.object({ orderId: uuid }).strict();

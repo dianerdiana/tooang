@@ -62,7 +62,7 @@ export class PlacesService {
           const membershipId = place.members[0].id;
           await this.audit.append(
             {
-              actorUserId: actor.id,
+              actor: { kind: 'USER', userId: actor.id },
               action: 'PLACE_CREATED',
               targetType: 'Place',
               targetId: place.id,
@@ -72,7 +72,7 @@ export class PlacesService {
           );
           await this.audit.append(
             {
-              actorUserId: actor.id,
+              actor: { kind: 'USER', userId: actor.id },
               action: 'PLACE_MEMBER_ASSIGNED',
               targetType: 'PlaceMember',
               targetId: membershipId,
@@ -131,7 +131,7 @@ export class PlacesService {
       if (current.isOrderingEnabled) {
         await this.audit.append(
           {
-            actorUserId: actor.id,
+            actor: { kind: 'USER', userId: actor.id },
             action: 'ORDERING_SETTING_UPDATED',
             targetType: 'Place',
             targetId: placeId,
@@ -182,7 +182,7 @@ export class PlacesService {
       if (!isPublished && place.isOrderingEnabled) {
         await this.audit.append(
           {
-            actorUserId: actor.id,
+            actor: { kind: 'USER', userId: actor.id },
             action: 'ORDERING_SETTING_UPDATED',
             targetType: 'Place',
             targetId: placeId,
@@ -224,7 +224,7 @@ export class PlacesService {
       const updated = await this.repository.updateActivePlace(placeId, { isOrderingEnabled }, tx);
       await this.audit.append(
         {
-          actorUserId: actor.id,
+          actor: { kind: 'USER', userId: actor.id },
           action: 'ORDERING_SETTING_UPDATED',
           targetType: 'Place',
           targetId: placeId,
@@ -256,7 +256,7 @@ export class PlacesService {
     if (access.source !== 'platform') return;
     await this.audit.append(
       {
-        actorUserId: actor.id,
+        actor: { kind: 'USER', userId: actor.id },
         action: 'ADMIN_CROSS_PLACE_MUTATION',
         targetType: 'Place',
         targetId: placeId,

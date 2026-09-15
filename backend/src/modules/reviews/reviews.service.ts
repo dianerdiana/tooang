@@ -262,7 +262,7 @@ export class ReviewsService {
       }
       await this.audit.append(
         {
-          actorUserId: currentActor.id,
+          actor: { kind: 'USER', userId: currentActor.id },
           action: 'REVIEW_MODERATED',
           targetType: type,
           targetId: reviewId,

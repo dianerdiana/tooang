@@ -66,7 +66,7 @@ export class BusinessHoursService {
     if (access.source !== 'platform') return;
     await this.audit.append(
       {
-        actorUserId: actor.id,
+        actor: { kind: 'USER', userId: actor.id },
         action: 'ADMIN_CROSS_PLACE_MUTATION',
         targetType: 'Place',
         targetId: placeId,

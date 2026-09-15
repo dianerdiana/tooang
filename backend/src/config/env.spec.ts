@@ -74,4 +74,24 @@ describe('environment authentication configuration', () => {
     process.env.IMAGEKIT_URL_ENDPOINT = 'http://example.com';
     expect(env).toThrow('must use HTTPS');
   });
+
+  it('rejects invalid ports, database protocols, and origins with paths or credentials', () => {
+    process.env.PORT = '65536';
+    expect(env).toThrow('PORT');
+    process.env.PORT = '3000';
+    process.env.DATABASE_URL = 'mysql://localhost/db';
+    expect(env).toThrow('PostgreSQL');
+    process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
+    process.env.PUBLIC_API_ORIGIN = 'http://user:pass@localhost:3000/path';
+    expect(env).toThrow('without credentials');
+  });
+
+  it('rejects port zero and placeholder secrets in production', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.PORT = '0';
+    expect(env).toThrow('PORT');
+    process.env.PORT = '3000';
+    process.env.JWT_ACCESS_TOKEN = `change-me-${'a'.repeat(32)}`;
+    expect(env).toThrow('placeholder');
+  });
 });

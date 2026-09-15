@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import { PlaceMemberRole, PlaceType } from '@/generated/prisma/client';
 
+import { paginationFields } from '@/common/schemas';
+
 export const RESERVED_PLACE_SLUGS = new Set(['api', 'admin', 'auth', 'me', 'users', 'places']);
 
 const unicodeLength = (value: string) => Array.from(value).length;
@@ -80,8 +82,7 @@ export const updatePlaceSchema = z
 
 export const listPlacesSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(20),
+    ...paginationFields,
     search: z.string().trim().max(120).optional(),
     type: z.enum(PlaceType).optional(),
     city: z.string().trim().max(100).optional(),

@@ -25,16 +25,10 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly logger: WinstonLoggerService;
+  private readonly logQueries: boolean;
 
   constructor(logger: WinstonLoggerService, configService: ConfigService) {
-    const connectionString =
-      configService.get<string>(APP_CONFIG.dbConnectionString) ?? process.env.DATABASE_URL;
-
-    if (!connectionString) {
-      throw new Error(
-        'DATABASE_URL is required. Set it in .env or export it in the shell before starting the app.',
-      );
-    }
+    const connectionString = configService.getOrThrow<string>(APP_CONFIG.dbConnectionString);
 
     const adapter = new PrismaPg({
       connectionString,
@@ -43,13 +37,16 @@ export class PrismaService
     super({ ...clientOptions, adapter });
 
     this.logger = logger;
+    this.logQueries = configService.getOrThrow(APP_CONFIG.nodeEnv) !== 'production';
   }
 
   async onModuleInit() {
     this.$on('info', (e) => this.logger.log(e.message));
     this.$on('warn', (e) => this.logger.warn(e.message));
     this.$on('error', (e) => this.logger.error(e.message));
-    this.$on('query', (e) => this.logger.log(e.query));
+    this.$on('query', (e) => {
+      if (this.logQueries) this.logger.debug(e.query);
+    });
 
     await this.$connect();
   }

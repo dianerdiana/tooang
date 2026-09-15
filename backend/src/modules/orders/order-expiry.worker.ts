@@ -1,6 +1,7 @@
 import { Injectable, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 
 import { WinstonLoggerService } from '../../lib';
+import { OperationalMetricsService } from '../observability/operational-metrics.service';
 
 import { OrderExpiryService } from './order-expiry.service';
 
@@ -14,6 +15,7 @@ export class OrderExpiryWorker implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly expiry: OrderExpiryService,
     private readonly logger: WinstonLoggerService,
+    private readonly metrics: OperationalMetricsService,
   ) {}
 
   onModuleInit(): void {
@@ -42,11 +44,22 @@ export class OrderExpiryWorker implements OnModuleInit, OnModuleDestroy {
         ...result,
         durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
       });
+      if (result.expired) {
+        this.metrics.increment('order_expired_total', { outcome: 'expired' });
+      }
+      this.metrics.increment('lifecycle_job_outcomes_total', {
+        operation: 'order_expiry',
+        outcome: 'success',
+      });
     } catch (error) {
       this.logger.error('Order expiry worker cycle failed', undefined, {
         event: 'order.expiry.failed',
         category: error instanceof Error ? error.name : 'unknown',
         durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+      });
+      this.metrics.increment('lifecycle_job_outcomes_total', {
+        operation: 'order_expiry',
+        outcome: 'failure',
       });
     } finally {
       this.running = false;

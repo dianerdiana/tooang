@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import { MenuItemType, Prisma } from '@/generated/prisma/client';
 
+import { paginationFields } from '@/common/schemas';
+
 const unicodeLength = (value: string) => Array.from(value).length;
 
 export const normalizeCategoryName = (value: string) => value.trim().replace(/\s+/gu, ' ');
@@ -39,11 +41,6 @@ const booleanQuery = z
   .union([z.boolean(), z.enum(['true', 'false'])])
   .transform((value) => (typeof value === 'boolean' ? value : value === 'true'));
 
-const pagination = {
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-};
-
 export const categoryParamSchema = z
   .object({ placeId: z.string().uuid(), categoryId: z.string().uuid() })
   .strict();
@@ -52,7 +49,7 @@ export const menuItemParamSchema = z
   .strict();
 
 export const listCategoriesSchema = z
-  .object({ ...pagination, isActive: booleanQuery.optional() })
+  .object({ ...paginationFields, isActive: booleanQuery.optional() })
   .strict();
 export const createCategorySchema = z
   .object({
@@ -72,7 +69,7 @@ export const updateCategorySchema = z
 
 export const listMenuItemsSchema = z
   .object({
-    ...pagination,
+    ...paginationFields,
     type: z.enum(MenuItemType).optional(),
     categoryId: z.string().uuid().optional(),
     isAvailable: booleanQuery.optional(),

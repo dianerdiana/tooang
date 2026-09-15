@@ -5,6 +5,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
 
@@ -13,6 +14,7 @@ import { MediaTargetType, Prisma } from '@/generated/prisma/client';
 import { type AuthenticatedActor, PERMISSION } from '@/common/auth';
 
 import { AuditService } from '@/modules/audit/audit.service';
+import { OperationalMetricsService } from '@/modules/observability/operational-metrics.service';
 import {
   PlaceAccessService,
   type ResolvedPlaceAccess,
@@ -46,6 +48,7 @@ export class MediaService {
     private readonly audit: AuditService,
     private readonly prisma: PrismaService,
     private readonly logger: WinstonLoggerService,
+    @Optional() private readonly metrics?: OperationalMetricsService,
   ) {}
 
   async createIntent(actor: AuthenticatedActor, input: CreateUploadIntentInput) {
@@ -107,10 +110,21 @@ export class MediaService {
     } catch (error) {
       if (error instanceof ServiceUnavailableException) throw error;
       const category = this.imageKit.providerErrorCategory(error);
+      this.logger.warn('Media provider operation failed', {
+        event: 'provider.operation.failed',
+        provider: 'imagekit',
+        operation: 'get_file',
+        category,
+      });
+      this.metrics?.increment('provider_operation_failures_total', {
+        provider: 'imagekit',
+        operation: 'get_file',
+        outcome: category,
+      });
       if (category === 'provider_rejected') {
-        throw new ConflictException('Uploaded media could not be verified');
+        throw new BadGatewayException('Media provider rejected the request');
       }
-      throw new BadGatewayException('Media provider verification failed');
+      throw new ServiceUnavailableException('Media provider is temporarily unavailable');
     }
     if (!this.matchesIntent(initial, fileId, remote)) {
       if (remote.filePath === initial.expectedFilePath && remote.fileId) {
@@ -316,7 +330,7 @@ export class MediaService {
     if (access.source !== 'platform') return;
     await this.audit.append(
       {
-        actorUserId: actor.id,
+        actor: { kind: 'USER', userId: actor.id },
         action: 'ADMIN_CROSS_PLACE_MUTATION',
         targetType: 'MediaAsset',
         targetId,

@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import { PlatformRole } from '@/generated/prisma/client';
 
+import { paginationFields } from '@/common/schemas';
+
 const unicodeLength = (value: string) => Array.from(value).length;
 
 const fullName = z
@@ -24,8 +26,7 @@ export const userIdParamSchema = z.object({ userId: z.string().min(1).max(100) }
 
 export const listUsersSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(20),
+    ...paginationFields,
     search: z.string().trim().max(100).optional(),
     platformRole: z.enum(PlatformRole).optional(),
     sortBy: z.enum(['createdAt', 'fullName', 'email']).default('createdAt'),

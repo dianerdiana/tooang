@@ -4,6 +4,8 @@ import { Injectable, Optional, UnauthorizedException } from '@nestjs/common';
 
 import { type PlatformRole, Prisma } from '@/generated/prisma/client';
 
+import { OperationalMetricsService } from '@/modules/observability/operational-metrics.service';
+
 import {
   BcryptHashingService,
   PrismaService,
@@ -45,6 +47,7 @@ export class AuthService {
     private readonly passwordPolicy: PasswordPolicyService,
     private readonly prisma: PrismaService,
     @Optional() private readonly logger?: WinstonLoggerService,
+    @Optional() private readonly metrics?: OperationalMetricsService,
   ) {}
 
   async register(input: RegisterInput) {
@@ -77,6 +80,7 @@ export class AuthService {
         event: 'auth.login.failed',
         ...logContext,
       });
+      this.metrics?.increment('auth_failures_total', { outcome: 'invalid_credentials' });
       throw new UnauthorizedException('Invalid email or password');
     }
 
@@ -244,6 +248,7 @@ export class AuthService {
       event: 'auth.refresh.reuse',
       ...logContext,
     });
+    this.metrics?.increment('auth_refresh_reuse_total', { outcome: 'detected' });
   }
 
   private isWriteConflict(error: unknown): boolean {

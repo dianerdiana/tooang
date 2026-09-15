@@ -152,6 +152,11 @@ describeDatabase('Database constraints (PostgreSQL E2E)', () => {
   afterAll(async () => {
     if (!prisma) return;
 
+    await prisma.auditLog.deleteMany({
+      where: {
+        OR: [{ actorUserId: { in: userIds } }, { systemActor: 'retention-cleanup-worker' }],
+      },
+    });
     await prisma.idempotencyKey.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.placeReview.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.menuItemReview.deleteMany({ where: { userId: { in: userIds } } });
@@ -673,6 +678,7 @@ describeDatabase('Database constraints (PostgreSQL E2E)', () => {
 
     for (const expectedName of [
       'audit_logs_created_at_idx',
+      'audit_logs_actor_type_system_actor_created_at_idx',
       'orders_created_at_idx',
       'users_anonymized_at_deletion_requested_at_idx',
       'refresh_sessions_expires_at_idx',
@@ -683,5 +689,42 @@ describeDatabase('Database constraints (PostgreSQL E2E)', () => {
     ]) {
       expect(names.has(expectedName)).toBe(true);
     }
+  });
+
+  it('enforces exactly one USER or SYSTEM audit actor', async () => {
+    await expect(
+      prisma.auditLog.create({
+        data: {
+          actorType: 'SYSTEM',
+          systemActor: 'retention-cleanup-worker',
+          action: 'RETENTION_CLEANUP_COMPLETED',
+          targetType: 'DataRetentionJob',
+          targetId: id(),
+        },
+      }),
+    ).resolves.toBeDefined();
+
+    await expectDatabaseRejection(
+      prisma.auditLog.create({
+        data: {
+          actorType: 'USER',
+          action: 'USER_DEACTIVATED',
+          targetType: 'User',
+          targetId: id(),
+        },
+      }),
+    );
+    await expectDatabaseRejection(
+      prisma.auditLog.create({
+        data: {
+          actorType: 'SYSTEM',
+          actorUserId: userId,
+          systemActor: 'retention-cleanup-worker',
+          action: 'RETENTION_CLEANUP_COMPLETED',
+          targetType: 'DataRetentionJob',
+          targetId: id(),
+        },
+      }),
+    );
   });
 });

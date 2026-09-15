@@ -160,7 +160,7 @@ export class OrderTransitionsService {
 
     await this.audit.append(
       {
-        actorUserId: actor.id,
+        actor: { kind: 'USER', userId: actor.id },
         action: 'ORDER_STATUS_UPDATED',
         targetType: 'Order',
         targetId: order.id,
@@ -172,7 +172,7 @@ export class OrderTransitionsService {
     if (access?.source === 'platform') {
       await this.audit.append(
         {
-          actorUserId: actor.id,
+          actor: { kind: 'USER', userId: actor.id },
           action: 'ADMIN_CROSS_PLACE_MUTATION',
           targetType: 'Order',
           targetId: order.id,

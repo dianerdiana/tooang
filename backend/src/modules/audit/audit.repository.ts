@@ -7,7 +7,9 @@ import { PrismaService } from '../../lib';
 export type AuditDbClient = PrismaService | Prisma.TransactionClient;
 
 export type AuditRecordInput = {
-  actorUserId: string;
+  actorType: 'USER' | 'SYSTEM';
+  actorUserId?: string;
+  systemActor?: string;
   action: string;
   targetType: string;
   targetId: string;
@@ -21,5 +23,9 @@ export class AuditRepository {
 
   append(data: AuditRecordInput, db: AuditDbClient = this.prisma) {
     return db.auditLog.create({ data });
+  }
+
+  appendMany(data: AuditRecordInput[], db: AuditDbClient) {
+    return db.auditLog.createMany({ data });
   }
 }

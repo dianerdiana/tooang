@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -11,6 +12,7 @@ import { Prisma } from '@/generated/prisma/client';
 import type { AuthenticatedActor } from '@/common/auth';
 import { HttpResponse } from '@/common/responses';
 
+import { OperationalMetricsService } from '@/modules/observability/operational-metrics.service';
 import { evaluatePlaceOpen } from '@/modules/places/place-opening-state.service';
 
 import { PrismaService } from '../../lib';
@@ -44,6 +46,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly repository: OrdersRepository,
     private readonly codes: OrderCodeService,
+    @Optional() private readonly metrics?: OperationalMetricsService,
   ) {}
 
   async checkout(
@@ -57,14 +60,21 @@ export class OrdersService {
 
     while (true) {
       try {
-        return await this.prisma.$transaction(
+        const result = await this.prisma.$transaction(
           (tx) => this.checkoutTransaction(actor, idempotencyKey, requestHash, input, tx),
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );
+        this.metrics?.increment('checkout_outcomes_total', {
+          outcome: result.status === 201 ? 'created' : 'replayed',
+        });
+        return result;
       } catch (error) {
         if (this.isGeneratedIdentifierCollision(error)) {
           codeAttempts += 1;
           if (codeAttempts >= MAX_CODE_ATTEMPTS) {
+            this.metrics?.increment('checkout_outcomes_total', {
+              outcome: 'identifier_allocation_failed',
+            });
             throw new ServiceUnavailableException({
               message: 'Unable to allocate a unique order identifier',
               code: 'ORDER_CODE_ALLOCATION_FAILED',
@@ -75,6 +85,9 @@ export class OrdersService {
         if (this.isSerializationFailure(error)) {
           concurrencyAttempts += 1;
           if (concurrencyAttempts >= MAX_CONCURRENCY_ATTEMPTS) {
+            this.metrics?.increment('checkout_outcomes_total', {
+              outcome: 'concurrency_failed',
+            });
             throw new ConflictException({
               message: 'Checkout state changed concurrently; retry the request',
               code: 'CHECKOUT_CONCURRENT_MODIFICATION',
@@ -82,6 +95,7 @@ export class OrdersService {
           }
           continue;
         }
+        this.metrics?.increment('checkout_outcomes_total', { outcome: 'rejected' });
         throw error;
       }
     }

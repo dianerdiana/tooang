@@ -106,7 +106,7 @@ export class UsersService {
           await this.repository.revokeSessions(user.id, now, tx);
           await this.audit.append(
             {
-              actorUserId: user.id,
+              actor: { kind: 'USER', userId: user.id },
               action: 'ACCOUNT_DELETION_REQUESTED',
               targetType: 'User',
               targetId: user.userId,
@@ -175,7 +175,7 @@ export class UsersService {
       const updated = await this.repository.setPlatformRole(target.id, input.platformRole, tx);
       await this.audit.append(
         {
-          actorUserId: actor.id,
+          actor: { kind: 'USER', userId: actor.id },
           action: 'PLATFORM_ROLE_UPDATED',
           targetType: 'User',
           targetId: target.userId,
@@ -218,7 +218,7 @@ export class UsersService {
       await this.repository.revokeSessions(target.id, now, tx);
       await this.audit.append(
         {
-          actorUserId: actor.id,
+          actor: { kind: 'USER', userId: actor.id },
           action: 'USER_DEACTIVATED',
           targetType: 'User',
           targetId: target.userId,

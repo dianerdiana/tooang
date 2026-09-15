@@ -242,7 +242,7 @@ describe('UsersService', () => {
     );
     expect(audit.append).toHaveBeenCalledWith(
       expect.objectContaining({
-        actorUserId: 'target-db-id',
+        actor: { kind: 'USER', userId: 'target-db-id' },
         action: 'ACCOUNT_DELETION_REQUESTED',
         targetId: 'usr_target',
       }),

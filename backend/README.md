@@ -171,32 +171,44 @@ GEMINI_MODEL=gemini-3.5-flash
 GEMINI_FALLBACK_MODEL=gemini-3.1-flash-lite
 CACHE_REDIS_URL=redis://localhost:6379
 CACHE_TTL=60
+
+# Media (required in production)
+IMAGEKIT_ENABLED=false
+# IMAGEKIT_PUBLIC_KEY=<provider-public-key>
+# IMAGEKIT_PRIVATE_KEY=<provider-private-key>
+# IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/<account>
+IMAGEKIT_UPLOAD_FOLDER=/tooang
 ```
 
-| Variable                     | Required | Default                 | Description                                                                             |
-| ---------------------------- | -------- | ----------------------- | --------------------------------------------------------------------------------------- |
-| `NODE_ENV`                   | No       | `development`           | Application environment.                                                                |
-| `PORT`                       | No       | `3000`                  | HTTP server port.                                                                       |
-| `PUBLIC_API_ORIGIN`          | Production | localhost             | Public API origin; HTTP is accepted only for loopback development.                      |
-| `CORS_ALLOWED_ORIGINS`       | Production | localhost frontend    | Comma-separated credentialed CORS allowlist; wildcard is rejected.                      |
-| `TRUST_PROXY`                | Production | Disabled              | Trusted proxy hop count or comma-separated addresses/CIDRs.                             |
-| `DATABASE_URL`               | Yes      | None                    | PostgreSQL connection string used by Prisma.                                            |
-| `JWT_ACCESS_TOKEN`           | Yes      | None                    | Secret used to sign access tokens.                                                      |
-| `JWT_REFRESH_TOKEN`          | Yes      | None                    | Secret used to sign refresh tokens. Use a different value from the access-token secret. |
-| `JWT_ACCESS_TOKEN_EXPIRE`    | No       | `15m`                   | Access-token lifetime.                                                                  |
-| `JWT_REFRESH_TOKEN_EXPIRE`   | No       | `30d`                   | Standard refresh-session lifetime.                                                      |
-| `JWT_REMEMBER_ME_REFRESH_TOKEN_EXPIRE` | No | `90d`              | Remember-me refresh-session lifetime.                                                   |
-| `BCRYPT_ROUNDS`              | No       | `12`                    | Bcrypt work factor applied after SHA-256 password pre-hashing.                          |
-| `RATE_LIMIT_SOURCE_HMAC_SECRET` | Production | Development-only fallback | HMAC secret used to pseudonymize rate-limit source IPs.                             |
-| `PASSWORD_DENYLIST_PATH`     | No       | Bundled top-10,000 list | Optional newline-delimited additional common-password denylist.                         |
-| `SEED_SUPER_ADMIN_EMAIL`     | No       | None                    | Email for an optional seeded super administrator.                                       |
-| `SEED_SUPER_ADMIN_PASSWORD`  | No       | None                    | Password for the optional seed account; follows the 8–128 Unicode-character denylist policy. |
-| `SEED_SUPER_ADMIN_FULL_NAME` | No       | `Super Administrator`   | Display name for the optional seed account.                                             |
-| `GEMINI_API_KEY`             | No       | None                    | Reserved Gemini integration API key.                                                    |
-| `GEMINI_MODEL`               | No       | `gemini-3.5-flash`      | Reserved primary Gemini model name.                                                     |
-| `GEMINI_FALLBACK_MODEL`      | No       | `gemini-3.1-flash-lite` | Reserved fallback Gemini model name.                                                    |
-| `CACHE_REDIS_URL`            | No       | None                    | Reserved Redis connection URL.                                                          |
-| `CACHE_TTL`                  | No       | `60`                    | Reserved cache lifetime in seconds.                                                     |
+| Variable                               | Required     | Default                   | Description                                                                                  |
+| -------------------------------------- | ------------ | ------------------------- | -------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                             | No           | `development`             | Application environment.                                                                     |
+| `PORT`                                 | No           | `3000`                    | HTTP server port.                                                                            |
+| `PUBLIC_API_ORIGIN`                    | Production   | localhost                 | Public API origin; HTTP is accepted only for loopback development.                           |
+| `CORS_ALLOWED_ORIGINS`                 | Production   | localhost frontend        | Comma-separated credentialed CORS allowlist; wildcard is rejected.                           |
+| `TRUST_PROXY`                          | Production   | Disabled                  | Trusted proxy hop count or comma-separated addresses/CIDRs.                                  |
+| `DATABASE_URL`                         | Yes          | None                      | PostgreSQL connection string used by Prisma.                                                 |
+| `JWT_ACCESS_TOKEN`                     | Yes          | None                      | Secret used to sign access tokens.                                                           |
+| `JWT_REFRESH_TOKEN`                    | Yes          | None                      | Secret used to sign refresh tokens. Use a different value from the access-token secret.      |
+| `JWT_ACCESS_TOKEN_EXPIRE`              | No           | `15m`                     | Access-token lifetime.                                                                       |
+| `JWT_REFRESH_TOKEN_EXPIRE`             | No           | `30d`                     | Standard refresh-session lifetime.                                                           |
+| `JWT_REMEMBER_ME_REFRESH_TOKEN_EXPIRE` | No           | `90d`                     | Remember-me refresh-session lifetime.                                                        |
+| `BCRYPT_ROUNDS`                        | No           | `12`                      | Bcrypt work factor applied after SHA-256 password pre-hashing.                               |
+| `RATE_LIMIT_SOURCE_HMAC_SECRET`        | Production   | Development-only fallback | HMAC secret used to pseudonymize rate-limit source IPs.                                      |
+| `PASSWORD_DENYLIST_PATH`               | No           | Bundled top-10,000 list   | Optional newline-delimited additional common-password denylist.                              |
+| `SEED_SUPER_ADMIN_EMAIL`               | No           | None                      | Email for an optional seeded super administrator.                                            |
+| `SEED_SUPER_ADMIN_PASSWORD`            | No           | None                      | Password for the optional seed account; follows the 8–128 Unicode-character denylist policy. |
+| `SEED_SUPER_ADMIN_FULL_NAME`           | No           | `Super Administrator`     | Display name for the optional seed account.                                                  |
+| `GEMINI_API_KEY`                       | No           | None                      | Reserved Gemini integration API key.                                                         |
+| `GEMINI_MODEL`                         | No           | `gemini-3.5-flash`        | Reserved primary Gemini model name.                                                          |
+| `GEMINI_FALLBACK_MODEL`                | No           | `gemini-3.1-flash-lite`   | Reserved fallback Gemini model name.                                                         |
+| `CACHE_REDIS_URL`                      | No           | None                      | Reserved Redis connection URL.                                                               |
+| `CACHE_TTL`                            | No           | `60`                      | Reserved cache lifetime in seconds.                                                          |
+| `IMAGEKIT_ENABLED`                     | Production   | `false` locally           | Enables ImageKit; production requires it to be enabled and fully configured.                 |
+| `IMAGEKIT_PUBLIC_KEY`                  | When enabled | None                      | ImageKit public key.                                                                         |
+| `IMAGEKIT_PRIVATE_KEY`                 | When enabled | None                      | ImageKit private key; never include it in logs or responses.                                 |
+| `IMAGEKIT_URL_ENDPOINT`                | When enabled | None                      | HTTPS ImageKit delivery endpoint.                                                            |
+| `IMAGEKIT_UPLOAD_FOLDER`               | No           | `/tooang`                 | Root provider folder for application media.                                                  |
 
 The built-in common-password policy is supplied by the pinned ISC-licensed
 `common-password` package and its 10,000-password list. `PASSWORD_DENYLIST_PATH`
@@ -307,24 +319,24 @@ curl http://localhost:3000/api/v1/me \
 
 Core implemented endpoints include:
 
-| Method   | Endpoint                            | Authentication | Description                                     |
-| -------- | ----------------------------------- | -------------- | ----------------------------------------------- |
-| `GET`    | `/api/v1`                           | Public         | Basic application response.                     |
-| `POST`   | `/api/v1/auth/register`             | Public         | Register a user.                                |
-| `POST`   | `/api/v1/auth/login`                | Public         | Log in; return access token and set refresh cookie. |
-| `POST`   | `/api/v1/auth/refresh`              | Refresh cookie | Rotate refresh cookie and obtain a new access token. |
-| `POST`   | `/api/v1/auth/logout`               | Refresh cookie | Revoke a refresh session and clear its cookie.  |
-| `GET`    | `/api/v1/me`                        | Bearer token   | Get the current user's profile.                 |
-| `PATCH`  | `/api/v1/me`                        | Bearer token   | Update the current user's profile.              |
-| `POST`   | `/api/v1/me/account-deletion-requests` | Bearer token | Request account deletion.                       |
-| `GET`    | `/api/v1/users`                     | ADMIN/SUPER_ADMIN | List active users.                           |
-| `GET`    | `/api/v1/users/:userId`             | ADMIN/SUPER_ADMIN | Get an active user.                          |
-| `PUT`    | `/api/v1/users/:userId/platform-role` | SUPER_ADMIN | Set a platform role.                            |
-| `DELETE` | `/api/v1/users/:userId`             | ADMIN/SUPER_ADMIN | Deactivate an eligible user.                 |
-| `POST`   | `/api/v1/places`                    | `place.create` | Create a place with the actor as initial OWNER. |
-| `GET`    | `/api/v1/places/:placeId/members`   | Scoped permission | List current place memberships.             |
-| `PUT`    | `/api/v1/places/:placeId/members/:userId` | Scoped permission | Assign, reactivate, or change membership. |
-| `DELETE` | `/api/v1/places/:placeId/members/:userId` | Scoped permission | Revoke a membership.                     |
+| Method   | Endpoint                                  | Authentication    | Description                                          |
+| -------- | ----------------------------------------- | ----------------- | ---------------------------------------------------- |
+| `GET`    | `/api/v1`                                 | Public            | Basic application response.                          |
+| `POST`   | `/api/v1/auth/register`                   | Public            | Register a user.                                     |
+| `POST`   | `/api/v1/auth/login`                      | Public            | Log in; return access token and set refresh cookie.  |
+| `POST`   | `/api/v1/auth/refresh`                    | Refresh cookie    | Rotate refresh cookie and obtain a new access token. |
+| `POST`   | `/api/v1/auth/logout`                     | Refresh cookie    | Revoke a refresh session and clear its cookie.       |
+| `GET`    | `/api/v1/me`                              | Bearer token      | Get the current user's profile.                      |
+| `PATCH`  | `/api/v1/me`                              | Bearer token      | Update the current user's profile.                   |
+| `POST`   | `/api/v1/me/account-deletion-requests`    | Bearer token      | Request account deletion.                            |
+| `GET`    | `/api/v1/users`                           | ADMIN/SUPER_ADMIN | List active users.                                   |
+| `GET`    | `/api/v1/users/:userId`                   | ADMIN/SUPER_ADMIN | Get an active user.                                  |
+| `PUT`    | `/api/v1/users/:userId/platform-role`     | SUPER_ADMIN       | Set a platform role.                                 |
+| `DELETE` | `/api/v1/users/:userId`                   | ADMIN/SUPER_ADMIN | Deactivate an eligible user.                         |
+| `POST`   | `/api/v1/places`                          | `place.create`    | Create a place with the actor as initial OWNER.      |
+| `GET`    | `/api/v1/places/:placeId/members`         | Scoped permission | List current place memberships.                      |
+| `PUT`    | `/api/v1/places/:placeId/members/:userId` | Scoped permission | Assign, reactivate, or change membership.            |
+| `DELETE` | `/api/v1/places/:placeId/members/:userId` | Scoped permission | Revoke a membership.                                 |
 
 Detailed request and response contracts are available in the [API specification](docs/api-specification/).
 
@@ -344,7 +356,7 @@ Detailed request and response contracts are available in the [API specification]
 | `npm run test:cov`    | Run unit tests and produce a coverage report.       |
 | `npm run test:e2e`    | Run end-to-end tests.                               |
 | `npm run test:debug`  | Run Jest in Node.js debug mode.                     |
-| `npm run prisma:seed` | Seed the optional initial super-administrator.       |
+| `npm run prisma:seed` | Seed the optional initial super-administrator.      |
 
 ## Testing
 
@@ -396,7 +408,9 @@ General production workflow:
 4. Build the NestJS application.
 5. Apply migrations with `prisma migrate deploy`.
 6. Start the compiled application with `npm run start:prod`.
-7. Configure HTTPS, health checks, logging, and process supervision on the hosting platform.
+7. Configure HTTPS, `GET /api/v1/health/ready` readiness checks, JSON-log collection with 90-day
+   retention, and process supervision on the hosting platform. The application intentionally emits
+   to stdout/stderr and does not create unbounded local log files.
 
 ```bash
 npm ci
@@ -416,6 +430,7 @@ npm run start:prod
 - [Users API specification](docs/api-specification/users.md)
 - [Places API specification](docs/api-specification/places.md)
 - [Place-membership API specification](docs/api-specification/place-members.md)
+- [Data lifecycle and backup replay](docs/data-lifecycle.md)
 
 > TODO: Add generated OpenAPI/Swagger documentation when available.
 

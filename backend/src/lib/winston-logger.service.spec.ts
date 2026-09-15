@@ -6,12 +6,22 @@ describe('Winston logger redaction', () => {
       redactLogValue({
         requestId: 'request-1',
         authorization: 'Bearer secret',
-        nested: { verificationToken: 'secret', passwordHash: 'secret' },
+        nested: {
+          verificationToken: 'secret',
+          passwordHash: 'secret',
+          database_url: 'postgresql://user:password@host/database',
+          providerResponse: { body: 'private' },
+        },
       }),
     ).toEqual({
       requestId: 'request-1',
       authorization: '[REDACTED]',
-      nested: { verificationToken: '[REDACTED]', passwordHash: '[REDACTED]' },
+      nested: {
+        verificationToken: '[REDACTED]',
+        passwordHash: '[REDACTED]',
+        database_url: '[REDACTED]',
+        providerResponse: '[REDACTED]',
+      },
     });
   });
 
@@ -24,5 +34,14 @@ describe('Winston logger redaction', () => {
     expect(value).not.toContain('eyJabc.def.ghi');
     expect(value).not.toContain('TNG-20260915-ABCDEFGH');
     expect(value).toContain('/order-verifications/[REDACTED]');
+  });
+
+  it('redacts database URLs in messages and safely handles cyclic metadata', () => {
+    expect(redactLogString('failed postgresql://user:password@database/app')).not.toContain(
+      'password',
+    );
+    const cyclic: Record<string, unknown> = { event: 'failure' };
+    cyclic.cause = cyclic;
+    expect(redactLogValue(cyclic)).toEqual({ event: 'failure', cause: '[REDACTED_CYCLE]' });
   });
 });

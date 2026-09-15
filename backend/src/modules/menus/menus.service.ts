@@ -307,7 +307,7 @@ export class MenusService {
     if (isOrderingEnabled !== state.isOrderingEnabled) {
       await this.audit.append(
         {
-          actorUserId: actor.id,
+          actor: { kind: 'USER', userId: actor.id },
           action: 'ORDERING_SETTING_UPDATED',
           targetType: 'Place',
           targetId: placeId,
@@ -331,7 +331,7 @@ export class MenusService {
     if (access.source !== 'platform') return;
     await this.audit.append(
       {
-        actorUserId: actor.id,
+        actor: { kind: 'USER', userId: actor.id },
         action: 'ADMIN_CROSS_PLACE_MUTATION',
         targetType: operation.startsWith('MENU_CATEGORY') ? 'MenuCategory' : 'MenuItem',
         targetId,

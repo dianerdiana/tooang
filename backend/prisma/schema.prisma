@@ -71,6 +71,11 @@ enum MediaTargetType {
   MENU_ITEM_IMAGE
 }
 
+enum AuditActorType {
+  USER
+  SYSTEM
+}
+
 model User {
   id                  String           @id @default(uuid())
   userId              String           @unique @map("id_user")
@@ -132,17 +137,20 @@ model AuthRateLimitBucket {
 }
 
 model AuditLog {
-  id          String   @id @default(uuid())
-  actorUserId String   @map("actor_user_id")
+  id          String         @id @default(uuid())
+  actorType   AuditActorType @default(USER) @map("actor_type")
+  actorUserId String?        @map("actor_user_id")
+  systemActor String?        @map("system_actor") @db.VarChar(100)
   action      String
-  targetType  String   @map("target_type")
-  targetId    String   @map("target_id")
-  beforeData  Json?    @map("before_data")
-  afterData   Json?    @map("after_data")
-  createdAt   DateTime @default(now()) @map("created_at")
-  actor       User     @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  targetType  String         @map("target_type")
+  targetId    String         @map("target_id")
+  beforeData  Json?          @map("before_data")
+  afterData   Json?          @map("after_data")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  actor       User?          @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
 
   @@index([actorUserId, createdAt])
+  @@index([actorType, systemActor, createdAt])
   @@index([targetType, targetId, createdAt])
   @@index([createdAt])
   @@map("audit_logs")

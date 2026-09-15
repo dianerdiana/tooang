@@ -357,10 +357,12 @@ export class OrdersRepository {
     });
   }
 
-  async expirePendingBatch(limit: number): Promise<string[]> {
-    const rows = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+  async expirePendingBatch(limit: number, db: OrdersDbClient = this.prisma) {
+    return db.$queryRaw<
+      Array<{ id: string; previousStatusUpdatedAt: Date; statusUpdatedAt: Date }>
+    >(Prisma.sql`
       WITH candidates AS (
-        SELECT "id"
+        SELECT "id", "status_updated_at"
         FROM "orders"
         WHERE "status" = 'PENDING'::"OrderStatus"
           AND "expires_at" <= CURRENT_TIMESTAMP
@@ -376,9 +378,10 @@ export class OrdersRepository {
       WHERE orders."id" = candidates."id"
         AND orders."status" = 'PENDING'::"OrderStatus"
         AND orders."expires_at" <= CURRENT_TIMESTAMP
-      RETURNING orders."id"
+      RETURNING orders."id",
+        candidates."status_updated_at" AS "previousStatusUpdatedAt",
+        orders."status_updated_at" AS "statusUpdatedAt"
     `);
-    return rows.map(({ id }) => id);
   }
 
   private listWithWhere(where: Prisma.OrderWhereInput, input: OrderListInput) {
