@@ -10,6 +10,8 @@ import type { Request, Response } from 'express';
 
 import { Prisma } from '@/generated/prisma/client';
 
+import { isTransactionWriteConflict } from '@/common/errors';
+
 import { WinstonLoggerService } from '@/lib/winston-logger.service';
 
 type ExceptionBody = {
@@ -58,6 +60,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
   }
 
   private normalize(exception: unknown) {
+    if (isTransactionWriteConflict(exception)) {
+      return {
+        status: HttpStatus.CONFLICT,
+        message: 'Concurrent update conflict; retry the request',
+        code: 'CONFLICT',
+      };
+    }
+
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       if (exception.code === 'P2002') {
         return {
@@ -68,13 +78,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
       if (exception.code === 'P2025') {
         return { status: HttpStatus.NOT_FOUND, message: 'Resource not found', code: 'NOT_FOUND' };
-      }
-      if (exception.code === 'P2034') {
-        return {
-          status: HttpStatus.CONFLICT,
-          message: 'Concurrent update conflict; retry the request',
-          code: 'CONFLICT',
-        };
       }
       if (exception.code === 'P2000') {
         return {

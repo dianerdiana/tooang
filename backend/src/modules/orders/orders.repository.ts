@@ -104,7 +104,9 @@ export class OrdersRepository {
   }
 
   databaseNow(db: OrdersDbClient = this.prisma) {
-    return db.$queryRaw<Array<{ now: Date }>>(Prisma.sql`SELECT CURRENT_TIMESTAMP AS "now"`);
+    return db.$queryRaw<Array<{ now: Date }>>(
+      Prisma.sql`SELECT CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AS "now"`,
+    );
   }
 
   findIdempotency(userId: string, endpoint: string, key: string, db: OrdersDbClient) {

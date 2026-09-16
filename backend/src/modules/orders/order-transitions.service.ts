@@ -18,6 +18,7 @@ import {
   PERMISSION,
   type Permission,
 } from '@/common/auth';
+import { isTransactionWriteConflict } from '@/common/errors';
 
 import { AuditService } from '@/modules/audit/audit.service';
 import {
@@ -242,9 +243,7 @@ export class OrderTransitionsService {
           isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
         });
       } catch (error) {
-        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2034') {
-          throw error;
-        }
+        if (!isTransactionWriteConflict(error)) throw error;
         if (attempt === MAX_CONCURRENCY_ATTEMPTS) {
           throw new ConflictException({
             message: 'Order status changed concurrently',

@@ -3,6 +3,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { PlaceMemberRole, Prisma } from '@/generated/prisma/client';
 
 import { type AuthenticatedActor, PERMISSION, type Permission } from '@/common/auth';
+import { isTransactionWriteConflict } from '@/common/errors';
 
 import { AuditService } from '@/modules/audit/audit.service';
 
@@ -180,8 +181,8 @@ export class PlaceMembersService {
       });
     } catch (error) {
       if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        (error.code === 'P2002' || error.code === 'P2034')
+        isTransactionWriteConflict(error) ||
+        (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')
       ) {
         throw new ConflictException('Concurrent membership change; retry the request');
       }

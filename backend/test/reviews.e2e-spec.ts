@@ -47,10 +47,11 @@ describeDatabase('Reviews API (PostgreSQL E2E)', () => {
     process.env.IMAGEKIT_ENABLED = 'false';
 
     prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: testDatabaseUrl! }) });
+    await prisma.authRateLimitBucket.deleteMany();
     const passwordHash = await bcrypt.hash(preHashPassword(password), 4);
     const user = await prisma.user.create({
       data: {
-        userId: `usr_review_${suffix}`,
+        userId: `usr_${suffix}`,
         fullName: 'Review Customer',
         email: userEmail,
         passwordHash,
@@ -59,7 +60,7 @@ describeDatabase('Reviews API (PostgreSQL E2E)', () => {
     userId = user.id;
     const admin = await prisma.user.create({
       data: {
-        userId: `usr_review_admin_${suffix}`,
+        userId: `usr_a${suffix}`,
         fullName: 'Review Administrator',
         email: adminEmail,
         passwordHash,
@@ -78,8 +79,9 @@ describeDatabase('Reviews API (PostgreSQL E2E)', () => {
       },
     });
     placeId = place.id;
+    const categoryName = `Reviewed ${suffix}`;
     const category = await prisma.menuCategory.create({
-      data: { placeId, name: 'Reviewed', normalizedName: `reviewed-${suffix}` },
+      data: { placeId, name: categoryName, normalizedName: categoryName.toLowerCase() },
     });
     const item = await prisma.menuItem.create({
       data: { placeId, categoryId: category.id, name: 'Reviewed item', type: 'FOOD', price: 10 },

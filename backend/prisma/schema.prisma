@@ -77,17 +77,17 @@ enum AuditActorType {
 }
 
 model User {
-  id                  String           @id @default(uuid())
-  userId              String           @unique @map("id_user")
-  fullName            String           @map("full_name")
-  email               String           @unique @db.VarChar(254)
-  passwordHash        String           @map("password_hash")
-  platformRole        PlatformRole     @default(USER) @map("platform_role")
-  createdAt           DateTime         @default(now()) @map("created_at")
-  updatedAt           DateTime         @updatedAt @map("updated_at")
-  deletedAt           DateTime?        @map("deleted_at")
-  deletionRequestedAt DateTime?        @map("deletion_requested_at")
-  anonymizedAt        DateTime?        @map("anonymized_at")
+  id                  String              @id @default(uuid())
+  userId              String              @unique @map("id_user")
+  fullName            String              @map("full_name")
+  email               String              @unique @db.VarChar(254)
+  passwordHash        String              @map("password_hash")
+  platformRole        PlatformRole        @default(USER) @map("platform_role")
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt           DateTime?           @map("deleted_at") @db.Timestamptz(3)
+  deletionRequestedAt DateTime?           @map("deletion_requested_at") @db.Timestamptz(3)
+  anonymizedAt        DateTime?           @map("anonymized_at") @db.Timestamptz(3)
   placeMemberships    PlaceMember[]
   placeReviews        PlaceReview[]
   menuItemReviews     MenuItemReview[]
@@ -95,7 +95,7 @@ model User {
   orders              Order[]
   idempotencyKeys     IdempotencyKey[]
   refreshSessions     RefreshSession[]
-  auditLogs           AuditLog[]       @relation("AuditActor")
+  auditLogs           AuditLog[]          @relation("AuditActor")
   mediaUploadIntents  MediaUploadIntent[]
 
   @@index([platformRole, deletedAt])
@@ -109,10 +109,10 @@ model RefreshSession {
   familyId     String          @map("family_id")
   userId       String          @map("user_id")
   tokenHash    String          @unique @map("token_hash")
-  expiresAt    DateTime        @map("expires_at")
-  revokedAt    DateTime?       @map("revoked_at")
+  expiresAt    DateTime        @map("expires_at") @db.Timestamptz(3)
+  revokedAt    DateTime?       @map("revoked_at") @db.Timestamptz(3)
   replacedById String?         @unique @map("replaced_by_id")
-  createdAt    DateTime        @default(now()) @map("created_at")
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   replacedBy   RefreshSession? @relation("SessionReplacement", fields: [replacedById], references: [id], onDelete: SetNull)
   replaces     RefreshSession? @relation("SessionReplacement")
@@ -126,10 +126,10 @@ model RefreshSession {
 model AuthRateLimitBucket {
   sourceHash      String   @map("source_hash") @db.VarChar(64)
   policy          String   @db.VarChar(50)
-  windowStartedAt DateTime @map("window_started_at")
+  windowStartedAt DateTime @map("window_started_at") @db.Timestamptz(3)
   attemptCount    Int      @default(0) @map("attempt_count")
-  expiresAt       DateTime @map("expires_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  expiresAt       DateTime @map("expires_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@id([sourceHash, policy])
   @@index([expiresAt])
@@ -146,7 +146,7 @@ model AuditLog {
   targetId    String         @map("target_id")
   beforeData  Json?          @map("before_data")
   afterData   Json?          @map("after_data")
-  createdAt   DateTime       @default(now()) @map("created_at")
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   actor       User?          @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
 
   @@index([actorUserId, createdAt])
@@ -157,35 +157,35 @@ model AuditLog {
 }
 
 model Place {
-  id                String         @id @default(uuid())
-  name              String         @db.VarChar(120)
-  slug              String         @unique @db.VarChar(100)
-  type              PlaceType
-  description       String?        @db.VarChar(2000)
-  address           String         @db.VarChar(500)
-  city              String?        @db.VarChar(100)
-  latitude          Decimal?       @db.Decimal(10, 7)
-  longitude         Decimal?       @db.Decimal(10, 7)
-  phone             String?        @db.VarChar(30)
-  whatsapp          String?        @db.VarChar(30)
-  timezone          String
-  logoAssetId       String?        @unique @map("logo_asset_id")
-  coverAssetId      String?        @unique @map("cover_asset_id")
-  isPublished       Boolean        @default(false) @map("is_published")
-  isOrderingEnabled Boolean        @default(false) @map("is_ordering_enabled")
-  createdAt         DateTime       @default(now()) @map("created_at")
-  updatedAt         DateTime       @updatedAt @map("updated_at")
-  deletedAt         DateTime?      @map("deleted_at")
-  members           PlaceMember[]
-  businessHours     BusinessHour[]
-  diningTables      DiningTable[]
-  categories        MenuCategory[]
-  menuItems         MenuItem[]
-  reviews           PlaceReview[]
-  carts             Cart[]
-  orders            Order[]
-  logoAsset         MediaAsset?    @relation("PlaceLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
-  coverAsset        MediaAsset?    @relation("PlaceCover", fields: [coverAssetId], references: [id], onDelete: SetNull)
+  id                 String              @id @default(uuid())
+  name               String              @db.VarChar(120)
+  slug               String              @unique @db.VarChar(100)
+  type               PlaceType
+  description        String?             @db.VarChar(2000)
+  address            String              @db.VarChar(500)
+  city               String?             @db.VarChar(100)
+  latitude           Decimal?            @db.Decimal(10, 7)
+  longitude          Decimal?            @db.Decimal(10, 7)
+  phone              String?             @db.VarChar(30)
+  whatsapp           String?             @db.VarChar(30)
+  timezone           String
+  logoAssetId        String?             @unique @map("logo_asset_id")
+  coverAssetId       String?             @unique @map("cover_asset_id")
+  isPublished        Boolean             @default(false) @map("is_published")
+  isOrderingEnabled  Boolean             @default(false) @map("is_ordering_enabled")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?           @map("deleted_at") @db.Timestamptz(3)
+  members            PlaceMember[]
+  businessHours      BusinessHour[]
+  diningTables       DiningTable[]
+  categories         MenuCategory[]
+  menuItems          MenuItem[]
+  reviews            PlaceReview[]
+  carts              Cart[]
+  orders             Order[]
+  logoAsset          MediaAsset?         @relation("PlaceLogo", fields: [logoAssetId], references: [id], onDelete: SetNull)
+  coverAsset         MediaAsset?         @relation("PlaceCover", fields: [coverAssetId], references: [id], onDelete: SetNull)
   mediaUploadIntents MediaUploadIntent[]
 
   @@index([isPublished, deletedAt, createdAt])
@@ -199,9 +199,9 @@ model PlaceMember {
   placeId   String          @map("place_id")
   userId    String          @map("user_id")
   role      PlaceMemberRole
-  createdAt DateTime        @default(now()) @map("created_at")
-  updatedAt DateTime        @updatedAt @map("updated_at")
-  revokedAt DateTime?       @map("revoked_at")
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  revokedAt DateTime?       @map("revoked_at") @db.Timestamptz(3)
   place     Place           @relation(fields: [placeId], references: [id], onDelete: Cascade)
   user      User            @relation(fields: [userId], references: [id], onDelete: Restrict)
 
@@ -230,9 +230,9 @@ model DiningTable {
   name           String    @db.VarChar(30)
   normalizedName String    @map("normalized_name") @db.VarChar(30)
   isActive       Boolean   @default(true) @map("is_active")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-  deletedAt      DateTime? @map("deleted_at")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
   place          Place     @relation(fields: [placeId], references: [id], onDelete: Cascade)
   orders         Order[]
 
@@ -242,21 +242,21 @@ model DiningTable {
 }
 
 model MediaAsset {
-  id                 String           @id @default(uuid())
-  imageKitFileId     String           @unique @map("imagekit_file_id")
-  deliveryUrl        String           @map("delivery_url")
-  deliveryPath       String?          @map("delivery_path")
-  mimeType           String           @map("mime_type") @db.VarChar(50)
-  sizeBytes          Int              @map("size_bytes")
-  status             MediaAssetStatus @default(ACTIVE)
-  cleanupAttempts    Int              @default(0) @map("cleanup_attempts")
-  cleanupLastError   String?          @map("cleanup_last_error")
-  cleanupRequestedAt DateTime?        @map("cleanup_requested_at")
-  cleanupCompletedAt DateTime?        @map("cleanup_completed_at")
-  createdAt          DateTime         @default(now()) @map("created_at")
-  updatedAt          DateTime         @updatedAt @map("updated_at")
-  logoForPlace       Place?           @relation("PlaceLogo")
-  coverForPlace      Place?           @relation("PlaceCover")
+  id                 String             @id @default(uuid())
+  imageKitFileId     String             @unique @map("imagekit_file_id")
+  deliveryUrl        String             @map("delivery_url")
+  deliveryPath       String?            @map("delivery_path")
+  mimeType           String             @map("mime_type") @db.VarChar(50)
+  sizeBytes          Int                @map("size_bytes")
+  status             MediaAssetStatus   @default(ACTIVE)
+  cleanupAttempts    Int                @default(0) @map("cleanup_attempts")
+  cleanupLastError   String?            @map("cleanup_last_error")
+  cleanupRequestedAt DateTime?          @map("cleanup_requested_at") @db.Timestamptz(3)
+  cleanupCompletedAt DateTime?          @map("cleanup_completed_at") @db.Timestamptz(3)
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  logoForPlace       Place?             @relation("PlaceLogo")
+  coverForPlace      Place?             @relation("PlaceCover")
   menuItem           MenuItem?
   completedByIntent  MediaUploadIntent?
 
@@ -265,25 +265,25 @@ model MediaAsset {
 }
 
 model MediaUploadIntent {
-  id                   String          @id @default(uuid())
-  actorUserId          String          @map("actor_user_id")
-  placeId              String          @map("place_id")
-  menuItemId           String?         @map("menu_item_id")
-  target               MediaTargetType
-  providerTokenHash    String          @unique @map("provider_token_hash") @db.VarChar(64)
-  expectedFileName     String          @map("expected_file_name") @db.VarChar(255)
-  expectedFilePath     String          @map("expected_file_path")
-  expectedMimeType     String          @map("expected_mime_type") @db.VarChar(50)
-  expectedSizeBytes    Int             @map("expected_size_bytes")
-  expiresAt            DateTime        @map("expires_at")
-  completedAt          DateTime?       @map("completed_at")
-  completedAssetId     String?         @unique @map("completed_asset_id")
-  createdAt            DateTime        @default(now()) @map("created_at")
-  updatedAt            DateTime        @updatedAt @map("updated_at")
-  actor                 User            @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
-  place                 Place           @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  menuItem              MenuItem?       @relation(fields: [menuItemId, placeId], references: [id, placeId], onDelete: Cascade)
-  completedAsset        MediaAsset?     @relation(fields: [completedAssetId], references: [id], onDelete: Restrict)
+  id                String          @id @default(uuid())
+  actorUserId       String          @map("actor_user_id")
+  placeId           String          @map("place_id")
+  menuItemId        String?         @map("menu_item_id")
+  target            MediaTargetType
+  providerTokenHash String          @unique @map("provider_token_hash") @db.VarChar(64)
+  expectedFileName  String          @map("expected_file_name") @db.VarChar(255)
+  expectedFilePath  String          @map("expected_file_path")
+  expectedMimeType  String          @map("expected_mime_type") @db.VarChar(50)
+  expectedSizeBytes Int             @map("expected_size_bytes")
+  expiresAt         DateTime        @map("expires_at") @db.Timestamptz(3)
+  completedAt       DateTime?       @map("completed_at") @db.Timestamptz(3)
+  completedAssetId  String?         @unique @map("completed_asset_id")
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  actor             User            @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  place             Place           @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  menuItem          MenuItem?       @relation(fields: [menuItemId, placeId], references: [id, placeId], onDelete: Cascade, map: "media_upload_intents_menu_item_id_fkey")
+  completedAsset    MediaAsset?     @relation(fields: [completedAssetId], references: [id], onDelete: Restrict)
 
   @@index([actorUserId, expiresAt])
   @@index([completedAt, expiresAt])
@@ -299,9 +299,9 @@ model MenuCategory {
   description    String?
   sortOrder      Int        @default(0) @map("sort_order")
   isActive       Boolean    @default(true) @map("is_active")
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @updatedAt @map("updated_at")
-  deletedAt      DateTime?  @map("deleted_at")
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime?  @map("deleted_at") @db.Timestamptz(3)
   place          Place      @relation(fields: [placeId], references: [id], onDelete: Cascade)
   menuItems      MenuItem[]
 
@@ -312,25 +312,25 @@ model MenuCategory {
 }
 
 model MenuItem {
-  id           String           @id @default(uuid())
-  placeId      String           @map("place_id")
-  categoryId   String           @map("category_id")
-  name         String           @db.VarChar(120)
-  description  String?          @db.VarChar(1000)
-  type         MenuItemType
-  price        Decimal          @db.Decimal(15, 2)
-  imageAssetId String?          @unique @map("image_asset_id")
-  isAvailable  Boolean          @default(true) @map("is_available")
-  sortOrder    Int              @default(0) @map("sort_order")
-  createdAt    DateTime         @default(now()) @map("created_at")
-  updatedAt    DateTime         @updatedAt @map("updated_at")
-  deletedAt    DateTime?        @map("deleted_at")
-  place        Place            @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  category     MenuCategory     @relation(fields: [categoryId, placeId], references: [id, placeId], onDelete: Restrict)
-  imageAsset   MediaAsset?      @relation(fields: [imageAssetId], references: [id], onDelete: SetNull)
-  reviews      MenuItemReview[]
-  cartItems    CartItem[]
-  orderItems   OrderItem[]
+  id                 String              @id @default(uuid())
+  placeId            String              @map("place_id")
+  categoryId         String              @map("category_id")
+  name               String              @db.VarChar(120)
+  description        String?             @db.VarChar(1000)
+  type               MenuItemType
+  price              Decimal             @db.Decimal(15, 2)
+  imageAssetId       String?             @unique @map("image_asset_id")
+  isAvailable        Boolean             @default(true) @map("is_available")
+  sortOrder          Int                 @default(0) @map("sort_order")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?           @map("deleted_at") @db.Timestamptz(3)
+  place              Place               @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  category           MenuCategory        @relation(fields: [categoryId, placeId], references: [id, placeId], onDelete: Restrict)
+  imageAsset         MediaAsset?         @relation(fields: [imageAssetId], references: [id], onDelete: SetNull)
+  reviews            MenuItemReview[]
+  cartItems          CartItem[]
+  orderItems         OrderItem[]
   mediaUploadIntents MediaUploadIntent[]
 
   @@unique([id, placeId])
@@ -346,9 +346,9 @@ model PlaceReview {
   orderId   String    @unique @map("order_id")
   rating    Int
   comment   String?   @db.VarChar(2000)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
   user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
   place     Place     @relation(fields: [placeId], references: [id], onDelete: Restrict)
   order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -365,9 +365,9 @@ model MenuItemReview {
   orderId    String    @map("order_id")
   rating     Int
   comment    String?   @db.VarChar(2000)
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-  deletedAt  DateTime? @map("deleted_at")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
   user       User      @relation(fields: [userId], references: [id], onDelete: Restrict)
   menuItem   MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
   order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -382,8 +382,8 @@ model Cart {
   id        String     @id @default(uuid())
   userId    String     @map("user_id")
   placeId   String     @map("place_id")
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   place     Place      @relation(fields: [placeId], references: [id], onDelete: Cascade)
   items     CartItem[]
@@ -401,8 +401,8 @@ model CartItem {
   menuItemId String   @map("menu_item_id")
   quantity   Int      @default(1)
   note       String?  @db.VarChar(500)
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   cart       Cart     @relation(fields: [cartId, placeId], references: [id, placeId], onDelete: Cascade)
   menuItem   MenuItem @relation(fields: [menuItemId, placeId], references: [id, placeId], onDelete: Cascade)
 
@@ -419,20 +419,20 @@ model Order {
   placeId                String           @map("place_id")
   diningTableId          String?          @map("dining_table_id")
   status                 OrderStatus      @default(PENDING)
-  statusUpdatedAt        DateTime         @default(now()) @map("status_updated_at")
+  statusUpdatedAt        DateTime         @default(now()) @map("status_updated_at") @db.Timestamptz(3)
   fulfillmentType        FulfillmentType  @default(DINE_IN) @map("fulfillment_type")
   customerName           String           @map("customer_name") @db.VarChar(100)
   diningTableName        String?          @map("dining_table_name") @db.VarChar(30)
   customerNote           String?          @map("customer_note") @db.VarChar(500)
   cancellationReason     String?          @map("cancellation_reason") @db.VarChar(500)
   subtotal               Decimal          @db.Decimal(15, 2)
-  expiresAt              DateTime         @default(dbgenerated("CURRENT_TIMESTAMP + INTERVAL '15 minutes'")) @map("expires_at")
-  verificationDisabledAt DateTime?        @map("verification_disabled_at")
-  confirmedAt            DateTime?        @map("confirmed_at")
-  completedAt            DateTime?        @map("completed_at")
-  cancelledAt            DateTime?        @map("cancelled_at")
-  createdAt              DateTime         @default(now()) @map("created_at")
-  updatedAt              DateTime         @updatedAt @map("updated_at")
+  expiresAt              DateTime         @default(dbgenerated("(CURRENT_TIMESTAMP + '00:15:00'::interval)")) @map("expires_at") @db.Timestamptz(3)
+  verificationDisabledAt DateTime?        @map("verification_disabled_at") @db.Timestamptz(3)
+  confirmedAt            DateTime?        @map("confirmed_at") @db.Timestamptz(3)
+  completedAt            DateTime?        @map("completed_at") @db.Timestamptz(3)
+  cancelledAt            DateTime?        @map("cancelled_at") @db.Timestamptz(3)
+  createdAt              DateTime         @default(dbgenerated("(CURRENT_TIMESTAMP + '00:00:00'::interval)")) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
   user                   User             @relation(fields: [userId], references: [id], onDelete: Restrict)
   place                  Place            @relation(fields: [placeId], references: [id], onDelete: Restrict)
   diningTable            DiningTable?     @relation(fields: [diningTableId], references: [id], onDelete: SetNull)
@@ -473,8 +473,8 @@ model IdempotencyKey {
   requestHash    String   @map("request_hash")
   responseStatus Int      @map("response_status")
   responseBody   Json     @map("response_body")
-  createdAt      DateTime @default(now()) @map("created_at")
-  expiresAt      DateTime @default(dbgenerated("CURRENT_TIMESTAMP + INTERVAL '24 hours'")) @map("expires_at")
+  createdAt      DateTime @default(dbgenerated("(CURRENT_TIMESTAMP + '00:00:00'::interval)")) @map("created_at") @db.Timestamptz(3)
+  expiresAt      DateTime @default(dbgenerated("(CURRENT_TIMESTAMP + '24:00:00'::interval)")) @map("expires_at") @db.Timestamptz(3)
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, endpoint, key])

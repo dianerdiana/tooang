@@ -40,6 +40,7 @@ describeDatabase('Places API (PostgreSQL E2E)', () => {
     process.env.BCRYPT_ROUNDS = '4';
 
     prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: testDatabaseUrl! }) });
+    await prisma.authRateLimitBucket.deleteMany();
     const user = await prisma.user.create({
       data: {
         userId: `usr_${suffix}`,

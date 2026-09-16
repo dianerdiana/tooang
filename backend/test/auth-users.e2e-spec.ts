@@ -34,6 +34,7 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
   const updatedEmail = `updated-${runId}@example.com`;
   const adminEmail = `admin-${runId}@example.com`;
   const superAdminEmail = `super-${runId}@example.com`;
+  const secondSuperAdminEmail = `super-second-${runId}@example.com`;
   const pendingEmail = `pending-${runId}@example.com`;
   const concurrentEmail = `concurrent-${runId}@example.com`;
   const password = 'correct-horse-battery-staple';
@@ -50,6 +51,7 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
     process.env.BCRYPT_ROUNDS = '4';
 
     prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: testDatabaseUrl! }) });
+    await prisma.authRateLimitBucket.deleteMany();
     const passwordHash = await bcrypt.hash(preHashPassword(password), 4);
     await prisma.user.createMany({
       data: [
@@ -64,6 +66,13 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
           userId: `usr_${randomUUID().replaceAll('-', '')}`,
           fullName: 'E2E Super Administrator',
           email: superAdminEmail,
+          passwordHash,
+          platformRole: PlatformRole.SUPER_ADMIN,
+        },
+        {
+          userId: `usr_${randomUUID().replaceAll('-', '')}`,
+          fullName: 'Second E2E Super Administrator',
+          email: secondSuperAdminEmail,
           passwordHash,
           platformRole: PlatformRole.SUPER_ADMIN,
         },
@@ -90,6 +99,7 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
               updatedEmail,
               adminEmail,
               superAdminEmail,
+              secondSuperAdminEmail,
               pendingEmail,
               concurrentEmail,
             ],
@@ -146,7 +156,15 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
     const refresh = await agent.post('/api/v1/auth/refresh');
     expect(refresh.status).toBe(200);
     const accessToken = (refresh.body as ApiBody).data.accessToken;
-    expect(accessToken).not.toBe(originalAccessToken);
+    const refreshedAccessPayload = JSON.parse(
+      Buffer.from(accessToken.split('.')[1], 'base64url').toString('utf8'),
+    ) as Record<string, unknown>;
+    expect(refreshedAccessPayload).toMatchObject({
+      sub: accessPayload.sub,
+      tokenType: 'access',
+    });
+    expect(refreshedAccessPayload).not.toHaveProperty('platformRole');
+    expect(refreshedAccessPayload).not.toHaveProperty('permissions');
 
     await request(server).get('/api/v1/me').expect(401);
     const me = await request(server).get('/api/v1/me').auth(accessToken, { type: 'bearer' });
@@ -421,6 +439,34 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
       .send({ role: 'OWNER' })
       .expect(200);
 
+    const concurrentOwnerRevocations = await Promise.all([
+      request(server)
+        .delete(`/api/v1/places/${place.id}/members/${target.userId}`)
+        .auth(superToken, { type: 'bearer' }),
+      request(server)
+        .delete(`/api/v1/places/${place.id}/members/${superUser.userId}`)
+        .auth(superToken, { type: 'bearer' }),
+    ]);
+    expect(concurrentOwnerRevocations.map(({ status }) => status).sort()).toEqual([200, 409]);
+    await expect(
+      prisma.placeMember.count({
+        where: { placeId: place.id, role: 'OWNER', revokedAt: null },
+      }),
+    ).resolves.toBe(1);
+
+    // Restore both memberships so the following deactivation assertion is independent
+    // from which serializable revocation won the race.
+    await request(server)
+      .put(`/api/v1/places/${place.id}/members/${target.userId}`)
+      .auth(superToken, { type: 'bearer' })
+      .send({ role: 'OWNER' })
+      .expect(200);
+    await request(server)
+      .put(`/api/v1/places/${place.id}/members/${superUser.userId}`)
+      .auth(superToken, { type: 'bearer' })
+      .send({ role: 'OWNER' })
+      .expect(200);
+
     const deactivation = await request(server)
       .delete(`/api/v1/users/${target.userId}`)
       .auth(adminToken, { type: 'bearer' });
@@ -434,5 +480,63 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
         where: { targetId: target.userId, action: 'USER_DEACTIVATED' },
       }),
     ).resolves.toBe(1);
+  });
+
+  it('preserves one active SUPER_ADMIN during concurrent demotions', async () => {
+    const [first, second] = await Promise.all([
+      prisma.user.findUniqueOrThrow({ where: { email: superAdminEmail } }),
+      prisma.user.findUniqueOrThrow({ where: { email: secondSuperAdminEmail } }),
+    ]);
+    const otherSuperAdmins = await prisma.user.findMany({
+      where: {
+        platformRole: PlatformRole.SUPER_ADMIN,
+        id: { notIn: [first.id, second.id] },
+        deletedAt: null,
+        deletionRequestedAt: null,
+        anonymizedAt: null,
+      },
+      select: { id: true },
+    });
+
+    await prisma.user.updateMany({
+      where: { id: { in: otherSuperAdmins.map(({ id }) => id) } },
+      data: { platformRole: PlatformRole.ADMIN },
+    });
+
+    try {
+      const [firstLogin, secondLogin] = await Promise.all([
+        request(server).post('/api/v1/auth/login').send({ email: superAdminEmail, password }),
+        request(server).post('/api/v1/auth/login').send({ email: secondSuperAdminEmail, password }),
+      ]);
+      const firstToken = (firstLogin.body as ApiBody).data.accessToken;
+      const secondToken = (secondLogin.body as ApiBody).data.accessToken;
+
+      const demotions = await Promise.all([
+        request(server)
+          .put(`/api/v1/users/${second.userId}/platform-role`)
+          .auth(firstToken, { type: 'bearer' })
+          .send({ platformRole: 'USER' }),
+        request(server)
+          .put(`/api/v1/users/${first.userId}/platform-role`)
+          .auth(secondToken, { type: 'bearer' })
+          .send({ platformRole: 'USER' }),
+      ]);
+
+      expect(demotions.map(({ status }) => status).sort()).toEqual([200, 409]);
+      await expect(
+        prisma.user.count({
+          where: {
+            id: { in: [first.id, second.id] },
+            platformRole: PlatformRole.SUPER_ADMIN,
+            deletedAt: null,
+          },
+        }),
+      ).resolves.toBe(1);
+    } finally {
+      await prisma.user.updateMany({
+        where: { id: { in: [first.id, second.id, ...otherSuperAdmins.map(({ id }) => id)] } },
+        data: { platformRole: PlatformRole.SUPER_ADMIN },
+      });
+    }
   });
 });

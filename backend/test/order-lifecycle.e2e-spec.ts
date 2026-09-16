@@ -50,6 +50,7 @@ describeDatabase('Order retrieval and lifecycle API (PostgreSQL E2E)', () => {
     process.env.IMAGEKIT_ENABLED = 'false';
 
     prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: testDatabaseUrl! }) });
+    await prisma.authRateLimitBucket.deleteMany();
     const passwordHash = await bcrypt.hash(preHashPassword(password), 4);
     const [customer, owner, cashier, outsider, admin] = await Promise.all(
       [
@@ -61,7 +62,7 @@ describeDatabase('Order retrieval and lifecycle API (PostgreSQL E2E)', () => {
       ].map(([name, platformRole]) =>
         prisma.user.create({
           data: {
-            userId: `usr_${name}_${suffix}`,
+            userId: `usr_${name}${suffix}`,
             fullName: `${name} lifecycle`,
             email: `${name}-${suffix}@example.com`,
             passwordHash,

@@ -91,6 +91,32 @@ describe('UsersService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('prevents ADMIN from deactivating a SUPER_ADMIN', async () => {
+    const repository = {
+      findActiveByPublicId: jest.fn(() => Promise.resolve(userRecord(PlatformRole.SUPER_ADMIN))),
+    } as unknown as UsersRepository;
+    const service = new UsersService(repository, audit as never, transactionalPrisma as never);
+
+    await expect(
+      service.deactivate(actor(PlatformRole.ADMIN), 'usr_target'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('denies platform-role updates without the mapped global permission', async () => {
+    const findActiveByPublicId = jest.fn(() => Promise.resolve(userRecord()));
+    const repository = {
+      findActiveByPublicId,
+    } as unknown as UsersRepository;
+    const service = new UsersService(repository, audit as never, transactionalPrisma as never);
+
+    await expect(
+      service.updatePlatformRole(actor(PlatformRole.ADMIN), 'usr_target', {
+        platformRole: PlatformRole.ADMIN,
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(findActiveByPublicId).not.toHaveBeenCalled();
+  });
+
   it('prevents deactivation of the only active owner of an active place', async () => {
     const repository = {
       findActiveByPublicId: jest.fn(() => Promise.resolve(userRecord())),

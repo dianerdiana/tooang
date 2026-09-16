@@ -12,7 +12,11 @@ import {
   getEffectivePlacePermissions,
   getMembershipPermissions,
   getPlatformPermissions,
+  getPlatformPermissionScopes,
+  PERMISSION,
+  PLATFORM_PERMISSION_SCOPE,
 } from '@/common/auth';
+import { isTransactionWriteConflict } from '@/common/errors';
 
 import { AuditService } from '@/modules/audit/audit.service';
 
@@ -155,7 +159,11 @@ export class UsersService {
   }
 
   async updatePlatformRole(actor: AuthenticatedActor, userId: string, input: PlatformRoleInput) {
-    if (actor.platformRole !== PlatformRole.SUPER_ADMIN) {
+    if (
+      !getPlatformPermissionScopes(actor.platformRole, PERMISSION.PLATFORM_ROLE_UPDATE).includes(
+        PLATFORM_PERMISSION_SCOPE.GLOBAL,
+      )
+    ) {
       throw new ForbiddenException('Insufficient permissions');
     }
 
@@ -192,14 +200,15 @@ export class UsersService {
     return this.inSerializableTransaction(async (tx) => {
       const target = await this.repository.findActiveByPublicId(userId, tx);
       if (!target) throw new NotFoundException('User not found');
-      if (actor.platformRole === PlatformRole.ADMIN && target.platformRole !== PlatformRole.USER) {
-        throw new ForbiddenException('ADMIN may deactivate only USER accounts');
+      const scopes = getPlatformPermissionScopes(actor.platformRole, PERMISSION.USER_DEACTIVATE);
+      if (!scopes.length) {
+        throw new ForbiddenException('Insufficient permissions');
       }
       if (
-        actor.platformRole !== PlatformRole.ADMIN &&
-        actor.platformRole !== PlatformRole.SUPER_ADMIN
+        scopes.includes(PLATFORM_PERMISSION_SCOPE.RESTRICTED) &&
+        target.platformRole !== PlatformRole.USER
       ) {
-        throw new ForbiddenException('Insufficient permissions');
+        throw new ForbiddenException('ADMIN may deactivate only USER accounts');
       }
       if (
         target.platformRole === PlatformRole.SUPER_ADMIN &&
@@ -264,6 +273,6 @@ export class UsersService {
   }
 
   private isWriteConflict(error: unknown): boolean {
-    return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034';
+    return isTransactionWriteConflict(error);
   }
 }

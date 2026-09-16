@@ -11,7 +11,9 @@ export class DataLifecycleRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   databaseNow(db: LifecycleDbClient = this.prisma) {
-    return db.$queryRaw<Array<{ now: Date }>>(Prisma.sql`SELECT CURRENT_TIMESTAMP AS "now"`);
+    return db.$queryRaw<Array<{ now: Date }>>(
+      Prisma.sql`SELECT CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AS "now"`,
+    );
   }
 
   retentionCutoffs(db: LifecycleDbClient = this.prisma) {
@@ -24,10 +26,10 @@ export class DataLifecycleRepository {
       }>
     >(Prisma.sql`
       SELECT
-        CURRENT_TIMESTAMP AS "now",
-        CURRENT_TIMESTAMP - INTERVAL '30 days' AS "sessionCutoff",
-        CURRENT_TIMESTAMP - INTERVAL '1 year' AS "auditCutoff",
-        CURRENT_TIMESTAMP - INTERVAL '5 years' AS "orderCutoff"
+        CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AS "now",
+        (CURRENT_TIMESTAMP - INTERVAL '30 days') AT TIME ZONE 'UTC' AS "sessionCutoff",
+        (CURRENT_TIMESTAMP - INTERVAL '1 year') AT TIME ZONE 'UTC' AS "auditCutoff",
+        (CURRENT_TIMESTAMP - INTERVAL '5 years') AT TIME ZONE 'UTC' AS "orderCutoff"
     `);
   }
 

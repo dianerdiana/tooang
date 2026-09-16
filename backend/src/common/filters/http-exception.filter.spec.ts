@@ -44,6 +44,24 @@ describe('HttpExceptionFilter', () => {
     expect(JSON.stringify(result.json.mock.calls)).not.toContain('private database detail');
   });
 
+  it('maps PostgreSQL adapter serialization conflicts without exposing driver details', () => {
+    const result = execute(
+      Object.assign(new Error('private transaction detail'), {
+        name: 'DriverAdapterError',
+        cause: { kind: 'TransactionWriteConflict' },
+      }),
+    );
+
+    expect(result.status).toHaveBeenCalledWith(409);
+    expect(result.json).toHaveBeenCalledWith({
+      error: true,
+      message: 'Concurrent update conflict; retry the request',
+      code: 'CONFLICT',
+    });
+    expect(result.logger.error).not.toHaveBeenCalled();
+    expect(JSON.stringify(result.json.mock.calls)).not.toContain('private transaction detail');
+  });
+
   it('preserves safe validation details without submitted values', () => {
     const result = execute(
       new BadRequestException({
