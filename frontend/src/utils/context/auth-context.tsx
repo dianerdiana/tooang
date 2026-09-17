@@ -1,108 +1,82 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-
-import type { AxiosResponse } from 'axios';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { api } from '@/configs/api-config';
 
-import type { LoginResponse } from '@/features/auth/auth.response';
-import type { LoginDto } from '@/features/auth/auth.schema';
+import { queryClient } from '@/integrations/tanstack-query/root-provider';
 
-import { createAbility } from '../create-ability';
+import type { RegisterResponse } from '@/features/auth/auth.response';
+import type { LoginDto, RegisterDto } from '@/features/auth/auth.schema';
+import { authService } from '@/features/auth/auth.service';
 
-import type { AbilityRule } from '@/types/ability-rule.type';
-import type { ApiResponse } from '@/types/api-response.type';
-import { UserRole } from '@/types/enums/user-role.enum';
-import type { UserData } from '@/types/user-data.type';
+import type { AuthenticatedUser } from '@/types/user-data.type';
 
-import { toApiError } from '../api-error.util';
+import { createAbilityForUser } from '../create-ability';
 
 import { AbilityContext } from './ability-context';
-
-const EMPTY_PERMISSIONS: AbilityRule[] = [];
 
 export type AuthContextType = {
   isAuthenticated: boolean;
   isInitialLoading: boolean;
-  login: (credentials: any) => Promise<ApiResponse<LoginResponse>>;
-  register: (credentials: any) => Promise<ApiResponse<LoginResponse>>;
+  login: (credentials: LoginDto) => Promise<AuthenticatedUser>;
+  register: (credentials: RegisterDto) => Promise<RegisterResponse>;
   logout: () => Promise<void>;
-  userData: UserData;
+  user: AuthenticatedUser | null;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
-  const [userData, setUserData] = useState<UserData | null>(null);
+  const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const ability = useContext(AbilityContext);
 
-  const updateAbility = (permissions: AbilityRule[]) => {
-    const newAbility = createAbility(permissions);
-    ability.update(newAbility.rules);
-  };
+  const applyUser = useCallback(
+    (nextUser: AuthenticatedUser | null) => {
+      setUser(nextUser);
+      ability.update(createAbilityForUser(nextUser).rules);
+    },
+    [ability],
+  );
 
-  const clearAuthState = () => {
-    api.logout();
-    setUserData(null);
-    updateAbility(EMPTY_PERMISSIONS);
-    setIsInitialLoading(false);
-  };
+  const clearLocalSession = useCallback(() => {
+    api.removeToken();
+    applyUser(null);
+    queryClient.clear();
+  }, [applyUser]);
 
-  const login = async (credentials: any): Promise<ApiResponse<LoginResponse>> => {
+  const login = useCallback(
+    async (credentials: LoginDto) => {
+      const authenticatedUser = await authService.login(credentials);
+      applyUser(authenticatedUser);
+      return authenticatedUser;
+    },
+    [applyUser],
+  );
+
+  const register = useCallback((credentials: RegisterDto) => authService.register(credentials), []);
+
+  const logout = useCallback(async () => {
     try {
-      const response = await api.post<LoginDto, ApiResponse<LoginResponse>>('/auth/login', credentials);
-
-      if (response.data.status === 'success') {
-        const { data } = response.data;
-        updateAbility(data.user.permissions);
-        api.setToken(data.token);
-        setUserData(data.user);
-        setIsInitialLoading(false);
-      }
-
-      return response.data;
-    } catch (error) {
-      throw toApiError(error);
+      await authService.logout();
+    } finally {
+      clearLocalSession();
     }
-  };
-
-  const register = async (credentials: any): Promise<AxiosResponse<ApiResponse<LoginResponse>> | any> => {
-    try {
-      const response = await api.register(credentials);
-
-      setIsInitialLoading(false);
-
-      return response.data;
-    } catch (error) {
-      throw toApiError(error);
-    }
-  };
-
-  const logout = async () => {
-    clearAuthState();
-  };
+  }, [clearLocalSession]);
 
   useEffect(() => {
-    const token = api.getToken();
-
-    if (!token) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setIsInitialLoading(false);
-      return;
-    }
+    let active = true;
+    const unsubscribe = api.onSessionExpired(() => {
+      if (active) clearLocalSession();
+    });
 
     const bootstrap = async () => {
       try {
-        const response = await api.get<ApiResponse<UserData>>('/auth/me');
-
-        if (response.data.status === 'success') {
-          setUserData(response.data.data);
-          updateAbility(response.data.data.permissions);
-        }
+        const authenticatedUser = await authService.restoreSession();
+        if (active) applyUser(authenticatedUser);
       } catch {
-        clearAuthState();
+        if (active) clearLocalSession();
       } finally {
-        setIsInitialLoading(false);
+        if (active) setIsInitialLoading(false);
       }
     };
 
@@ -110,41 +84,31 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
 
     const handleStorage = (event: StorageEvent) => {
       if (event.key === api.getStorageTokenKeyName() && event.newValue === null) {
-        clearAuthState();
+        clearLocalSession();
       }
     };
 
     window.addEventListener('storage', handleStorage);
-
     return () => {
+      active = false;
+      unsubscribe();
       window.removeEventListener('storage', handleStorage);
     };
+  }, [applyUser, clearLocalSession]);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <AuthContext.Provider
-      value={{
-        isAuthenticated: !!userData,
-        isInitialLoading,
-        login,
-        register,
-        logout,
-        userData: userData
-          ? userData
-          : ({
-              id: '',
-              role: UserRole.USER,
-              name: '',
-              email: '',
-              permissions: EMPTY_PERMISSIONS,
-            } as UserData),
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthContextType>(
+    () => ({
+      isAuthenticated: user !== null,
+      isInitialLoading,
+      login,
+      register,
+      logout,
+      user,
+    }),
+    [isInitialLoading, login, logout, register, user],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export { AuthContext, AuthContextProvider };

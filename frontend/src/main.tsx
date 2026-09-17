@@ -16,12 +16,11 @@ import { router } from './router';
 
 function AppRouter() {
   const ability = useAppAbility();
-  const { isAuthenticated, isInitialLoading, userData } = useAuth();
-  const { email, id, name, role } = userData;
+  const { isAuthenticated, isInitialLoading, user } = useAuth();
 
   useEffect(() => {
     void router.invalidate();
-  }, [email, id, isAuthenticated, isInitialLoading, name, role]);
+  }, [isAuthenticated, isInitialLoading, user]);
 
   if (isInitialLoading) {
     return <FallbackSpinner fullscreen />;
@@ -35,7 +34,7 @@ function AppRouter() {
         auth: {
           isAuthenticated,
           isInitialLoading,
-          userData,
+          user,
         },
         ability,
       }}
@@ -50,7 +49,7 @@ if (!rootElement.innerHTML) {
   root.render(
     <StrictMode>
       <AbilityProvider value={ability}>
-        <ThemeProvider defaultTheme='dark' storageKey='vite-ui-theme'>
+        <ThemeProvider defaultTheme='dark' storageKey='tooang.theme'>
           <AuthContextProvider>
             <AppRouter />
           </AuthContextProvider>

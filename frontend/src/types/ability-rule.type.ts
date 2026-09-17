@@ -1,11 +1,18 @@
 import type { MongoAbility, MongoQuery } from '@casl/ability';
 
-export type PermissionAction = 'create' | 'read' | 'update' | 'delete';
-export type PermissionSubject = 'Auth' | 'User';
+import type { Permission } from './permission.type';
 
-export type AbilityRule = {
-  action: PermissionAction;
-  subject: PermissionSubject;
+export type AbilitySubject = 'Platform' | 'Place';
+
+export type PlaceSubject = {
+  type: 'Place';
+  placeId: string;
 };
 
-export type AppAbility = MongoAbility<[PermissionAction, PermissionSubject], MongoQuery>;
+export type AbilityRule = {
+  action: Permission;
+  subject: AbilitySubject;
+  conditions?: { placeId: string };
+};
+
+export type AppAbility = MongoAbility<[Permission, AbilitySubject | PlaceSubject], MongoQuery>;

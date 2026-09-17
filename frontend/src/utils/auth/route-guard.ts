@@ -1,36 +1,11 @@
-import { redirect } from '@tanstack/react-router';
-
-type GuardAuthContext = {
-  isAuthenticated: boolean;
-  isInitialLoading: boolean;
-};
-
-export const requireAuthenticated = (auth: GuardAuthContext, redirectTarget: string) => {
-  if (!auth.isInitialLoading && !auth.isAuthenticated) {
-    throw redirect({
-      to: '/auth/login',
-      search: {
-        redirect: redirectTarget,
-      },
-      replace: true,
-    });
-  }
-};
+const DEFAULT_REDIRECT_TARGET = '/';
 
 export const getSafeRedirectTarget = (redirectTarget?: string) => {
-  if (!redirectTarget) {
-    return '/dashboard';
-  }
+  if (!redirectTarget) return DEFAULT_REDIRECT_TARGET;
 
   const normalizedTarget = redirectTarget.trim();
-
-  if (!normalizedTarget.startsWith('/') || normalizedTarget.startsWith('//')) {
-    return '/dashboard';
-  }
-
-  if (/[^\x20-\x7E]/.test(normalizedTarget)) {
-    return '/dashboard';
-  }
+  if (!normalizedTarget.startsWith('/') || normalizedTarget.startsWith('//')) return DEFAULT_REDIRECT_TARGET;
+  if (/[^\x20-\x7E]/.test(normalizedTarget)) return DEFAULT_REDIRECT_TARGET;
 
   return normalizedTarget;
 };

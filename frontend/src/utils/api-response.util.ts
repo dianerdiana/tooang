@@ -1,7 +1,7 @@
 import type { ApiResponse, PaginatedResult } from '@/types/api-response.type';
 
 export const unwrapApiResponse = <T>(response: ApiResponse<T>): T => {
-  if (response.status === 'success') {
+  if (!response.error) {
     return response.data;
   }
 
@@ -9,7 +9,7 @@ export const unwrapApiResponse = <T>(response: ApiResponse<T>): T => {
 };
 
 export const unwrapPaginatedApiResponse = <T>(response: ApiResponse<T>): PaginatedResult<T> => {
-  if (response.status === 'success') {
+  if (!response.error) {
     return {
       items: response.data,
       meta: response.meta ?? {},

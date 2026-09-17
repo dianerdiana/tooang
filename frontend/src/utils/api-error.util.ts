@@ -7,17 +7,19 @@ export const isErrorResponse = (value: unknown): value is ErrorResponse => {
 
   const data = value as Partial<ErrorResponse>;
 
-  return data.status === 'error' && typeof data.message === 'string';
+  return data.error === true && typeof data.message === 'string';
 };
 
 export const toApiError = (e: unknown): ErrorResponse => {
+  if (isErrorResponse(e)) return e;
+
   if (axios.isAxiosError(e)) {
     const data = e.response?.data;
     const httpStatus = e.response?.status;
 
     if (isErrorResponse(data)) {
       return {
-        status: 'error',
+        error: true,
         message: data.message,
         code: data.code,
         details: data.details,
@@ -27,7 +29,7 @@ export const toApiError = (e: unknown): ErrorResponse => {
     }
 
     return {
-      status: 'error',
+      error: true,
       message: e.message || 'Request failed',
       code: e.code,
       httpStatus,
@@ -37,13 +39,13 @@ export const toApiError = (e: unknown): ErrorResponse => {
 
   if (e instanceof Error) {
     return {
-      status: 'error',
+      error: true,
       message: e.message,
     };
   }
 
   return {
-    status: 'error',
+    error: true,
     message: 'Unknown error',
   };
 };

@@ -1,9 +1,15 @@
 import type { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import axios from 'axios';
 
+import type { RefreshResponse } from '@/features/auth/auth.response';
+
+import type { ApiResponse } from '@/types/api-response.type';
+
 import { env } from '../env';
 
 import jwtDefaultConfig from './jwt-default-config';
+
+type RetryableRequestConfig = AxiosRequestConfig & { _retry?: boolean };
 
 export type JwtServiceConfig = {
   baseURL?: string;
@@ -12,81 +18,72 @@ export type JwtServiceConfig = {
 };
 
 export class JwtService {
-  axin: AxiosInstance;
+  readonly axin: AxiosInstance;
 
-  jwtConfig = { ...jwtDefaultConfig };
+  private readonly refreshClient: AxiosInstance;
 
-  accessToken: string | null = this.getToken();
+  private readonly jwtConfig: typeof jwtDefaultConfig;
 
-  isAlreadyFetchingAccessToken = false;
+  private accessToken: string | null;
 
-  subscribers: ((accessToken: string) => void)[] = [];
+  private refreshPromise: Promise<string> | null = null;
 
-  constructor({ ...overrideServiceConfig }: JwtServiceConfig) {
-    this.jwtConfig = { ...this.jwtConfig, ...overrideServiceConfig };
+  private sessionExpiredListeners = new Set<() => void>();
 
+  constructor(overrides: JwtServiceConfig = {}) {
+    this.jwtConfig = { ...jwtDefaultConfig, ...overrides };
+    const baseURL = this.jwtConfig.baseURL || env.baseApiUrl;
+
+    this.accessToken = this.readStoredToken();
     this.axin = axios.create({
-      baseURL: this.jwtConfig.baseURL || env.baseApiUrl || '',
-      // withCredentials: true, // WAJIB untuk HttpOnly Cookie
+      baseURL,
+      withCredentials: true,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    this.refreshClient = axios.create({
+      baseURL,
+      withCredentials: true,
       headers: { 'Content-Type': 'application/json' },
     });
 
-    this.axin.interceptors.request.use(
-      (config) => {
-        if (this.accessToken) {
-          config.headers.Authorization = `${this.jwtConfig.tokenType} ${this.accessToken}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error),
-    );
+    this.axin.interceptors.request.use((config) => {
+      if (this.accessToken) {
+        config.headers.Authorization = `${this.jwtConfig.tokenType} ${this.accessToken}`;
+      }
+      return config;
+    });
 
     this.axin.interceptors.response.use(
       (response) => response,
-      async (error) => {
-        const axiosError = error as AxiosError;
-        const status = axiosError.response?.status;
-        const originalRequest = axiosError.config as (AxiosRequestConfig & { _retry?: boolean }) | undefined;
-
-        if (!originalRequest || status !== 401) {
-          return Promise.reject(error);
-        }
-
-        const requestUrl = originalRequest.url ?? '';
-
-        if (
-          requestUrl.includes(this.jwtConfig.loginUrl) ||
-          requestUrl.includes(this.jwtConfig.registerUrl) ||
-          requestUrl.includes(this.jwtConfig.refreshTokenUrl)
-        ) {
+      async (error: AxiosError) => {
+        const originalRequest = error.config as RetryableRequestConfig | undefined;
+        if (!originalRequest || error.response?.status !== 401 || this.isRefreshExcluded(originalRequest.url)) {
           return Promise.reject(error);
         }
 
         if (originalRequest._retry) {
-          this.logout();
+          this.expireSession();
           return Promise.reject(error);
         }
 
         originalRequest._retry = true;
 
         try {
-          await this.refreshToken();
+          await this.refreshAccessToken();
           return this.axin(originalRequest);
         } catch (refreshError) {
-          this.logout();
+          this.expireSession();
           return Promise.reject(refreshError);
         }
-
-        return Promise.reject(error);
       },
     );
   }
 
-  get<TResponse = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<TResponse>> {
+  get<TResponse>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<TResponse>> {
     return this.axin.get(url, config);
   }
 
-  post<TRequest = any, TResponse = any>(
+  post<TRequest, TResponse>(
     url: string,
     data?: TRequest,
     config?: AxiosRequestConfig,
@@ -94,7 +91,7 @@ export class JwtService {
     return this.axin.post(url, data, config);
   }
 
-  put<TRequest = any, TResponse = any>(
+  put<TRequest, TResponse>(
     url: string,
     data?: TRequest,
     config?: AxiosRequestConfig,
@@ -102,7 +99,7 @@ export class JwtService {
     return this.axin.put(url, data, config);
   }
 
-  patch<TRequest = any, TResponse = any>(
+  patch<TRequest, TResponse>(
     url: string,
     data?: TRequest,
     config?: AxiosRequestConfig,
@@ -110,54 +107,86 @@ export class JwtService {
     return this.axin.patch(url, data, config);
   }
 
-  delete<TResponse = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<TResponse>> {
+  delete<TResponse>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<TResponse>> {
     return this.axin.delete(url, config);
   }
 
-  onAccessTokenFetched(accessToken: string) {
-    this.subscribers.forEach((callback) => callback(accessToken));
-    this.subscribers = [];
-  }
-
-  addSubscriber(callback: (token: string) => void) {
-    this.subscribers.push(callback);
-  }
-
-  getToken(): string | null {
-    const existingToken = localStorage.getItem(this.jwtConfig.storageTokenKeyName);
-
-    return existingToken ? JSON.parse(existingToken) : null;
+  getToken() {
+    return this.accessToken;
   }
 
   setToken(token: string) {
     this.accessToken = token;
-    localStorage.setItem(this.jwtConfig.storageTokenKeyName, JSON.stringify(token));
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(this.jwtConfig.storageTokenKeyName, JSON.stringify(token));
+    }
   }
 
   removeToken() {
     this.accessToken = null;
-    localStorage.removeItem(this.jwtConfig.storageTokenKeyName);
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(this.jwtConfig.storageTokenKeyName);
+    }
   }
 
   getStorageTokenKeyName() {
     return this.jwtConfig.storageTokenKeyName;
   }
 
-  refreshToken(): Promise<AxiosResponse> {
-    // Backend saat ini menggunakan /auth/me untuk revalidasi sesi token yang ada.
-    return this.axin.get(this.jwtConfig.refreshTokenUrl);
+  onSessionExpired(listener: () => void) {
+    this.sessionExpiredListeners.add(listener);
+    return () => this.sessionExpiredListeners.delete(listener);
   }
 
-  login(credentials: any) {
-    return this.axin.post(this.jwtConfig.loginUrl, credentials);
+  refreshAccessToken() {
+    if (!this.refreshPromise) {
+      this.refreshPromise = this.refreshClient
+        .post<ApiResponse<RefreshResponse>>(this.jwtConfig.refreshTokenUrl)
+        .then(({ data }) => {
+          if (data.error) throw data;
+          this.setToken(data.data.accessToken);
+          return data.data.accessToken;
+        })
+        .finally(() => {
+          this.refreshPromise = null;
+        });
+    }
+
+    return this.refreshPromise;
   }
 
-  register(credentials: any) {
-    return this.axin.post(this.jwtConfig.registerUrl, credentials);
+  async logout() {
+    try {
+      await this.refreshClient.post(this.jwtConfig.logoutUrl);
+    } finally {
+      this.removeToken();
+    }
   }
 
-  logout() {
+  private readStoredToken() {
+    if (typeof window === 'undefined') return null;
+
+    const storedToken = window.localStorage.getItem(this.jwtConfig.storageTokenKeyName);
+    if (!storedToken) return null;
+
+    try {
+      return JSON.parse(storedToken) as string;
+    } catch {
+      window.localStorage.removeItem(this.jwtConfig.storageTokenKeyName);
+      return null;
+    }
+  }
+
+  private isRefreshExcluded(url: string | undefined) {
+    if (!url) return false;
+    return [this.jwtConfig.loginUrl, this.jwtConfig.registerUrl, this.jwtConfig.refreshTokenUrl].some((endpoint) =>
+      url.includes(endpoint),
+    );
+  }
+
+  private expireSession() {
     this.removeToken();
+    this.sessionExpiredListeners.forEach((listener) => listener());
   }
 }
 

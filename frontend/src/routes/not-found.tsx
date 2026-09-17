@@ -4,7 +4,7 @@ import NotFound from '@/components/pages/not-found';
 
 export const Route = createFileRoute('/not-found')({
   head: () => ({
-    meta: [{ title: 'Page Not Found | Frontend' }],
+    meta: [{ title: 'Page Not Found | Tooang' }],
   }),
   component: NotFound,
 });

@@ -42,11 +42,11 @@ Dokumen ini menjelaskan arsitektur teknis aplikasi frontend secara lengkap dan p
 
 ## 3. Prinsip Arsitektur
 
-- Feature-oriented: domain utama dipisah per modul (`modules/auth`, `modules/users`, dll).
+- Feature-oriented: domain utama dipisah per modul (`features/auth`, `features/users`, dll).
 - Route-driven composition: layout dan akses halaman ditentukan dari route tree TanStack.
 - Single source of truth untuk data server: TanStack Query.
 - Boundary jelas untuk API: semua request lewat JWT service (`configs/auth/jwt-service.ts`).
-- Defense-in-depth untuk akses: route guard + role check + permission check (CASL).
+- Defense-in-depth untuk akses: route guard + permission metadata (CASL), dengan backend sebagai boundary otorisasi.
 
 ## 4. Struktur Direktori dan Tanggung Jawab
 
@@ -55,7 +55,7 @@ src/
 	components/          # Reusable UI dan shared view components
 	configs/             # Konfigurasi global (env, api, auth, acl, theme)
 	integrations/        # Integrasi library eksternal (tanstack-query, devtools)
-	modules/             # Business features per domain
+	features/             # Business features per domain
 	routes/              # File-based routes dan layout routes
 	types/               # Shared type definitions
 	utils/               # Utility, hooks, context, helpers
@@ -69,7 +69,7 @@ Penjelasan layer:
 
 - `configs/`: hanya untuk konfigurasi, tidak menyimpan business logic page-level.
 - `integrations/`: adapter ke library pihak ketiga, sehingga implementasi mudah diganti.
-- `modules/`: tempat use case domain (query key, schema, service, ui domain).
+- `features/`: tempat use case domain (query key, schema, service, ui domain).
 - `routes/`: orchestrator halaman, layout, dan proteksi akses.
 - `components/`: shared visual building blocks lintas modul.
 - `utils/`: utilitas generik, context global, hooks reusable.
@@ -115,20 +115,17 @@ flowchart TD
 - `routeTree.gen.ts` digenerate otomatis oleh TanStack Router plugin.
 - Jangan edit `routeTree.gen.ts` secara manual.
 
-### 6.2 Layout Segmentation
+### 6.2 Route Saat Ini
 
-Layout utama:
-
-- `_layout-public-nav`: halaman publik dengan bottom navigation (home, appointment, booking, profile).
-- `_layout-public-blank`: halaman publik tanpa nav tetap.
-- `_layout-blank`: layout minimal (misalnya auth).
-- `_layout-dashboard`: area dashboard/admin/doctor dengan sidebar.
+- `/`: route netral untuk memvalidasi foundation aplikasi.
+- `/not-found`: fallback untuk route yang tidak tersedia.
+- Route dan layout feature belum dibuat; `routeTree.gen.ts` selalu dihasilkan oleh plugin TanStack Router.
 
 ### 6.3 Route Guard
 
-- Guard umum login menggunakan `requireAuthenticated` di route yang butuh sesi aktif.
-- Guard role tambahan di dashboard: hanya role tertentu (`ADMIN`, `DOCTOR`) yang boleh akses.
-- Redirect aman lewat `getSafeRedirectTarget` untuk menghindari redirect target tidak valid.
+- Guard autentikasi ditambahkan bersamaan dengan route protected pertama.
+- Redirect target wajib disanitasi lewat `getSafeRedirectTarget`.
+- Visibility frontend tidak menggantikan otorisasi resource dan tenant di backend.
 
 ## 7. Authentication dan Authorization
 
@@ -136,8 +133,8 @@ Layout utama:
 
 Sumber utama ada di `utils/context/auth-context.tsx`:
 
-1. Saat app load, cek token dari storage.
-2. Jika ada token, panggil `/auth/me` untuk bootstrap user session.
+1. Saat app load, gunakan access token tersimpan atau coba rotasi refresh cookie melalui `POST /auth/refresh`.
+2. Panggil `GET /me` untuk mengambil profil, platform permissions, dan place memberships terbaru.
 3. Jika sukses:
    - set `userData`
    - update CASL ability dari permissions backend
@@ -147,33 +144,30 @@ Sumber utama ada di `utils/context/auth-context.tsx`:
 
 Login:
 
-- Request ke `/auth/login`.
-- Simpan token via `api.setToken`.
-- Simpan data user ke state context.
-- Update ability dari permissions user.
+- Request ke `POST /auth/login`, simpan `accessToken`, lalu hydrate profil melalui `GET /me`.
+- Registrasi melalui `POST /auth/register` tidak membuat sesi login.
+- Simpan profil ke context dan rebuild ability dari platform permissions serta membership `effectivePermissions`.
 
 Logout:
 
-- Hapus token dan user state.
-- Reset ability ke permission kosong.
+- Panggil `POST /auth/logout`, lalu hapus token, user state, private query cache, dan reset ability.
 
 ### 7.2 JWT Service dan Interceptor
 
 `configs/auth/jwt-service.ts` mengelola:
 
 - Attach `Authorization` header otomatis saat token tersedia.
-- Interceptor `401` handling:
-  - Skip retry untuk endpoint login/register/refresh.
-  - Retry 1x request setelah refresh session (`/auth/me`).
-  - Jika tetap gagal: logout dan reject error.
+- Kirim refresh cookie dengan `withCredentials`.
+- Satu shared refresh promise menangani concurrent `401` melalui `POST /auth/refresh`.
+- Request diulang maksimal satu kali; kegagalan terminal membersihkan sesi lokal.
 
 Tujuan desain ini adalah mencegah infinite loop dan menjaga state auth tetap sinkron.
 
 ### 7.3 Authorization dengan CASL
 
-- Ability awal berasal dari `configs/acl/initial-ability.ts`.
-- Ability diperbarui runtime berdasarkan permission backend (`user.permissions`).
-- Navigation item mendukung properti `permission` untuk filtering berbasis ability.
+- Ability awal deny-all berasal dari `configs/acl/initial-ability.ts`.
+- Permission platform dan permission membership per `placeId` dikonsumsi langsung dari `GET /me`.
+- `canPlatform` dan `canAtPlace` hanya mengontrol rendering/interaksi; backend tetap otoritatif.
 
 ## 8. Data Fetching dan State Management
 
@@ -243,22 +237,12 @@ Prinsip:
 
 ## 11. Feature Module Architecture
 
-Modul domain saat ini:
-
-- `auth`
-- `auth`
-- `dashboard`
-- `users`
-- `patients`
-- `public-facing`
-- `reviews`
-- `specialists`
-- `users`
+Modul domain saat ini hanya `auth`, berisi contract, schema, dan session service tanpa halaman feature.
 
 Rekomendasi struktur internal modul (target konsistensi):
 
 ```text
-modules/<feature>/
+features/<feature>/
 	components/     				# UI khusus feature
 	<feature>.api.ts    		# adapter API feature
 	<feature>.key.ts				# queryKey khusus feature
@@ -276,10 +260,9 @@ Aturan dependensi:
 
 ## 12. Security dan Access Control
 
-- Token hanya disimpan di storage key yang dikelola JWT service.
-- Route guard menahan akses sebelum auth bootstrap selesai.
-- Role guard menutup dashboard untuk role non-authorized.
-- Permission guard (CASL) mengontrol visibilitas menu dan aksi UI.
+- Access token disimpan di storage key yang dikelola JWT service; refresh token hanya dikelola backend melalui HttpOnly cookie.
+- Router menunggu auth bootstrap selesai sebelum dirender.
+- CASL mengontrol visibilitas menu dan aksi UI berdasarkan metadata backend, bukan role mapping buatan frontend.
 
 Checklist keamanan frontend:
 
@@ -340,7 +323,7 @@ Alur release minimal:
 
 Prioritas tinggi:
 
-- Tambahkan guard level permission per halaman/aksi kritikal selain role/layout.
+- Tambahkan guard autentikasi dan permission metadata saat route protected pertama dibuat.
 - Standardisasi struktur internal semua modul domain.
 - Tambahkan test untuk auth bootstrap, route guard, dan token refresh path.
 
@@ -352,7 +335,7 @@ Prioritas menengah:
 
 Prioritas jangka panjang:
 
-- Pertimbangkan code splitting lebih agresif untuk halaman dashboard berat.
+- Pertimbangkan code splitting lebih agresif saat feature routes mulai bertambah.
 - Audit aksesibilitas komponen form dan navigasi.
 - Tambahkan monitoring frontend (error tracking + performance metrics).
 
@@ -361,7 +344,7 @@ Prioritas jangka panjang:
 Jika menambah fitur baru, ikuti urutan ini:
 
 1. Tambah route dan layout placement yang tepat di `routes/`.
-2. Buat modul domain di `modules/<feature>/`.
+2. Buat modul domain di `features/<feature>/`.
 3. Tambahkan service/query/mutation berbasis `api` + TanStack Query.
 4. Pasang validasi schema (Zod) untuk input/output penting.
 5. Integrasikan permission CASL untuk menu/aksi yang dibatasi.

@@ -20,7 +20,7 @@ import '../styles.css';
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
-    meta: [{ title: 'Frontend' }],
+    meta: [{ title: 'Tooang' }],
   }),
   component: RootDocument,
   notFoundComponent: NotFound,
