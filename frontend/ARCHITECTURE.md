@@ -237,7 +237,21 @@ Prinsip:
 
 ## 11. Feature Module Architecture
 
-Modul domain saat ini hanya `auth`, berisi contract, schema, dan session service tanpa halaman feature.
+Modul domain Tooang saat ini:
+
+- `auth`: contract, schema, dan session service tanpa halaman feature.
+- `dashboard`
+- `users`
+- `places`
+- `place-members`
+- `business-hours`
+- `dining-tables`
+- `menus`
+- `orders`
+- `reviews`
+- `media`
+
+Selain `auth`, modul tersebut masih berupa placeholder ter-track dan belum memiliki route, API adapter, atau implementasi feature.
 
 Rekomendasi struktur internal modul (target konsistensi):
 
