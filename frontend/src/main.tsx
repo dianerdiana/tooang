@@ -49,7 +49,7 @@ if (!rootElement.innerHTML) {
   root.render(
     <StrictMode>
       <AbilityProvider value={ability}>
-        <ThemeProvider defaultTheme='dark' storageKey='tooang.theme'>
+        <ThemeProvider defaultTheme='light' storageKey='tooang.theme'>
           <AuthContextProvider>
             <AppRouter />
           </AuthContextProvider>
