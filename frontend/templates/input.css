@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+body {
+    min-height: 100vh;
+    font-family: "Poppins";
+    background-color: #F3F4F6;
+    color: #353535;
+}
