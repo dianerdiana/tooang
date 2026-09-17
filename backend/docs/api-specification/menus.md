@@ -2,26 +2,32 @@
 
 ## Category management
 
-The protected category endpoints are `GET`, `POST`, `PATCH`, and `DELETE` beneath `/api/v1/places/:placeId/menu-categories`, with `GET` and `PATCH` by `:categoryId`. Management reads require `menu.update`; writes require the corresponding `menu.create`, `menu.update`, or `menu.delete` permission. OWNER access is limited to owned places, while ADMIN and SUPER_ADMIN use global scope.
+All routes are protected beneath `/api/v1/places/:placeId/menu-categories`.
 
-Lists use `page=1`, `limit=20` (maximum 100), and optional `isActive`, ordered by `sortOrder ASC, id ASC`. Names contain 1–100 Unicode characters after trimming and whitespace collapse. Their lowercase normalized form is unique per place, including soft-deleted rows. `sortOrder` is a non-negative integer. V1 does not expose category descriptions.
+| Route                 | Permission    | Success                               |
+| --------------------- | ------------- | ------------------------------------- |
+| `GET /`               | `menu.update` | `200 data.categories` plus pagination |
+| `GET /:categoryId`    | `menu.update` | `200 data.category`                   |
+| `POST /`              | `menu.create` | `201 data.category`                   |
+| `PATCH /:categoryId`  | `menu.update` | `200 data.category`                   |
+| `DELETE /:categoryId` | `menu.delete` | `200 data.category`                   |
 
-Deleting a category sets `isActive=false` and `deletedAt`; a category containing non-deleted menu items returns `409`. Deactivation removes the category's cart rows. Deleted categories are not restored through this API.
+Lists use page 1, limit 20 (maximum 100), optional `isActive`, and `sortOrder ASC, id ASC`. Create accepts `name`, optional `sortOrder`, and optional `isActive`; update requires at least one supported field. Names are trimmed/whitespace-collapsed, 1–100 code points, and unique by lowercase normalized form per place, including deleted rows. V1 does not expose category descriptions.
+
+Deletion sets inactive/deleted state, removes affected cart rows, and returns `409` while non-deleted items remain.
 
 ## Item management
 
-Protected item endpoints are `GET`, `POST`, `PATCH`, and `DELETE` beneath `/api/v1/places/:placeId/menu-items`, with read/update/delete by `:menuItemId`. Management lists support bounded pagination plus `type`, `categoryId`, and `isAvailable` filters.
+Protected routes are `GET/POST /api/v1/places/:placeId/menu-items` and `GET/PATCH/DELETE /api/v1/places/:placeId/menu-items/:menuItemId`. Reads require `menu.update`; writes require the corresponding create/update/delete permission. Lists support standard pagination and optional `type`, `categoryId`, and `isAvailable`.
 
-Create requires `categoryId`, `name`, `type` (`FOOD` or `DRINK`), and numeric `price`; description, availability, and sort order are optional. Names contain 1–120 Unicode characters, descriptions at most 1,000, and empty descriptions become null. Prices must be finite, non-negative, have at most two fractional digits, and fit `Decimal(15,2)`. The service converts accepted values directly to `Prisma.Decimal`.
+Create requires `categoryId`, `name`, `type` (`FOOD|DRINK`), and numeric `price`; description, availability, and non-negative sort order are optional. Names are 1–120 code points, descriptions at most 1,000 and empty-to-null, and prices are finite non-negative `Decimal(15,2)` values with at most two fractional digits. Update requires at least one supported field.
 
-Category and item lookups are always scoped by `placeId`. Moving an item to an inactive category is allowed but removes it from public/orderable content. Unavailability, movement to an inactive category, and deletion remove affected cart rows. Deletion sets `isAvailable=false` and `deletedAt`. OrderItem snapshots are never changed.
-
-Eligibility-reducing changes disable ordering when no available item remains in an active category and unpublish the place when no non-deleted item remains in an active category. They never cancel orders. New or reactivated content does not publish or enable ordering automatically.
+Category/item lookups include `placeId`. Unavailability, movement into an inactive category, or deletion removes affected cart rows. Deletion sets unavailable/deleted state; order snapshots remain unchanged. Eligibility-reducing changes may disable ordering or unpublish as required but never cancel orders.
 
 ## Public menu
 
-`GET /api/v1/places/:placeId/menu` is public. It accepts bounded `page`/`limit` plus optional `type` and `categoryId`. The place must be published and non-deleted. Only available, non-deleted items in active, non-deleted categories qualify.
+`GET /api/v1/places/:placeId/menu` is public and accepts standard pagination plus optional `type` and `categoryId`. The place must be published/non-deleted. Only available non-deleted items in active non-deleted categories qualify. Pagination is over items before grouping; output is `data.categories[].items[]` with standard item-count metadata.
 
-Pagination is over items before grouping. Results are ordered by category sort order and ID, then item sort order and ID, and returned as `categories[]` with their page-local `items[]`. Metadata counts qualifying items. An unknown, inactive, or foreign category filter returns an empty page. Item responses expose only the active delivery `imageUrl`, never provider identifiers or media lifecycle fields.
+OWNER scope is limited to an active owned place; ADMIN/SUPER_ADMIN use explicit global grants. Foreign/deleted children return hidden `404`; invalid input returns `400`; duplicate names, state conflicts, and exhausted serialization return `409`. Public/management responses expose active `imageUrl` only, never ImageKit IDs or lifecycle fields.
 
-Duplicate normalized category names, uniqueness races, and exhausted serializable transactions return `409`. Foreign/deleted tenant children return `404`. Global administrative mutations emit a safe `ADMIN_CROSS_PLACE_MUTATION` audit.
+Traceability: SRS-MNU-001–014, SRS-API-003–010, SRS-AUTHZ-004/008–011, SRS-CART-006–010, and SRS-PERF-002/005/006.

@@ -1,17 +1,17 @@
 # Place Membership API Specification
 
-These authenticated endpoints use the SRS v1.3 `PlaceMember` model. A membership role is `OWNER` or `CASHIER`; neither value is a platform role.
+These protected routes use `PlaceMember.role = OWNER | CASHIER`; neither is a platform role.
 
-## Endpoints
+| Route                                            | Contract                                                                                 |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `GET /api/v1/places/:placeId/members`            | Requires target-place or global `place_member.read`; returns `200 { data: { members } }` |
+| `PUT /api/v1/places/:placeId/members/:userId`    | Strict body with `role` set to `OWNER` or `CASHIER`; returns `200 { data: { member } }`  |
+| `DELETE /api/v1/places/:placeId/members/:userId` | Revokes an active membership; returns `200 { data: { member } }`                         |
 
-- `GET /api/v1/places/:placeId/members` lists current members when the actor has `place_member.read` in that place or an explicitly global platform scope.
-- `PUT /api/v1/places/:placeId/members/:userId` accepts `{ "role": "OWNER" | "CASHIER" }` and idempotently assigns, reactivates, or changes the membership.
-- `DELETE /api/v1/places/:placeId/members/:userId` revokes a current membership.
+`:placeId` is a UUID and `:userId` is the public user identifier. Members expose only safe user/profile, role, and membership timestamp data; internal user IDs and revoked rows are excluded from the active list.
 
-OWNER may assign or revoke CASHIER only in owned places. ADMIN may manage CASHIER globally. Only SUPER_ADMIN may assign, change, or revoke OWNER. An active place must retain at least one active OWNER. A missing, revoked, wrong-role, or foreign-place membership is returned as `404 Not Found`. A capability that cannot be obtained from the actor's platform role or any applicable membership role is returned as `403 Forbidden`; for example, ADMIN cannot assign OWNER. Invariant failures return `409 Conflict`.
+OWNER may assign/revoke CASHIER only in owned places. ADMIN may manage CASHIER globally. Only SUPER_ADMIN may assign, change, or revoke OWNER. An active place must retain one effective active OWNER. Missing/revoked/wrong-role/foreign scope returns hidden `404`; an impossible capability such as ADMIN assigning OWNER returns `403`; last-owner and concurrent invariant failures return `409`.
 
-Membership mutations and their audit records are committed in one serializable transaction. Reactivation reuses the existing `(placeId, userId)` row because the Prisma schema permits only one row for that pair.
+PUT is idempotent and reuses the unique historical `(placeId,userId)` row for assignment, reactivation, or role change. Mutations and audits share one serializable transaction. The list is currently unpaginated and therefore remains an SRS-API-004 implementation gap.
 
-Only active users may receive or retain effective membership authority. Users with `deletedAt`, `deletionRequestedAt`, or `anonymizedAt` set are excluded from member lists and OWNER counts. Historical membership rows remain stored.
-
-Same-role assignment is a no-op. New assignment, revoked-row restoration, role changes, and revocation respectively emit `PLACE_MEMBER_ASSIGNED`, `PLACE_MEMBER_REACTIVATED`, `PLACE_MEMBER_ROLE_UPDATED`, and `PLACE_MEMBER_REVOKED`. Platform-global mutations additionally emit `ADMIN_CROSS_PLACE_MUTATION` with safe identifiers and changed-field names.
+Traceability: SRS-RBAC-004–024, SRS-AUTHZ-004–022, SRS-API-003/004/006/007/009, and SRS-AUD-001–006.

@@ -1,11 +1,11 @@
 # Authentication API Specification
 
-| Attribute | Value |
-| --- | --- |
-| Base path | `/api/v1/auth` |
-| Content type | `application/json; charset=utf-8` |
-| Authentication | Public endpoints; refresh and logout authenticate with the refresh cookie |
-| Source of truth | [`software-requirement-specification.md`](../software-requirement-specification.md) and [`ARCHITECTURE.md`](../../ARCHITECTURE.md) |
+| Attribute       | Value                                                                                                    |
+| --------------- | -------------------------------------------------------------------------------------------------------- |
+| Base path       | `/api/v1/auth`                                                                                           |
+| Content type    | `application/json; charset=utf-8`                                                                        |
+| Authentication  | Public endpoints; refresh and logout authenticate with the refresh cookie                                |
+| Source of truth | [SRS v1.3](../software-requirement-specification/v1.3.md) and [`ARCHITECTURE.md`](../../ARCHITECTURE.md) |
 
 This contract uses the SRS v1.3 authorization model: each user has one `platformRole` (`USER`, `ADMIN`, or `SUPER_ADMIN`). `OWNER` and `CASHIER` are place-membership roles and are not platform roles.
 
@@ -43,7 +43,7 @@ The API returns the access token in the response body and the refresh token only
 - Access tokens contain identity only. Protected requests reload current account state and `platformRole` from PostgreSQL; token role or permission claims are never authoritative.
 - Standard refresh-session lifetime: 30 days.
 - Remember-me refresh-session lifetime: up to 90 days.
-- Passwords are 8–128 Unicode characters. Password input is not trimmed or normalized.
+- Passwords are 8-128 Unicode characters. Password input is not trimmed or normalized.
 - Emails are trimmed and normalized to lowercase before lookup or storage.
 - Authentication responses never expose password hashes, refresh-token hashes, session IDs, token-family relationships, or internal database IDs.
 
@@ -59,11 +59,11 @@ Creates an active user with `platformRole = USER`. User creation and initial rol
 
 No authentication is required.
 
-| Field | Type | Required | Rules |
-| --- | --- | --- | --- |
-| `fullName` | string | Yes | Trimmed; 1–100 characters |
-| `email` | string | Yes | Valid email; maximum 254 characters; normalized to lowercase |
-| `password` | string | Yes | 8–128 Unicode characters; must not be a configured common password |
+| Field      | Type   | Required | Rules                                                              |
+| ---------- | ------ | -------- | ------------------------------------------------------------------ |
+| `fullName` | string | Yes      | Trimmed; 1-100 characters                                          |
+| `email`    | string | Yes      | Valid email; maximum 254 characters; normalized to lowercase       |
+| `password` | string | Yes      | 8-128 Unicode characters; must not be a configured common password |
 
 ```json
 {
@@ -75,12 +75,12 @@ No authentication is required.
 
 ### Response
 
-| Status | Meaning |
-| --- | --- |
-| `201 Created` | User created |
-| `400 Bad Request` | Invalid input or disallowed password |
-| `409 Conflict` | Normalized email is already registered |
-| `429 Too Many Requests` | Registration rate limit exceeded |
+| Status                  | Meaning                                |
+| ----------------------- | -------------------------------------- |
+| `201 Created`           | User created                           |
+| `400 Bad Request`       | Invalid input or disallowed password   |
+| `409 Conflict`          | Normalized email is already registered |
+| `429 Too Many Requests` | Registration rate limit exceeded       |
 
 ### JSON example of response
 
@@ -116,11 +116,11 @@ Counters are shared through PostgreSQL. A second limit of 30 attempts per hour a
 
 No authentication is required.
 
-| Field | Type | Required | Rules |
-| --- | --- | --- | --- |
-| `email` | string | Yes | Valid email; normalized to lowercase |
-| `password` | string | Yes | Exact value is used; not trimmed or normalized |
-| `rememberMe` | boolean | No | Defaults to `false`; permits a refresh lifetime of up to 90 days |
+| Field        | Type    | Required | Rules                                                            |
+| ------------ | ------- | -------- | ---------------------------------------------------------------- |
+| `email`      | string  | Yes      | Valid email; normalized to lowercase                             |
+| `password`   | string  | Yes      | Exact value is used; not trimmed or normalized                   |
+| `rememberMe` | boolean | No       | Defaults to `false`; permits a refresh lifetime of up to 90 days |
 
 ```json
 {
@@ -135,12 +135,12 @@ No authentication is required.
 On success, the response also includes a `Set-Cookie` header containing the opaque refresh token.
 Credential verification performs equivalent bcrypt work for unknown and known accounts. Well-formed invalid credentials and inactive account states use the same `401` response.
 
-| Status | Meaning |
-| --- | --- |
-| `200 OK` | Authentication succeeded |
-| `400 Bad Request` | Invalid request shape |
-| `401 Unauthorized` | Invalid credentials or inactive/deleted/deletion-pending account |
-| `429 Too Many Requests` | Login rate limit exceeded |
+| Status                  | Meaning                                                          |
+| ----------------------- | ---------------------------------------------------------------- |
+| `200 OK`                | Authentication succeeded                                         |
+| `400 Bad Request`       | Invalid request shape                                            |
+| `401 Unauthorized`      | Invalid credentials or inactive/deleted/deletion-pending account |
+| `429 Too Many Requests` | Login rate limit exceeded                                        |
 
 ### JSON example of response
 
@@ -188,11 +188,11 @@ Cookie: refresh_token=<opaque-token>
 
 On success, `Set-Cookie` replaces the old refresh token with a newly rotated token while preserving the session's standard or remember-me lifetime policy.
 
-| Status | Meaning |
-| --- | --- |
-| `200 OK` | Token rotated and new access token issued |
-| `401 Unauthorized` | Cookie is missing, malformed, expired, revoked, unknown, reused, or belongs to an inactive account |
-| `429 Too Many Requests` | Refresh rate limit exceeded |
+| Status                  | Meaning                                                                                            |
+| ----------------------- | -------------------------------------------------------------------------------------------------- |
+| `200 OK`                | Token rotated and new access token issued                                                          |
+| `401 Unauthorized`      | Cookie is missing, malformed, expired, revoked, unknown, reused, or belongs to an inactive account |
+| `429 Too Many Requests` | Refresh rate limit exceeded                                                                        |
 
 ### JSON example of response
 
@@ -228,10 +228,10 @@ Cookie: refresh_token=<opaque-token>
 
 Logout is idempotent: a missing, expired, or already revoked cookie still returns success and clears the cookie. This does not make a stolen access token revocable; access tokens remain valid for at most their 15-minute lifetime, subject to current server-side user state checks.
 
-| Status | Meaning |
-| --- | --- |
-| `200 OK` | Session revoked if present; cookie cleared |
-| `429 Too Many Requests` | Logout rate limit exceeded |
+| Status                  | Meaning                                    |
+| ----------------------- | ------------------------------------------ |
+| `200 OK`                | Session revoked if present; cookie cleared |
+| `429 Too Many Requests` | Logout rate limit exceeded                 |
 
 ### JSON example of response
 
@@ -247,3 +247,7 @@ Example response cookie:
 ```http
 Set-Cookie: refresh_token=; Max-Age=0; Path=/api/v1/auth; HttpOnly; Secure; SameSite=Lax
 ```
+
+## Traceability
+
+Primary requirements: SRS-AUTH-001-024, SRS-RBAC-001-006, SRS-API-001-012, SRS-SEC-002-004, SRS-SEC-009-010, and SRS-REL-005.

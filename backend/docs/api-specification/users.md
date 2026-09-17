@@ -1,11 +1,11 @@
 # Users API Specification
 
-| Attribute       | Value                                                                                                                              |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Base paths      | `/api/v1/me` and `/api/v1/users`                                                                                                   |
-| Content type    | `application/json; charset=utf-8`                                                                                                  |
-| Authentication  | `Authorization: Bearer <access-token>`                                                                                             |
-| Source of truth | [`software-requirement-specification.md`](../software-requirement-specification.md) and [`ARCHITECTURE.md`](../../ARCHITECTURE.md) |
+| Attribute       | Value                                                                                                    |
+| --------------- | -------------------------------------------------------------------------------------------------------- |
+| Base paths      | `/api/v1/me` and `/api/v1/users`                                                                         |
+| Content type    | `application/json; charset=utf-8`                                                                        |
+| Authentication  | `Authorization: Bearer <access-token>`                                                                   |
+| Source of truth | [SRS v1.3](../software-requirement-specification/v1.3.md) and [`ARCHITECTURE.md`](../../ARCHITECTURE.md) |
 
 This contract follows the SRS v1.3 authorization model. `platformRole` is exactly one of `USER`, `ADMIN`, or `SUPER_ADMIN`. Place authority is represented separately in `placeMemberships`, whose role is `OWNER` or `CASHIER`. Role and permission values returned to clients are capability metadata, never proof of authorization.
 
@@ -165,7 +165,7 @@ At least one field is required.
 
 | Field      | Type   | Required | Rules                                                        |
 | ---------- | ------ | -------- | ------------------------------------------------------------ |
-| `fullName` | string | No       | Trimmed; 1–100 characters                                    |
+| `fullName` | string | No       | Trimmed; 1-100 characters                                    |
 | `email`    | string | No       | Valid email; maximum 254 characters; normalized to lowercase |
 
 ```json
@@ -256,9 +256,9 @@ Returns active users for platform-support workflows. Requires `user.read`, avail
 | Query parameter | Type    | Required | Default     | Rules                                                         |
 | --------------- | ------- | -------- | ----------- | ------------------------------------------------------------- |
 | `page`          | integer | No       | `1`         | Minimum `1`                                                   |
-| `limit`         | integer | No       | `20`        | `1`–`100`                                                     |
-| `search`        | string  | No       | —           | Matches normalized email or full name; maximum 100 characters |
-| `platformRole`  | enum    | No       | —           | `USER`, `ADMIN`, or `SUPER_ADMIN`                             |
+| `limit`         | integer | No       | `20`        | `1`-`100`                                                     |
+| `search`        | string  | No       | -           | Matches normalized email or full name; maximum 100 characters |
+| `platformRole`  | enum    | No       | -           | `USER`, `ADMIN`, or `SUPER_ADMIN`                             |
 | `sortBy`        | enum    | No       | `createdAt` | `createdAt`, `fullName`, or `email`                           |
 | `sortOrder`     | enum    | No       | `desc`      | `asc` or `desc`                                               |
 
@@ -442,3 +442,7 @@ No body or query parameters.
   }
 }
 ```
+
+## Traceability
+
+Primary requirements: SRS-USR-001-016, SRS-RBAC-001-024, SRS-AUTHZ-001-022, SRS-AUD-001-006, SRS-API-001-012, and SRS-DATA-013-017.

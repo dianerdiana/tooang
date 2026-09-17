@@ -1,25 +1,25 @@
 # Media API Specification
 
-## Upload authorization
+## Upload intents
 
-`POST /api/v1/media/upload-intents` requires `media.upload`. It accepts a strict target (`PLACE_LOGO`, `PLACE_COVER`, or `MENU_ITEM_IMAGE`), `placeId`, the menu item ID only for menu-item targets, an allowlisted JPEG/PNG/WebP/AVIF MIME type, and an integer size from 1 through 5,242,880 bytes.
+`POST /api/v1/media/upload-intents` requires `media.upload`. The strict body contains `target` (`PLACE_LOGO|PLACE_COVER|MENU_ITEM_IMAGE`), `placeId`, allowlisted JPEG/PNG/WebP/AVIF `mimeType`, integer `sizeBytes` from 1 through 5,242,880, and `menuItemId` only for menu-item images. Success is `201` with `data.upload`: upload URL, public key, short-lived token/signature/expiry, generated filename/folder, and fixed provider checks. Private credentials are excluded.
 
-OWNER may upload only to owned active resources. ADMIN and SUPER_ADMIN use global scope; USER and CASHIER cannot attempt the permission. Menu items are scoped by both IDs and must be non-deleted. The server generates a random filename/path and five-minute ImageKit authorization. The response contains the upload URL, public key, token, signature, expiry, filename, folder, and fixed provider checks. The private key is never returned or logged.
+`POST /api/v1/media/upload-intents/:intentId/complete` accepts only `{ "fileId": string }` (trimmed, 1–255). Success is `201 data.media`. The backend fetches and verifies provider type, exact MIME/size/name/path/account and delivery endpoint, then rechecks the actor and target inside a serializable database transaction.
 
-`POST /api/v1/media/upload-intents/:intentId/complete` accepts only `{ "fileId": string }`. Before database work, the backend fetches provider details and verifies file type, exact MIME and size, generated name/path, account-bound lookup, and configured delivery endpoint. It then rechecks the active actor and exact target in a serializable transaction, creates the ACTIVE metadata, switches the association, consumes the intent, and queues prior media for deletion. Repeating a consumed completion returns the same delivery URL without another provider call.
+An identical completion of an already consumed intent is idempotent and returns the same media result without another provider call. Wrong actor, expired intent, different provider file, or mismatched replay returns sanitized `409`; hidden target changes return `404`; provider failure returns `502`; disabled/misconfigured non-production media returns `503`.
 
-Expired, wrong-actor, mismatched, and replayed intents return `409`; hidden target changes return `404`. Provider outages are sanitized as `502`, and disabled/misconfigured non-production media returns `503`. Public and feature responses expose delivery URLs only.
+OWNER membership grants apply only to the owned target place. ADMIN/SUPER_ADMIN use global grants. A platform USER with only CASHIER membership has no `media.upload` or `media.delete` membership grant.
 
-## Replacement and cleanup
+## Detach and cleanup
 
-Associations are removed through:
+All return `200 data.media` and require `media.delete`:
 
 - `DELETE /api/v1/places/:placeId/media/logo`
 - `DELETE /api/v1/places/:placeId/media/cover`
 - `DELETE /api/v1/places/:placeId/menu-items/:menuItemId/image`
 
-Detaching and transitioning the old asset to `PENDING_DELETE` are atomic. An empty association is an idempotent success. ImageKit calls happen only after commit. Provider success or `404` converges on `DELETED`; failures become `DELETE_FAILED` with a bounded category, not a raw provider response.
+Empty associations are idempotent. Detach plus transition to `PENDING_DELETE` is atomic; ImageKit calls occur after commit. Provider success or 404 converges on `DELETED`; failures become observable `DELETE_FAILED` with bounded categories.
 
-The enabled `MediaCleanupWorker` runs non-overlapping minute cycles through `MediaCleanupService`. It processes bounded batches with optimistic attempt claims, a five-minute abandoned-claim lease, and exponential retry from one minute to 24 hours. Five failures remain observable and trigger an alert marker. It also reconciles expired upload intents by exact server-generated path and periodically compares the dedicated provider folder with persisted file IDs while excluding live intent paths. `MediaAsset` evidence is retained rather than hard-deleted.
+The cleanup worker uses non-overlapping minute cycles, bounded batches, attempt claims, a five-minute abandoned-claim lease, exponential retry up to 24 hours, alert markers after five failures, expired-intent reconciliation, and provider-folder comparison. `MediaAsset` evidence is retained. Public contracts expose delivery URLs only.
 
-Set `IMAGEKIT_ENABLED`, `IMAGEKIT_PUBLIC_KEY`, `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT`, and optionally `IMAGEKIT_UPLOAD_FOLDER`. Production refuses to start unless ImageKit is enabled and fully configured. SDK debug logging is disabled.
+Traceability: SRS-MED-001–018, SRS-REL-006/013/014, SRS-SEC-003/006/014/015, SRS-API-003/007–010, and SRS-AUD-001–006.

@@ -49,7 +49,7 @@ Currently implemented:
 - Winston application logging
 - PostgreSQL persistence through Prisma ORM
 
-The database model also provides a foundation for places, digital menus, reviews, carts, and orders. See [Architecture](ARCHITECTURE.md) for the planned module boundaries and implementation order.
+The implemented baseline also includes menus, carts, atomic checkout, order lifecycle, reviews, media lifecycle, auditing, observability, and data-retention workers. See [Architecture](ARCHITECTURE.md) for current module responsibilities and boundaries.
 
 ## Technology Stack
 
@@ -425,11 +425,10 @@ npm run start:prod
 ## Documentation
 
 - [Architecture and module conventions](ARCHITECTURE.md)
+- [SRS v1.3](docs/software-requirement-specification/v1.3.md)
 - [Application rules](docs/application-rules.md)
-- [Authentication API specification](docs/api-specification/auth.md)
-- [Users API specification](docs/api-specification/users.md)
-- [Places API specification](docs/api-specification/places.md)
-- [Place-membership API specification](docs/api-specification/place-members.md)
+- [API specification index](docs/api-specification/README.md)
+- [SRS v1.3 implementation audit](docs/srs-v1.3-implementation-audit.md)
 - [Data lifecycle and backup replay](docs/data-lifecycle.md)
 
 > TODO: Add generated OpenAPI/Swagger documentation when available.

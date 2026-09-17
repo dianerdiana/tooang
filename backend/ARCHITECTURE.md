@@ -1,419 +1,191 @@
 # Tooang Backend Architecture
 
-## 1. Purpose
+## Purpose and authority
 
-The backend uses a NestJS- and Prisma-based **modular monolith**. Each business feature is placed in a feature module to keep responsibility boundaries clear while remaining simple to develop and deploy as a single application.
+Tooang is a NestJS modular monolith backed by PostgreSQL and Prisma. This document describes the implemented SRS v1.3 baseline. If this document conflicts with the [SRS v1.3](docs/software-requirement-specification/v1.3.md), the SRS is authoritative.
 
-The standard architecture of a module follows the minimum pattern already used by `src/modules/auth`:
+The externally supported API is rooted at `/api/v1`. The application is deployed as one process, while feature modules retain explicit ownership and dependency boundaries.
+
+## Architectural principles
+
+- Organize behavior by feature module rather than technical layer across the whole application.
+- Keep HTTP concerns in controllers, business policy and transaction ownership in services, and database access in repositories.
+- Access PostgreSQL through Prisma repositories; do not put Prisma queries in controllers.
+- Keep feature dependencies unidirectional and explicit.
+- Do not export feature repositories to other modules by default.
+- Keep `common` and `lib` independent of feature modules.
+- Treat permission mappings as version-controlled application policy, not database records.
+- Treat client-provided roles, permissions, and resource scope as untrusted input.
+
+## Runtime layers
 
 ```text
 HTTP request
-    ↓
-Controller
-    ↓
-Service
-    ↓
-Repository
-    ↓
-Prisma / PostgreSQL
+  -> global middleware, guards, pipes, and interceptors
+  -> feature controller
+  -> feature service
+  -> feature repository
+  -> Prisma Client
+  -> PostgreSQL
 ```
 
-Separate `use-case`, `domain entity`, `mapper`, or `repository interface` layers are unnecessary until the application's complexity requires them.
+Controllers translate HTTP inputs and outputs. Services enforce business rules, authorize resource scope, and own transactions. Repositories encapsulate Prisma selection, mutation, active-state predicates, and tenant predicates.
 
-## 2. Responsibilities of Each Layer
+Cross-cutting components include authentication, authorization, exception normalization, request correlation, structured logging, rate limiting, audit recording, configuration validation, scheduled lifecycle work, and provider integration.
 
-### Controller
+## Module responsibilities
 
-Controllers are responsible only for HTTP transport:
+| Module                | Responsibility                                                                                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AuthModule`          | Registration, login, identity-only access tokens, refresh rotation/reuse handling, logout, and session revocation                                                               |
+| `UsersModule`         | Current profile, platform user administration, account-deletion requests, and last-SUPER_ADMIN enforcement                                                                      |
+| `PlacesModule`        | Place lifecycle, discovery, publication, place updates, and active-place selection                                                                                              |
+| `PlaceMembersModule`  | OWNER/CASHIER membership assignment, revocation, reactivation, and last-OWNER enforcement                                                                                       |
+| `BusinessHoursModule` | Seven-day place schedule and timezone-aware availability rules                                                                                                                  |
+| `DiningTablesModule`  | Place-scoped dining-table masters and QR regeneration inputs                                                                                                                    |
+| `MenusModule`         | Place-scoped menu categories, items, publication, and public menu reads                                                                                                         |
+| `CartsModule`         | User-owned, place-specific carts, item reconciliation, quantities, notes, and totals                                                                                            |
+| `OrdersModule`        | Atomic checkout, idempotency, customer order reads/cancellation, place queues, state transitions, expiry, authenticated order-code lookup, and public opaque-token verification |
+| `ReviewsModule`       | Customer reviews and global moderation through `review.moderate`, available to ADMIN and SUPER_ADMIN                                                                            |
+| `MediaModule`         | ImageKit upload authorization, completion, deletion state, provider recovery, and compensating cleanup                                                                          |
+| `AuditModule`         | Immutable security and business audit events written with authorization-critical mutations                                                                                      |
+| `ObservabilityModule` | Request IDs, structured logs, metrics, sanitization, and readiness support                                                                                                      |
+| `DataLifecycleModule` | Retention, account anonymization, expiry, and scheduled idempotent cleanup                                                                                                      |
+| `HealthModule`        | Public readiness response based on safe configuration and database checks                                                                                                       |
 
-- Define routes, HTTP methods, status codes, and NestJS decorators.
-- Obtain the authenticated user through decorators such as `@CurrentUser()`.
-- Apply validation schemas through pipes.
-- Call one or more service methods.
-- Return responses prepared by the service.
-- Do not access `PrismaService` or repositories directly.
-- Do not contain business rules, ownership checks, or price calculations.
+Public order verification is distinct from operational order-code lookup. The opaque verification-token route is public and rate-limited; place staff order-code routes are authenticated and place-scoped.
 
-### Schema
+## Dependency rules
 
-`*.schema.ts` files contain Zod schemas and the types inferred from those schemas:
-
-- Validate request bodies, parameters, and queries.
-- Perform simple input normalization such as trimming, lowercasing email addresses, pagination, and number coercion.
-- Do not query the database.
-- Do not serve as the source of authorization rules.
-
-Separate DTO classes are unnecessary if Zod schemas and inferred types already meet the requirements.
-
-### Service
-
-Services are the center of use cases and business rules:
-
-- Check permissions, resource scope, and domain invariants.
-- Coordinate the flow of a use case.
-- Calculate prices and totals using `Prisma.Decimal`.
-- Open transactions for operations that must be atomic.
-- Determine status changes and side effects.
-- Call repositories belonging to their own module or public services from other modules.
-- Convert domain failures into appropriate NestJS exceptions.
-
-Services must not trust `userId`, roles, prices, subtotals, or statuses submitted by the client.
-
-### Repository
-
-A repository is the feature module's sole regular database-access layer:
-
-- Contains Prisma queries, filters, include/select clauses, pagination, and persistence logic.
-- Has no knowledge of HTTP requests, responses, decorators, or transport exceptions.
-- Does not make authorization decisions.
-- Always applies the `deletedAt: null` filter to active-data queries.
-- Provides methods tailored to service requirements rather than one-to-one wrappers for every Prisma method.
-- May accept a Prisma transaction client so multiple operations can run within the same transaction.
-
-Repositories may be bypassed only by infrastructure services that wrap Prisma, not by regular feature modules.
-
-### Module
-
-`*.module.ts` files are responsible for dependency wiring:
-
-- Register the module's controllers, services, and repositories.
-- Export services that serve as internal APIs for other modules.
-- Do not export repositories unless there is a strong technical reason.
-- Do not use `forwardRef` as the default solution; resolve circular dependencies by clarifying ownership of the use case.
-
-## 3. Directory Structure
+Feature modules may depend on shared infrastructure and narrowly exposed feature services. They must not reach into another feature's repository or form circular dependencies.
 
 ```text
-backend/
-├── prisma/
-│   ├── migrations/
-│   └── schema.prisma
-├── docs/
-│   └── application-rules.md
-├── src/
-│   ├── common/
-│   │   ├── auth/
-│   │   ├── constants/
-│   │   ├── decorators/
-│   │   ├── guards/
-│   │   ├── pipes/
-│   │   └── responses/
-│   ├── config/
-│   ├── lib/
-│   ├── modules/
-│   │   ├── auth/
-│   │   ├── users/
-│   │   ├── places/
-│   │   ├── menus/
-│   │   ├── reviews/
-│   │   ├── carts/
-│   │   └── orders/
-│   ├── app.module.ts
-│   └── main.ts
-├── test/
-└── ARCHITECTURE.md
+Feature controller -> same-feature service -> same-feature repository -> Prisma
+Feature service    -> explicitly exported service or shared cross-cutting service
+common / lib       -> no feature-module imports
 ```
 
-Minimum structure for each feature module:
+Audit, observability, authorization, and provider abstractions are cross-cutting services. Their interfaces must not expose Prisma internals to callers.
+
+## Authorization model
+
+### Persisted authority
+
+Authorization has two independent persisted dimensions:
 
 ```text
-modules/places/
-├── places.controller.ts
-├── places.service.ts
-├── places.repository.ts
-├── places.schema.ts
-└── places.module.ts
+User.platformRole:  USER | ADMIN | SUPER_ADMIN
+PlaceMember.role:   OWNER | CASHIER
 ```
 
-Add files only when they are genuinely needed, for example:
+Each user has exactly one platform role. A user may have zero or more active place memberships. OWNER and CASHIER are not platform roles. An active membership is a `PlaceMember` row whose `revokedAt` is null and whose user and place are active.
+
+Version 1 does not persist generic role, permission, or role-assignment join tables. Permission identifiers and role-to-permission mappings live in the shared typed authorization contract.
+
+### Authentication and current state
+
+Access tokens contain identity only. They do not carry authoritative roles, memberships, or permissions. On every protected request the backend resolves the user again and rejects deleted, deletion-pending, anonymized, or otherwise inactive accounts. This also makes a stale token observe a role change or membership revocation without waiting for token expiry.
+
+`GET /api/v1/me` exposes the current platform role, platform permissions, active memberships, membership permissions, and effective permissions for each place context. Those values support frontend rendering only; they are never accepted back as proof of authority.
+
+### Permission and scope flow
 
 ```text
-modules/orders/
-├── orders.controller.ts
-├── orders.service.ts
-├── orders.repository.ts
-├── orders.schema.ts
-├── orders.module.ts
-└── order-code.service.ts       # Code generator that can be tested separately
+Identity-only bearer token
+  -> JwtAuthGuard resolves the current active user
+  -> PermissionsGuard checks whether the current platform role may attempt the capability
+  -> feature service loads the target and applies account/domain policy
+  -> PlaceAccessService resolves active membership or an explicit global scope
+  -> repository applies place and active-state predicates
+  -> service performs mutation and audit in one transaction when required
 ```
 
-Do not create `controllers`, `services`, or `repositories` directories within a module merely to hold a single file.
+`PermissionsGuard` is a coarse capability gate. It does not prove ownership, place membership, target-account eligibility, or a valid domain transition. Those decisions belong to services, `PlaceAccessService`, and repository predicates.
 
-## 4. Feature Module Boundaries
+`PlaceAccessService` supports OWNER, CASHIER, and explicitly authorized global scopes. Global ADMIN or SUPER_ADMIN permissions are additive; they do not bypass last-SUPER_ADMIN, last-OWNER, target-account, audit, order-transition, retention, or other domain rules.
 
-### AuthModule
+Place-scoped reads and mutations use repository predicates containing the target `placeId` and applicable active-state filters. A foreign, revoked, or undisclosable membership/resource is returned as `404 Not Found`; an authenticated actor who can see the capability boundary but lacks the capability receives `403 Forbidden`.
 
-Responsibilities:
+## Data access and lifecycle
 
-- Registration, login, token refresh, and logout when refresh tokens are stored server-side.
-- Password hashing and verification through `BcryptHashingService`.
-- JWT creation and verification through `UserJwtService`.
-- Build identity-only access-token payloads; current roles and memberships are resolved server-side.
+Prisma schema and forward-only migrations define the data model. Repositories select only fields required by their callers and exclude inapplicable deleted, deletion-pending, anonymized, revoked, or expired state.
 
-Auth does not manage profiles, role assignments, places, or place ownership.
+Historical memberships are retained by setting `revokedAt`; reactivation reuses the user/place membership row and is audited. Retained orders use customer, item, price, place, and dining-table snapshots so that later source changes or anonymization do not corrupt transaction history.
 
-### UsersModule
+The seed baseline creates a platform SUPER_ADMIN only. Place authority is always represented by `PlaceMember`.
 
-Responsibilities:
+## Transaction ownership and concurrency
 
-- User profiles.
-- Singular `User.platformRole` updates by `SUPER_ADMIN`.
-- User deactivation or soft deletion, including the last-active-SUPER_ADMIN invariant.
+Services own transaction boundaries. Repositories accept a transaction client when participating in a multi-record invariant. Transactions contain database work only; ImageKit calls and QR rendering occur outside PostgreSQL transactions.
 
-Platform roles are schema-defined values. Version 1 does not have dynamic roles or a `RolesModule`.
+Serializable isolation or an equivalent database-protected strategy is required where concurrent requests could violate last-SUPER_ADMIN, last-OWNER, checkout-idempotency, or state-transition invariants. Authorization-critical mutations and their audit records commit or roll back together.
 
-### PlacesModule
+### Checkout flow
 
-Responsibilities:
-
-- Restaurant, cafe, or dining-place profiles.
-- Publishing and `isOrderingEnabled` settings.
-- OWNER and CASHIER assignments through `PlaceMember`.
-- Business hours.
-- Public place searches and details.
-- Provide `PlaceAccessService` to check an OWNER's access to a `placeId`.
-
-`PlaceAccessService` is exported by `PlacesModule`. `resolveScope(actor, permission)` returns a database-neutral global or membership query scope. `assertPermission(actor, placeId, permission, db?)` allows an explicitly global ADMIN/SUPER_ADMIN permission or verifies a current `PlaceMember` whose role grants the requested capability. Membership predicates are applied in repositories, and foreign-tenant resources are returned as not found.
-
-### MenusModule
-
-Responsibilities:
-
-- Place-specific menu categories.
-- Food and drink items.
-- Availability, prices, images, and display order.
-- Filtering by place, `FOOD`/`DRINK` type, and category.
-
-Menu mutation use cases use `PlaceAccessService`. Categories and menu items belong in the same module because their lifecycles and validations are closely related.
-
-### ReviewsModule
-
-Responsibilities:
-
-- Place reviews through `PlaceReview`.
-- Food or drink reviews through `MenuItemReview`.
-- Editing and soft-deleting a user's own reviews.
-- Review moderation by `SUPER_ADMIN`.
-- Calculating rating summaries.
-
-Place and menu reviews do not need separate modules because their flows and access policies are the same.
-
-### CartsModule
-
-Responsibilities:
-
-- User carts per place.
-- Adding items, changing quantities and notes, and removing items.
-- Ensure every item belongs to the same place as the cart.
-- Display current prices and availability.
-
-This module does not create orders. Checkout is the responsibility of `OrdersModule` because the final transaction produces the order aggregate.
-
-### OrdersModule
-
-Responsibilities:
-
-- Checkout a cart into an order.
-- Item snapshots and subtotal calculations.
-- Generate `orderCode` and use `verificationToken` for QR codes/links.
-- User order history.
-- Per-place order queues for OWNER and CASHIER members, plus explicitly granted global administration.
-- Order verification by cashiers.
-- Status-transition validation and order expiry.
-
-`OrdersService` coordinates checkout and may use public services from CartsModule/PlacesModule. Reloading all menu data, creating the order, and emptying the cart must occur within a single Prisma transaction.
-
-## 5. Dependency Direction
-
-Dependencies between modules must be unidirectional and kept to a minimum:
+The checkout service follows this shape:
 
 ```text
-Auth ───────────────→ Users
-Menus ──────────────→ Places
-Carts ──────────────→ Menus
-Reviews ────────────→ Places / Menus
-Orders ─────────────→ Carts / Menus / Places
+validate Idempotency-Key syntax
+begin serializable transaction
+  use database time as the authoritative current time
+  lock or claim the (user, idempotency key) record
+  if a completed identical request exists: return its stored 201 response
+  if the key exists with another request hash: return 409
+  load active user, place, table, cart, items, prices, and limits
+  reject invalid or unreconciled cart state
+  create order and immutable order/item/table/customer snapshots
+  persist the idempotency response
+  clear the cart
+commit
+return 201
 ```
 
-Rules:
+The order, order items, idempotency result, and cart clearing are atomic. Concurrent status changes use expected-state predicates so at most one transition succeeds. Remote provider work is never performed inside this transaction.
 
-- Controllers call only services within the same module.
-- Other modules use exported services, not internal repositories.
-- Avoid large services that become a dumping ground for every feature.
-- If two modules depend on each other, move the coordination to the module that owns the use case or extract a small, neutral helper.
-- `common` and `lib` must not import feature modules.
+## External media workflow
 
-In a simple implementation, the Orders repository may read cart/menu tables within the checkout transaction if doing so prevents circular dependencies. Business decisions and validation remain in `OrdersService`.
+ImageKit upload authorization is short-lived and never exposes private provider credentials. Database intent is recorded before or after provider calls according to the workflow, and failures remain observable and recoverable through idempotent completion, deletion states, and compensating cleanup.
 
-## 6. Common and Lib
+Provider callbacks or completion requests do not become authorization evidence. The service reloads current actor and target state before accepting the operation.
 
-### `src/common`
+## API and error boundary
 
-Contains framework-facing code that can be used across features:
+Supported route examples include:
 
-- Authenticated user and role types.
-- `@CurrentUser()` and `@Public()` decorators.
-- Authentication and permission guards.
-- Zod validation pipe.
-- Response shapes and application constants.
+- `GET /api/v1/me`
+- `GET /api/v1/me/carts/:placeId`
+- `POST /api/v1/me/orders`
+- `GET /api/v1/places/:placeId/orders`
+- `GET /api/v1/order-verifications/:token`
+- `GET /api/v1/health/ready`
 
-Do not place business services, Prisma queries, or module-specific types in `common`.
+Successful feature responses use the documented JSON envelope. The implemented global exception filter normalizes framework, validation, Prisma, domain, and unexpected errors into the public error envelope. It logs diagnostic context through the redaction boundary while withholding internal database IDs, Prisma details, stack traces, tokens, cookies, secrets, and private provider data.
 
-### `src/lib`
+Authentication failures do not disclose account existence. Authorization responses follow the `403` capability versus hidden `404` scope rule described above.
 
-Contains adapters for technologies or external services:
+`GET /api/v1` is a legacy plain-text route and is not part of the normalized JSON contract. Removing it or converting it to JSON requires an explicit compatibility decision.
 
-- `PrismaService`.
-- `UserJwtService`.
-- `BcryptHashingService`.
-- `WinstonLoggerService`.
+The complete API contract and endpoint ledger are in [`docs/api-specification/README.md`](docs/api-specification/README.md).
 
-`LibModule` may be global if all its providers are genuinely used widely. Adapters must not make business decisions, such as whether an OWNER may modify a menu item.
+## Configuration and operations
 
-## 7. Authentication and Authorization
+Configuration is validated at startup and the process fails fast when required settings are absent. Production deployments provide distinct access/refresh secrets, restrictive CORS, secure refresh cookies, HTTPS at the deployment boundary, PostgreSQL, and ImageKit configuration.
 
-Authentication and authorization are two distinct stages:
+Winston structured logs carry a correlation ID and safe request metadata. Readiness checks expose no secrets. Backup/restore evidence, production SLO approval, and performance/load evidence are operational release gates rather than assumptions embedded in application code.
 
-1. `JwtAuthGuard` verifies the token and attaches the authenticated user to the request.
-2. `PermissionsGuard` performs coarse endpoint admission from code-defined platform and membership-role mappings.
-3. The service checks the exact permission and target-resource scope using current database state.
+## Verification baseline
 
-Example menu mutation flow:
+The repository baseline is evaluated with:
 
-```text
-PATCH /places/:placeId/menu-items/:menuItemId
-  → JwtAuthGuard
-  → PermissionsGuard(menu.update)
-  → MenusController
-  → MenusService.updateMenuItem()
-  → PlaceAccessService.assertPermission(actor, placeId, menu.update)
-  → MenusRepository.updateOwnedMenuItem(placeId, menuItemId, data)
-```
+- Prisma schema validation/generation and migration deployment to an empty PostgreSQL database;
+- TypeScript build, ESLint, and Prettier checks;
+- unit, repository/integration, and PostgreSQL E2E tests;
+- permission-matrix, negative authorization, tenant-isolation, lifecycle, concurrency, audit-rollback, checkout, and idempotency coverage;
+- API route/document ledger comparison; and
+- the SRS implementation audit in [`docs/srs-v1.3-implementation-audit.md`](docs/srs-v1.3-implementation-audit.md).
 
-Access JWTs carry identity only. `JwtAuthGuard` reloads the active user and current `User.platformRole` on every protected request. Place-scoped services load the relevant current `PlaceMember` record for the target place. Token claims, request bodies, and frontend permission metadata are never authoritative for authorization.
+Operational load, backup/restore, production HTTPS/secrets, provider configuration, and SLO verification require evidence from the target environment.
 
-A coarse guard decision is never sufficient authorization for a place-scoped resource. The guard does not query memberships or inspect route, body, target-account, or domain state. `PlaceAccessService` returns global scope only for an explicitly global platform grant; otherwise repositories constrain queries by actor ID, allowed membership roles, active membership state, and active place state. Permissions from platform and membership roles are additive, but tenant and domain restrictions remain mandatory.
+## Requirement traceability
 
-## 8. Transaction Pattern
-
-The service owns the transaction boundary. Repositories accept either a regular client or a transaction client:
-
-```ts
-type DbClient = PrismaService | Prisma.TransactionClient;
-
-async createOrder(data: CreateOrderData, db: DbClient = this.prisma) {
-  return db.order.create({ data });
-}
-```
-
-Example checkout structure:
-
-```ts
-return this.prisma.$transaction(async (tx) => {
-  const cart = await this.ordersRepository.findCheckoutCart(userId, cartId, tx);
-
-  this.assertCartCanBeCheckedOut(cart);
-  const totals = this.calculateTotals(cart.items);
-
-  const order = await this.ordersRepository.createFromCart(cart, totals, tx);
-  await this.ordersRepository.clearCart(cart.id, tx);
-
-  return order;
-});
-```
-
-Operations that must be atomic include:
-
-- User registration with the default `User.platformRole = USER`.
-- Place creation and initial `PlaceMember(role=OWNER)` assignment.
-- Platform-role changes and membership changes after checking last-SUPER_ADMIN/last-OWNER invariants.
-- Checkout, order-item snapshots, and cart clearing.
-- Order-status transitions and their associated timestamps.
-- Soft deletion/restoration that affects multiple records.
-
-Do not perform HTTP calls or slow processes such as generating QR-code images inside a database transaction. The QR code can be generated from the token URL after the transaction completes.
-
-## 9. Queries and Data Security
-
-- Public endpoints return only places where `isPublished = true` and `deletedAt = null`.
-- Public menu items must have `deletedAt = null`, `isAvailable = true`, and an active category.
-- All list endpoints use pagination with a maximum limit.
-- Use `select` for sensitive data so `passwordHash` and `verificationToken` are not exposed.
-- Do not expose raw Prisma models as response contracts if those models contain internal fields.
-- OWNER queries must be constrained by ownership relationships in the database instead of loading all data and filtering it in memory.
-- Use conditional updates or transactions to prevent race conditions in order statuses.
-- Ownership errors involving another tenant's entity are returned as `404 Not Found`.
-
-For the complete business rules, refer to [`docs/application-rules.md`](docs/application-rules.md).
-
-## 10. Responses and Errors
-
-Use built-in NestJS exceptions consistently:
-
-- `BadRequestException`: invalid input format or rules.
-- `UnauthorizedException`: missing or invalid token.
-- `ForbiddenException`: the actor has no platform or membership-role permission path for the operation.
-- `NotFoundException`: the entity does not exist, has been deleted, or is hidden by missing, revoked, wrong-role, or foreign-tenant membership.
-- `ConflictException`: a unique-constraint or state-transition conflict.
-
-A global exception filter may be added after the error format has been agreed upon. Do not catch every error in each controller. Known database errors are translated in the service or a shared helper; unknown errors are passed to the global handler and logger.
-
-## 11. API Conventions
-
-- API prefix: `/api/v1`.
-- Resources use plural nouns and kebab-case.
-- Places serve as the scope for resources managed by OWNERs.
-- The `/me` endpoint is used for data belonging to the authenticated user.
-
-Examples:
-
-```text
-POST   /api/v1/auth/register
-POST   /api/v1/auth/login
-GET    /api/v1/places
-GET    /api/v1/places/:slug
-PATCH  /api/v1/places/:placeId
-GET    /api/v1/places/:placeId/menu-items
-POST   /api/v1/places/:placeId/menu-items
-POST   /api/v1/places/:placeId/reviews
-GET    /api/v1/me/carts
-POST   /api/v1/me/carts/:placeId/items
-POST   /api/v1/me/orders
-GET    /api/v1/me/orders
-GET    /api/v1/places/:placeId/orders
-PATCH  /api/v1/places/:placeId/orders/:orderId/status
-GET    /api/v1/order-verifications/:token
-```
-
-## 12. Testing
-
-Minimum testing for each module:
-
-- Unit tests for service business rules and authorization.
-- Unit tests for important valid and invalid schema inputs.
-- Repository integration tests for ownership queries, soft deletion, and transactions.
-- E2E tests for critical flows: registration/login, OWNER isolation, cart-to-order, QR verification, and status transitions.
-
-Repositories and the database do not need to be mocked in integration tests. In service unit tests, repositories and public services from other modules may be mocked so business cases can be tested in isolation.
-
-## 13. Recommended Implementation Order
-
-1. Complete identity-only JWT authentication and current server-side principal resolution.
-2. Implement UsersModule and singular platform-role administration.
-3. Implement PlacesModule and `PlaceAccessService`.
-4. Implement MenusModule.
-5. Implement ReviewsModule.
-6. Implement CartsModule.
-7. Implement OrdersModule and the checkout transaction.
-8. Add the order-expiry job, audit logging, and hardening after the primary flow is stable.
-
-## 14. When to Evolve the Architecture
-
-Consider additional layers or components only when there is a genuine need:
-
-- Separate use-case classes if a service becomes too large or has too many dependencies.
-- Add events/an outbox if external side effects must be reliable.
-- Add caching when profiling shows that read queries have become a bottleneck.
-- Split a module or service into another application only when scaling, deployment, or team-ownership requirements differ.
-
-Until those conditions arise, `controller → service → repository` is the standard structure for this project.
+This architecture primarily implements and explains SRS-RBAC-001-024, SRS-AUTHZ-001-022, SRS-API-006-007 and SRS-API-010-012, SRS-DATA-016-017, SRS-QLT-003-005 and SRS-QLT-008-010, plus the transaction and reliability rules referenced by the affected features.
