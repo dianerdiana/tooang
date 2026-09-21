@@ -18,7 +18,7 @@ export type JwtServiceConfig = {
 };
 
 export class JwtService {
-  readonly axin: AxiosInstance;
+  private readonly axin: AxiosInstance;
 
   private readonly refreshClient: AxiosInstance;
 
@@ -80,7 +80,7 @@ export class JwtService {
   }
 
   get<TResponse>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<TResponse>> {
-    return this.axin.get(url, config);
+    return this.axin.get(this.assertApiRelativePath(url), config);
   }
 
   post<TRequest, TResponse>(
@@ -88,7 +88,7 @@ export class JwtService {
     data?: TRequest,
     config?: AxiosRequestConfig,
   ): Promise<AxiosResponse<TResponse>> {
-    return this.axin.post(url, data, config);
+    return this.axin.post(this.assertApiRelativePath(url), data, config);
   }
 
   put<TRequest, TResponse>(
@@ -96,7 +96,7 @@ export class JwtService {
     data?: TRequest,
     config?: AxiosRequestConfig,
   ): Promise<AxiosResponse<TResponse>> {
-    return this.axin.put(url, data, config);
+    return this.axin.put(this.assertApiRelativePath(url), data, config);
   }
 
   patch<TRequest, TResponse>(
@@ -104,11 +104,11 @@ export class JwtService {
     data?: TRequest,
     config?: AxiosRequestConfig,
   ): Promise<AxiosResponse<TResponse>> {
-    return this.axin.patch(url, data, config);
+    return this.axin.patch(this.assertApiRelativePath(url), data, config);
   }
 
   delete<TResponse>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<TResponse>> {
-    return this.axin.delete(url, config);
+    return this.axin.delete(this.assertApiRelativePath(url), config);
   }
 
   getToken() {
@@ -182,6 +182,14 @@ export class JwtService {
     return [this.jwtConfig.loginUrl, this.jwtConfig.registerUrl, this.jwtConfig.refreshTokenUrl].some((endpoint) =>
       url.includes(endpoint),
     );
+  }
+
+  private assertApiRelativePath(url: string) {
+    if (!url.startsWith('/') || url.startsWith('//') || /^\/api(?:\/|$)/i.test(url)) {
+      throw new Error(`API request path must be relative to /api/v1: ${url}`);
+    }
+
+    return url;
   }
 
   private expireSession() {

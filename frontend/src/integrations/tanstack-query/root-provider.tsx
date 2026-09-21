@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, type QueryFunctionContext, type QueryKey } from '@tanstack/react-query';
 
 import { api } from '@/configs/api-config';
 
@@ -9,9 +9,15 @@ import { unwrapApiResponse } from '@/utils/api-response.util';
 
 import type { ApiResponse } from '@/types/api-response.type';
 
-const defaultQueryFn = async ({ queryKey }: { queryKey: any }) => {
+export const defaultQueryFn = async ({ queryKey }: QueryFunctionContext<QueryKey>) => {
   try {
-    const res = await api.get<ApiResponse<unknown>>(queryKey[0], { params: queryKey[1] });
+    const [endpoint, params] = queryKey;
+
+    if (typeof endpoint !== 'string') {
+      throw new Error('The first query key item must be an API-relative endpoint string');
+    }
+
+    const res = await api.get<ApiResponse<unknown>>(endpoint, { params });
     return unwrapApiResponse(res.data);
   } catch (error) {
     throw toApiError(error);

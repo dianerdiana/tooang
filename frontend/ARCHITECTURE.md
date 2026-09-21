@@ -208,7 +208,8 @@ API boundary berada di:
 
 Prinsip:
 
-- Component tidak mengakses Axios langsung.
+- Axios hanya boleh diimpor oleh JWT transport dan utility normalisasi error; component, route, dan feature
+  menggunakan instance `api`.
 - Error API dinormalisasi sebelum dipakai UI.
 - Toast/error UI harus menampilkan pesan yang user-friendly, bukan raw stack trace.
 
@@ -289,16 +290,18 @@ Checklist keamanan frontend:
 
 Konfigurasi saat ini:
 
-- `VITE_BASE_SERVER_URL` digunakan untuk:
+- `VITE_BASE_SERVER_URL` wajib diisi dengan origin backend HTTP(S), misalnya `http://localhost:5000`.
+- Nilai tidak boleh mengandung path `/api` atau `/api/v1`, credentials, query string, atau fragment.
+- Konfigurasi tersebut digunakan untuk:
   - `baseServerUrl`
-  - `baseApiUrl` (`/api`)
+  - `baseApiUrl` (`${baseServerUrl}/api/v1`)
   - `baseImageUrl`
 
 Praktik yang disarankan:
 
 - Siapkan `.env.development` dan `.env.production`.
-- Gunakan nilai fallback local hanya untuk development.
-- Tambahkan validasi env di startup (misalnya helper assert env).
+- Startup berhenti dengan error konfigurasi jika `VITE_BASE_SERVER_URL` hilang atau bukan origin yang valid.
+- Feature mengirim endpoint relatif terhadap API root, misalnya `/me`, `/places`, atau `/auth/login`.
 
 ## 14. Observability dan Developer Experience
 

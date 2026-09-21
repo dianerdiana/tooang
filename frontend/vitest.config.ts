@@ -12,5 +12,8 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     clearMocks: true,
+    env: {
+      VITE_BASE_SERVER_URL: 'http://localhost:5000',
+    },
   },
 });

@@ -91,6 +91,23 @@ export default defineConfig([
       'react-hooks/incompatible-library': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       'react-refresh/only-export-components': 'off',
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'axios',
+              message: 'Use the shared API/JWT service instead of importing Axios directly.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/configs/auth/jwt-service.ts', 'src/utils/api-error.util.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
     },
   },
   {
