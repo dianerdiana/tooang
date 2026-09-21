@@ -28,6 +28,8 @@ export class JwtService {
 
   private refreshPromise: Promise<string> | null = null;
 
+  private sessionExpired = false;
+
   private sessionExpiredListeners = new Set<() => void>();
 
   constructor(overrides: JwtServiceConfig = {}) {
@@ -47,7 +49,7 @@ export class JwtService {
     });
 
     this.axin.interceptors.request.use((config) => {
-      if (this.accessToken) {
+      if (this.accessToken && !this.isRefreshExcluded(config.url)) {
         config.headers.Authorization = `${this.jwtConfig.tokenType} ${this.accessToken}`;
       }
       return config;
@@ -72,7 +74,6 @@ export class JwtService {
           await this.refreshAccessToken();
           return this.axin(originalRequest);
         } catch (refreshError) {
-          this.expireSession();
           return Promise.reject(refreshError);
         }
       },
@@ -117,6 +118,7 @@ export class JwtService {
 
   setToken(token: string) {
     this.accessToken = token;
+    this.sessionExpired = false;
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(this.jwtConfig.storageTokenKeyName, JSON.stringify(token));
     }
@@ -146,6 +148,10 @@ export class JwtService {
           if (data.error) throw data;
           this.setToken(data.data.accessToken);
           return data.data.accessToken;
+        })
+        .catch((error: unknown) => {
+          this.expireSession();
+          throw error;
         })
         .finally(() => {
           this.refreshPromise = null;
@@ -179,9 +185,8 @@ export class JwtService {
 
   private isRefreshExcluded(url: string | undefined) {
     if (!url) return false;
-    return [this.jwtConfig.loginUrl, this.jwtConfig.registerUrl, this.jwtConfig.refreshTokenUrl].some((endpoint) =>
-      url.includes(endpoint),
-    );
+    const path = url.split(/[?#]/, 1)[0]?.replace(/\/+$/, '') || '/';
+    return [this.jwtConfig.loginUrl, this.jwtConfig.registerUrl, this.jwtConfig.refreshTokenUrl].includes(path);
   }
 
   private assertApiRelativePath(url: string) {
@@ -193,6 +198,9 @@ export class JwtService {
   }
 
   private expireSession() {
+    if (this.sessionExpired) return;
+
+    this.sessionExpired = true;
     this.removeToken();
     this.sessionExpiredListeners.forEach((listener) => listener());
   }

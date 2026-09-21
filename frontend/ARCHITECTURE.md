@@ -158,7 +158,8 @@ Logout:
 `configs/auth/jwt-service.ts` mengelola:
 
 - Attach `Authorization` header otomatis saat token tersedia.
-- Kirim refresh cookie dengan `withCredentials`.
+- Login, register, dan refresh tidak menerima bearer header dan tidak memicu refresh recursive.
+- Kirim refresh cookie HttpOnly secara otomatis dengan `withCredentials`; frontend tidak membaca cookie tersebut.
 - Satu shared refresh promise menangani concurrent `401` melalui `POST /auth/refresh`.
 - Request diulang maksimal satu kali; kegagalan terminal membersihkan sesi lokal.
 

@@ -8,7 +8,7 @@ const authServiceMock = vi.hoisted(() => ({
   restoreSession: vi.fn(),
 }));
 
-vi.mock('@/features/auth/services/auth.api', () => ({ authService: authServiceMock }));
+vi.mock('@/features/auth/services/auth.service', () => ({ authService: authServiceMock }));
 
 import {
   AUTH_SESSION_QUERY_KEY,
