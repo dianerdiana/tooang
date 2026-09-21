@@ -10,7 +10,7 @@ import type { LoginDto, RegisterDto } from '../schemas/auth.schema';
 import type { LoginResponse, MeResponse, RegisterResponse } from '../types/auth.response';
 import { toAuthenticatedUser } from '../utils/auth.mapper';
 
-export const authApi = {
+export const authService = {
   async login(credentials: LoginDto): Promise<AuthenticatedUser> {
     try {
       const response = await api.post<LoginDto, ApiDataResponse<LoginResponse>>('/auth/login', credentials);

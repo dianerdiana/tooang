@@ -12,7 +12,6 @@ import { TopLoadingBar } from '@/components/ui/top-loading-bar';
 import { env } from '@/configs/env';
 
 import TanStackQueryDevtools from '@/integrations/tanstack-query/devtools';
-import TanstackQueryProvider from '@/integrations/tanstack-query/root-provider';
 
 import type { RouterContext } from '../router';
 
@@ -30,28 +29,26 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootDocument() {
   return (
     <React.Suspense fallback={null}>
-      <TanstackQueryProvider>
-        <TooltipProvider>
-          <HeadContent />
-          <Outlet />
-          <TopLoadingBar />
-        </TooltipProvider>
-        {env.nodeEnv === 'development' && (
-          <TanStackDevtools
-            config={{
-              position: 'bottom-right',
-            }}
-            plugins={[
-              {
-                name: 'Tanstack Router',
-                render: <TanStackRouterDevtoolsPanel />,
-              },
-              TanStackQueryDevtools,
-            ]}
-          />
-        )}
-        <Toaster position='top-right' />
-      </TanstackQueryProvider>
+      <TooltipProvider>
+        <HeadContent />
+        <Outlet />
+        <TopLoadingBar />
+      </TooltipProvider>
+      {env.nodeEnv === 'development' && (
+        <TanStackDevtools
+          config={{
+            position: 'bottom-right',
+          }}
+          plugins={[
+            {
+              name: 'Tanstack Router',
+              render: <TanStackRouterDevtoolsPanel />,
+            },
+            TanStackQueryDevtools,
+          ]}
+        />
+      )}
+      <Toaster position='top-right' />
     </React.Suspense>
   );
 }

@@ -15,7 +15,7 @@ const apiMock = vi.hoisted(() => ({
 
 vi.mock('@/configs/api-config', () => ({ api: apiMock }));
 
-import { authService } from './auth.api';
+import { authService } from './auth.service';
 
 const profile = {
   userId: 'usr_public',
@@ -43,8 +43,16 @@ const profile = {
 
 describe('authService', () => {
   beforeEach(() => {
+    apiMock.get.mockReset();
+    apiMock.post.mockReset();
+    apiMock.getToken.mockReset();
+    apiMock.setToken.mockReset();
+    apiMock.removeToken.mockReset();
+    apiMock.refreshAccessToken.mockReset();
+    apiMock.logout.mockReset();
     apiMock.getToken.mockReturnValue(null);
     apiMock.refreshAccessToken.mockResolvedValue('refreshed-token');
+    apiMock.logout.mockResolvedValue(undefined);
     apiMock.get.mockResolvedValue({
       data: { error: false, message: 'Profile retrieved', data: { user: profile } },
     });
@@ -57,6 +65,14 @@ describe('authService', () => {
     expect(authenticatedUser).not.toBe(profile);
     expect(authenticatedUser.placeMemberships[0]).not.toBe(profile.placeMemberships[0]);
     expect(apiMock.refreshAccessToken).toHaveBeenCalledOnce();
+    expect(apiMock.get).toHaveBeenCalledWith('/me');
+  });
+
+  it('uses an existing access token to hydrate /me without refreshing', async () => {
+    apiMock.getToken.mockReturnValue('access-token');
+
+    await expect(authService.restoreSession()).resolves.toEqual(profile);
+    expect(apiMock.refreshAccessToken).not.toHaveBeenCalled();
     expect(apiMock.get).toHaveBeenCalledWith('/me');
   });
 

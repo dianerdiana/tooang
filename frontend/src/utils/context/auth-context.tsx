@@ -1,18 +1,15 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useEffect, useMemo } from 'react';
+
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@/configs/api-config';
 
-import { queryClient } from '@/integrations/tanstack-query/root-provider';
-
+import { authSessionQueryOptions, clearAuthSession, setAuthSession } from '@/features/auth/queries/auth-session.query';
 import type { LoginDto, RegisterDto } from '@/features/auth/schemas/auth.schema';
-import { authApi } from '@/features/auth/services/auth.api';
+import { authService } from '@/features/auth/services/auth.service';
 import type { RegisterResponse } from '@/features/auth/types/auth.response';
 
 import type { AuthenticatedUser } from '@/types/user-data.type';
-
-import { createAbilityForUser } from '../create-ability';
-
-import { AbilityContext } from './ability-context';
 
 export type AuthContextType = {
   isAuthenticated: boolean;
@@ -26,62 +23,41 @@ export type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<AuthenticatedUser | null>(null);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const ability = useContext(AbilityContext);
-
-  const applyUser = useCallback(
-    (nextUser: AuthenticatedUser | null) => {
-      setUser(nextUser);
-      ability.update(createAbilityForUser(nextUser).rules);
-    },
-    [ability],
-  );
+  const queryClient = useQueryClient();
+  const sessionQuery = useQuery(authSessionQueryOptions());
+  const user = sessionQuery.data ?? null;
+  const isInitialLoading = sessionQuery.isPending;
 
   const clearLocalSession = useCallback(() => {
     api.removeToken();
-    applyUser(null);
-    queryClient.clear();
-  }, [applyUser]);
+    clearAuthSession(queryClient);
+  }, [queryClient]);
 
   const login = useCallback(
     async (credentials: LoginDto) => {
-      const authenticatedUser = await authApi.login(credentials);
-      applyUser(authenticatedUser);
+      const authenticatedUser = await authService.login(credentials);
+      setAuthSession(queryClient, authenticatedUser);
       return authenticatedUser;
     },
-    [applyUser],
+    [queryClient],
   );
 
-  const register = useCallback((credentials: RegisterDto) => authApi.register(credentials), []);
+  const register = useCallback((credentials: RegisterDto) => authService.register(credentials), []);
 
   const logout = useCallback(async () => {
     try {
-      await authApi.logout();
+      await authService.logout();
     } finally {
       clearLocalSession();
     }
   }, [clearLocalSession]);
 
   useEffect(() => {
-    let active = true;
-    const unsubscribe = api.onSessionExpired(() => {
-      if (active) clearLocalSession();
-    });
+    if (sessionQuery.isError) clearLocalSession();
+  }, [clearLocalSession, sessionQuery.isError]);
 
-    const bootstrap = async () => {
-      try {
-        const authenticatedUser = await authApi.restoreSession();
-        if (active) applyUser(authenticatedUser);
-      } catch {
-        if (active) clearLocalSession();
-      } finally {
-        if (active) setIsInitialLoading(false);
-      }
-    };
-
-    void bootstrap();
-
+  useEffect(() => {
+    const unsubscribe = api.onSessionExpired(clearLocalSession);
     const handleStorage = (event: StorageEvent) => {
       if (event.key === api.getStorageTokenKeyName() && event.newValue === null) {
         clearLocalSession();
@@ -90,11 +66,10 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
 
     window.addEventListener('storage', handleStorage);
     return () => {
-      active = false;
       unsubscribe();
       window.removeEventListener('storage', handleStorage);
     };
-  }, [applyUser, clearLocalSession]);
+  }, [clearLocalSession]);
 
   const value = useMemo<AuthContextType>(
     () => ({

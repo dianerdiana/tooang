@@ -7,7 +7,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import { FallbackSpinner } from '@/components/ui/fallback-spinner';
 
 import { ability } from './configs/acl/initial-ability';
-import { queryClient } from './integrations/tanstack-query/root-provider';
+import TanstackQueryProvider, { queryClient } from './integrations/tanstack-query/root-provider';
 import { AuthContextProvider } from './utils/context/auth-context';
 import { ThemeProvider } from './utils/context/theme-context';
 import { useAppAbility } from './utils/hooks/use-app-ability';
@@ -50,9 +50,11 @@ if (!rootElement.innerHTML) {
     <StrictMode>
       <AbilityProvider value={ability}>
         <ThemeProvider defaultTheme='light' storageKey='tooang.theme'>
-          <AuthContextProvider>
-            <AppRouter />
-          </AuthContextProvider>
+          <TanstackQueryProvider>
+            <AuthContextProvider>
+              <AppRouter />
+            </AuthContextProvider>
+          </TanstackQueryProvider>
         </ThemeProvider>
       </AbilityProvider>
     </StrictMode>,

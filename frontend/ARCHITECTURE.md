@@ -82,6 +82,7 @@ Alur startup dari `main.tsx`:
 2. Mendaftarkan provider global:
    - `AbilityProvider` (CASL)
    - `ThemeProvider`
+   - `TanstackQueryProvider`
    - `AuthContextProvider`
 3. Menjalankan `AppRouter`.
 4. `AppRouter` membaca auth state (`useAuth`) dan ability (`useAppAbility`).
@@ -98,13 +99,14 @@ Diagram runtime:
 flowchart TD
 	A[main.tsx] --> B[AbilityProvider]
 	B --> C[ThemeProvider]
-	C --> D[AuthContextProvider]
-	D --> E[AppRouter]
-	E --> F{isInitialLoading?}
-	F -- yes --> G[FallbackSpinner]
-	F -- no --> H[RouterProvider]
-	H --> I[Route Tree]
-	I --> J[Layouts and Pages]
+	C --> D[TanstackQueryProvider]
+	D --> E[AuthContextProvider]
+	E --> F[AppRouter]
+	F --> G{isInitialLoading?}
+	G -- yes --> H[FallbackSpinner]
+	G -- no --> I[RouterProvider]
+	I --> J[Route Tree]
+	J --> K[Layouts and Pages]
 ```
 
 ## 6. Routing Architecture
@@ -136,21 +138,20 @@ Sumber utama ada di `utils/context/auth-context.tsx`:
 1. Saat app load, gunakan access token tersimpan atau coba rotasi refresh cookie melalui `POST /auth/refresh`.
 2. Panggil `GET /me` untuk mengambil profil, platform permissions, dan place memberships terbaru.
 3. Jika sukses:
-   - set `userData`
-   - update CASL ability dari permissions backend
+   - simpan user authoritative pada auth-session query cache
 4. Jika gagal:
-   - clear auth state
+   - set auth-session cache ke `null`
    - token dihapus
 
 Login:
 
 - Request ke `POST /auth/login`, simpan `accessToken`, lalu hydrate profil melalui `GET /me`.
 - Registrasi melalui `POST /auth/register` tidak membuat sesi login.
-- Simpan profil ke context dan rebuild ability dari platform permissions serta membership `effectivePermissions`.
+- Simpan profil authoritative ke auth-session query cache; `AuthContext` hanya mengekspos state tersebut.
 
 Logout:
 
-- Panggil `POST /auth/logout`, lalu hapus token, user state, private query cache, dan reset ability.
+- Panggil `POST /auth/logout`, lalu hapus token, set sesi ke `null`, dan bersihkan query cache lain.
 
 ### 7.2 JWT Service dan Interceptor
 
@@ -166,8 +167,8 @@ Tujuan desain ini adalah mencegah infinite loop dan menjaga state auth tetap sin
 ### 7.3 Authorization dengan CASL
 
 - Ability awal deny-all berasal dari `configs/acl/initial-ability.ts`.
-- Permission platform dan permission membership per `placeId` dikonsumsi langsung dari `GET /me`.
-- `canPlatform` dan `canAtPlace` hanya mengontrol rendering/interaksi; backend tetap otoritatif.
+- Permission platform dan permission membership per `placeId` disimpan dari `GET /me` sebagai metadata.
+- Rule CASL dari metadata user belum dibangun; ability tetap deny-all sampai authorization UI diimplementasikan.
 
 ## 8. Data Fetching dan State Management
 
@@ -188,7 +189,8 @@ Standar query key:
 
 ### 8.2 Client State
 
-- Auth state global: `AuthContext`.
+- Authenticated user server state: auth-session TanStack Query cache.
+- `AuthContext` mengekspos session query state dan operasi login/register/logout tanpa menduplikasi user state.
 - Theme state global: `ThemeProviderContext`.
 - UI state lokal (modal, tabs, form draft) disimpan di component/module masing-masing.
 
