@@ -4,9 +4,9 @@ import { api } from '@/configs/api-config';
 
 import { queryClient } from '@/integrations/tanstack-query/root-provider';
 
-import type { RegisterResponse } from '@/features/auth/types/auth.response';
 import type { LoginDto, RegisterDto } from '@/features/auth/schemas/auth.schema';
-import { authService } from '@/features/auth/services/auth.api';
+import { authApi } from '@/features/auth/services/auth.api';
+import type { RegisterResponse } from '@/features/auth/types/auth.response';
 
 import type { AuthenticatedUser } from '@/types/user-data.type';
 
@@ -46,18 +46,18 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = useCallback(
     async (credentials: LoginDto) => {
-      const authenticatedUser = await authService.login(credentials);
+      const authenticatedUser = await authApi.login(credentials);
       applyUser(authenticatedUser);
       return authenticatedUser;
     },
     [applyUser],
   );
 
-  const register = useCallback((credentials: RegisterDto) => authService.register(credentials), []);
+  const register = useCallback((credentials: RegisterDto) => authApi.register(credentials), []);
 
   const logout = useCallback(async () => {
     try {
-      await authService.logout();
+      await authApi.logout();
     } finally {
       clearLocalSession();
     }
@@ -71,7 +71,7 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
 
     const bootstrap = async () => {
       try {
-        const authenticatedUser = await authService.restoreSession();
+        const authenticatedUser = await authApi.restoreSession();
         if (active) applyUser(authenticatedUser);
       } catch {
         if (active) clearLocalSession();
