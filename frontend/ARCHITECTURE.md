@@ -119,13 +119,14 @@ flowchart TD
 
 ### 6.2 Route Saat Ini
 
-- `/`: route netral untuk memvalidasi foundation aplikasi.
+- `/login`: route publik untuk login; user yang sudah authenticated diarahkan ke redirect target yang aman atau `/`.
+- `/`: landing page authenticated dan titik akses logout pertama.
 - `/not-found`: fallback untuk route yang tidak tersedia.
-- Route dan layout feature belum dibuat; `routeTree.gen.ts` selalu dihasilkan oleh plugin TanStack Router.
+- `routeTree.gen.ts` selalu dihasilkan oleh plugin TanStack Router.
 
 ### 6.3 Route Guard
 
-- Guard autentikasi ditambahkan bersamaan dengan route protected pertama.
+- `/` menolak sesi unauthenticated dan mengarahkan ke `/login?redirect=/`.
 - Redirect target wajib disanitasi lewat `getSafeRedirectTarget`.
 - Visibility frontend tidak menggantikan otorisasi resource dan tenant di backend.
 
@@ -146,12 +147,15 @@ Sumber utama ada di `utils/context/auth-context.tsx`:
 Login:
 
 - Request ke `POST /auth/login`, simpan `accessToken`, lalu hydrate profil melalui `GET /me`.
+- Form login memakai Zod + TanStack Form dan submit melalui feature mutation hook; component tidak mengakses transport langsung.
+- Setelah login, navigasi memakai redirect target lokal yang sudah disanitasi, dengan fallback `/`.
 - Registrasi melalui `POST /auth/register` tidak membuat sesi login.
 - Simpan profil authoritative ke auth-session query cache; `AuthContext` hanya mengekspos state tersebut.
 
 Logout:
 
-- Panggil `POST /auth/logout`, lalu hapus token, set sesi ke `null`, dan bersihkan query cache lain.
+- Panggil `POST /auth/logout`, lalu hapus token, set sesi ke `null`, dan bersihkan query cache lain walaupun request logout gagal.
+- UI kembali ke `/login`; kegagalan server ditampilkan sebagai feedback tanpa mempertahankan data privat lokal.
 
 ### 7.2 JWT Service dan Interceptor
 
@@ -191,7 +195,8 @@ Standar query key:
 ### 8.2 Client State
 
 - Authenticated user server state: auth-session TanStack Query cache.
-- `AuthContext` mengekspos session query state dan operasi login/register/logout tanpa menduplikasi user state.
+- `AuthContext` mengekspos session query state dan operasi login/register/logout tanpa menduplikasi user state;
+  UI menjalankan operasi login/logout melalui feature mutation hooks.
 - Theme state global: `ThemeProviderContext`.
 - UI state lokal (modal, tabs, form draft) disimpan di component/module masing-masing.
 
@@ -347,7 +352,7 @@ Alur release minimal:
 
 Prioritas tinggi:
 
-- Tambahkan guard autentikasi dan permission metadata saat route protected pertama dibuat.
+- Tambahkan permission metadata saat route protected berikutnya dibuat.
 - Standardisasi struktur internal semua modul domain.
 - Tambahkan test untuk auth bootstrap, route guard, dan token refresh path.
 
