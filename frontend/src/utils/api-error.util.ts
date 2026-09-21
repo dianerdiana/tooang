@@ -1,28 +1,35 @@
 import axios from 'axios';
 
-import type { ErrorResponse } from '@/types/api-response.type';
+import type { ApiErrorResponse, ApplicationError } from '@/types/api-response.type';
 
-export const isErrorResponse = (value: unknown): value is ErrorResponse => {
+export const isApiErrorResponse = (value: unknown): value is ApiErrorResponse => {
   if (!value || typeof value !== 'object') return false;
 
-  const data = value as Partial<ErrorResponse>;
+  const data = value as Partial<ApiErrorResponse>;
 
-  return data.error === true && typeof data.message === 'string';
+  return data.error === true && typeof data.message === 'string' && typeof data.code === 'string';
 };
 
-export const toApiError = (e: unknown): ErrorResponse => {
-  if (isErrorResponse(e)) return e;
+export const isApplicationError = (value: unknown): value is ApplicationError =>
+  isApiErrorResponse(value) && typeof (value as Partial<ApplicationError>).isNetworkError === 'boolean';
 
-  if (axios.isAxiosError(e)) {
-    const data = e.response?.data;
-    const httpStatus = e.response?.status;
+export const toApiError = (error: unknown): ApplicationError => {
+  if (isApplicationError(error)) return error;
 
-    if (isErrorResponse(data)) {
+  if (isApiErrorResponse(error)) {
+    return {
+      ...error,
+      isNetworkError: false,
+    };
+  }
+
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+    const httpStatus = error.response?.status;
+
+    if (isApiErrorResponse(data)) {
       return {
-        error: true,
-        message: data.message,
-        code: data.code,
-        details: data.details,
+        ...data,
         httpStatus,
         isNetworkError: false,
       };
@@ -30,22 +37,26 @@ export const toApiError = (e: unknown): ErrorResponse => {
 
     return {
       error: true,
-      message: e.message || 'Request failed',
-      code: e.code,
+      message: error.message || 'Request failed',
+      code: error.code || (error.response ? 'HTTP_ERROR' : 'NETWORK_ERROR'),
       httpStatus,
-      isNetworkError: !e.response,
+      isNetworkError: !error.response,
     };
   }
 
-  if (e instanceof Error) {
+  if (error instanceof Error) {
     return {
       error: true,
-      message: e.message,
+      message: error.message,
+      code: 'APPLICATION_ERROR',
+      isNetworkError: false,
     };
   }
 
   return {
     error: true,
     message: 'Unknown error',
+    code: 'UNKNOWN_ERROR',
+    isNetworkError: false,
   };
 };

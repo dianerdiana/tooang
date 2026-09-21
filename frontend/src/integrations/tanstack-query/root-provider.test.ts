@@ -28,6 +28,8 @@ describe('defaultQueryFn', () => {
     await expect(defaultQueryFn({ queryKey: [{ resource: 'places' }] } as never)).rejects.toEqual({
       error: true,
       message: 'The first query key item must be an API-relative endpoint string',
+      code: 'APPLICATION_ERROR',
+      isNetworkError: false,
     });
     expect(apiMock.get).not.toHaveBeenCalled();
   });

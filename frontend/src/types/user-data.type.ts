@@ -1,11 +1,11 @@
 import type { PlaceMemberRole, PlatformRole } from './enums/user-role.enum';
-import type { Permission } from './permission.type';
+import type { EffectivePermissions, PermissionIdentifier } from './permission.type';
 
 export type PlaceMembership = {
   placeId: string;
   role: PlaceMemberRole;
-  permissions: Permission[];
-  effectivePermissions: Permission[];
+  permissions: PermissionIdentifier[];
+  effectivePermissions: EffectivePermissions;
 };
 
 export type AuthenticatedUser = {
@@ -13,7 +13,7 @@ export type AuthenticatedUser = {
   fullName: string;
   email: string;
   platformRole: PlatformRole;
-  permissions: Permission[];
+  permissions: PermissionIdentifier[];
   placeMemberships: PlaceMembership[];
   createdAt: string;
   updatedAt: string;

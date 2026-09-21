@@ -2,34 +2,46 @@ export type ApiErrorDetail = {
   field?: string;
   message: string;
   code?: string;
+  resourceId?: string;
 };
 
-export type ResponseMeta = {
+export type ApiPaginationMeta = {
   page?: number;
   limit?: number;
+  search?: string;
+  column?: string;
+  sort?: 'asc' | 'desc';
   totalItems?: number;
   totalPages?: number;
 };
 
-export type SuccessResponse<T> = {
+export type ApiSuccessResponse<TData = unknown> = {
   error: false;
   message: string;
-  data: T;
-  meta?: ResponseMeta;
+  data?: TData;
+  meta?: ApiPaginationMeta;
 };
 
-export type ErrorResponse = {
+export type ApiErrorResponse = {
   error: true;
   message: string;
-  code?: string;
+  code: string;
   details?: ApiErrorDetail[];
-  httpStatus?: number;
-  isNetworkError?: boolean;
 };
 
-export type ApiResponse<T> = SuccessResponse<T> | ErrorResponse;
+export type ApplicationError = ApiErrorResponse & {
+  httpStatus?: number;
+  isNetworkError: boolean;
+};
+
+export type ApiResponse<TData = unknown> = ApiSuccessResponse<TData> | ApiErrorResponse;
+
+export type ApiDataResponse<TData> = (ApiSuccessResponse<TData> & { data: TData }) | ApiErrorResponse;
+
+export type ApiPaginatedResponse<TData> =
+  (ApiSuccessResponse<TData> & { data: TData; meta: ApiPaginationMeta }) | ApiErrorResponse;
 
 export type PaginatedResult<T> = {
   items: T;
-  meta: ResponseMeta;
+  meta: ApiPaginationMeta;
 };

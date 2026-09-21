@@ -4,9 +4,9 @@ import { api } from '@/configs/api-config';
 
 import { queryClient } from '@/integrations/tanstack-query/root-provider';
 
-import type { RegisterResponse } from '@/features/auth/auth.response';
-import type { LoginDto, RegisterDto } from '@/features/auth/auth.schema';
-import { authService } from '@/features/auth/auth.service';
+import type { RegisterResponse } from '@/features/auth/types/auth.response';
+import type { LoginDto, RegisterDto } from '@/features/auth/schemas/auth.schema';
+import { authService } from '@/features/auth/services/auth.api';
 
 import type { AuthenticatedUser } from '@/types/user-data.type';
 

@@ -1,4 +1,4 @@
-import type { ErrorResponse } from './api-response.type';
+import type { ApplicationError } from './api-response.type';
 
 import '@tanstack/react-query';
 
@@ -14,6 +14,6 @@ declare global {
 
 declare module '@tanstack/react-query' {
   interface Register {
-    defaultError: ErrorResponse;
+    defaultError: ApplicationError;
   }
 }

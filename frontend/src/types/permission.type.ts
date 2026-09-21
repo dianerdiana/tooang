@@ -39,6 +39,7 @@ export const PERMISSION = {
   MEDIA_DELETE: 'media.delete',
 } as const;
 
-export type Permission = (typeof PERMISSION)[keyof typeof PERMISSION];
+export type PermissionIdentifier = (typeof PERMISSION)[keyof typeof PERMISSION];
+export type EffectivePermissions = PermissionIdentifier[];
 
-export const PERMISSIONS = Object.freeze(Object.values(PERMISSION)) as readonly Permission[];
+export const PERMISSIONS = Object.freeze(Object.values(PERMISSION)) as readonly PermissionIdentifier[];

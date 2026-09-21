@@ -1,9 +1,9 @@
 import type { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import axios from 'axios';
 
-import type { RefreshResponse } from '@/features/auth/auth.response';
+import type { RefreshResponse } from '@/features/auth/types/auth.response';
 
-import type { ApiResponse } from '@/types/api-response.type';
+import type { ApiDataResponse } from '@/types/api-response.type';
 
 import { env } from '../env';
 
@@ -141,7 +141,7 @@ export class JwtService {
   refreshAccessToken() {
     if (!this.refreshPromise) {
       this.refreshPromise = this.refreshClient
-        .post<ApiResponse<RefreshResponse>>(this.jwtConfig.refreshTokenUrl)
+        .post<ApiDataResponse<RefreshResponse>>(this.jwtConfig.refreshTokenUrl)
         .then(({ data }) => {
           if (data.error) throw data;
           this.setToken(data.data.accessToken);

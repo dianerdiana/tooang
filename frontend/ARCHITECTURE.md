@@ -210,7 +210,11 @@ Prinsip:
 
 - Axios hanya boleh diimpor oleh JWT transport dan utility normalisasi error; component, route, dan feature
   menggunakan instance `api`.
-- Error API dinormalisasi sebelum dipakai UI.
+- `ApiSuccessResponse` dan `ApiErrorResponse` merepresentasikan wire contract backend; `ApplicationError`
+  adalah error ternormalisasi yang dikonsumsi Query dan UI.
+- Error API dinormalisasi sebelum dipakai UI, termasuk status HTTP dan kegagalan network.
+- Data sesi authoritative selalu berasal dari `GET /me` dan dipetakan dari response transport ke model
+  `AuthenticatedUser` frontend.
 - Toast/error UI harus menampilkan pesan yang user-friendly, bukan raw stack trace.
 
 ## 10. UI System dan Theming

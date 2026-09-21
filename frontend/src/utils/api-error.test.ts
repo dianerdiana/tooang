@@ -3,27 +3,33 @@ import { describe, expect, it } from 'vitest';
 import { toApiError } from './api-error.util';
 
 describe('toApiError', () => {
-  it('preserves a normalized backend error and adds its HTTP status', () => {
+  it.each([
+    [400, 'BAD_REQUEST'],
+    [401, 'UNAUTHORIZED'],
+    [403, 'FORBIDDEN'],
+    [404, 'NOT_FOUND'],
+    [409, 'CONFLICT'],
+  ])('preserves a backend %i error and adds its HTTP status', (status, code) => {
     const error = {
       isAxiosError: true,
-      message: 'Request failed with status code 422',
+      message: `Request failed with status code ${status}`,
       response: {
-        status: 422,
+        status,
         data: {
           error: true,
-          message: 'Validation failed',
-          code: 'VALIDATION_ERROR',
-          details: [{ field: 'email', message: 'Email is invalid' }],
+          message: 'Backend rejected the request',
+          code,
+          details: [{ field: 'placeId', message: 'Place is unavailable', resourceId: 'place-one' }],
         },
       },
     };
 
     expect(toApiError(error)).toEqual({
       error: true,
-      message: 'Validation failed',
-      code: 'VALIDATION_ERROR',
-      details: [{ field: 'email', message: 'Email is invalid' }],
-      httpStatus: 422,
+      message: 'Backend rejected the request',
+      code,
+      details: [{ field: 'placeId', message: 'Place is unavailable', resourceId: 'place-one' }],
+      httpStatus: status,
       isNetworkError: false,
     });
   });
@@ -59,5 +65,32 @@ describe('toApiError', () => {
       httpStatus: undefined,
       isNetworkError: true,
     });
+  });
+
+  it('uses stable codes for plain and unknown errors', () => {
+    expect(toApiError(new Error('Client failed'))).toEqual({
+      error: true,
+      message: 'Client failed',
+      code: 'APPLICATION_ERROR',
+      isNetworkError: false,
+    });
+    expect(toApiError(null)).toEqual({
+      error: true,
+      message: 'Unknown error',
+      code: 'UNKNOWN_ERROR',
+      isNetworkError: false,
+    });
+  });
+
+  it('returns an already normalized application error unchanged', () => {
+    const error = {
+      error: true as const,
+      message: 'Request failed',
+      code: 'CONFLICT',
+      httpStatus: 409,
+      isNetworkError: false,
+    };
+
+    expect(toApiError(error)).toBe(error);
   });
 });
