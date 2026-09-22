@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { EyeIcon, Layers3Icon, Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { EyeIcon, Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { FormControl, FormField, FormLabel, FormMessage } from '@/components/forms/form-field';
@@ -19,6 +19,7 @@ import { ResponsiveDrawer } from '@/components/ui/responsive-drawer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/ui/status-badge';
 
+import { MenuItemsIcon, MenuItemsPanel } from '@/features/menu-items/components/menu-items-panel';
 import { managementPlaceQueryOptions } from '@/features/places/queries/places.query';
 
 import { isApplicationError } from '@/utils/api-error.util';
@@ -580,15 +581,18 @@ function MenuCategoriesPage({ placeId }: { placeId: string }) {
   return (
     <>
       <PageHeader
-        title='Menu categories'
-        description={`Organize the menu for ${placeQuery.data.name}.`}
+        title='Menu management'
+        description={`Manage menu items and categories for ${placeQuery.data.name}.`}
         leading={
           <span className='flex size-11 items-center justify-center rounded-lg bg-primary-subtle text-primary'>
-            <Layers3Icon aria-hidden />
+            <MenuItemsIcon />
           </span>
         }
       />
-      <MenuCategoriesPanel placeId={placeId} permissions={permissions} />
+      <div className='space-y-6'>
+        <MenuItemsPanel placeId={placeId} permissions={permissions} />
+        <MenuCategoriesPanel placeId={placeId} permissions={permissions} />
+      </div>
     </>
   );
 }

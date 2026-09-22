@@ -30,3 +30,20 @@ export const menuCategoryQueryOptions = (placeId: string, categoryId: string) =>
     queryFn: () => menuCategoriesService.get(placeId, categoryId),
     staleTime: 15_000,
   });
+
+export const allMenuCategoriesQueryOptions = (placeId: string) =>
+  queryOptions({
+    queryKey: [...menuCategoriesKeys.lists(placeId), 'all'] as const,
+    queryFn: async () => {
+      const categories = [];
+      let page = 1;
+      while (true) {
+        const result = await menuCategoriesService.list(placeId, { page, limit: 100 });
+        categories.push(...result.categories);
+        if (page >= (result.meta.totalPages ?? 1)) break;
+        page += 1;
+      }
+      return categories;
+    },
+    staleTime: 15_000,
+  });

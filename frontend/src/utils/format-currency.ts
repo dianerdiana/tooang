@@ -5,5 +5,6 @@ export const formatCurrency = (value: number) => {
     style: 'currency',
     currency: themeConfig.app.currency,
     minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(value);
 };
