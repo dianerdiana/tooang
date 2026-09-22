@@ -1,7 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { createRouter } from '@tanstack/react-router';
 
-import { ability } from './configs/acl/initial-ability';
+import { initialAbility } from './configs/acl/initial-ability';
 import { queryClient } from './integrations/tanstack-query/root-provider';
 import type { AppAbility } from './types/ability-rule.type';
 import type { AuthenticatedUser } from './types/user-data.type';
@@ -24,7 +24,7 @@ const defaultRouterContext: RouterContext = {
     isInitialLoading: true,
     user: null,
   },
-  ability,
+  ability: initialAbility,
 };
 
 export const router = createRouter({

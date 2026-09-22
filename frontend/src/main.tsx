@@ -1,13 +1,12 @@
 import { StrictMode, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 
-import { AbilityProvider } from '@casl/react';
 import { RouterProvider } from '@tanstack/react-router';
 
 import { FallbackSpinner } from '@/components/ui/fallback-spinner';
 
-import { ability } from './configs/acl/initial-ability';
 import TanstackQueryProvider, { queryClient } from './integrations/tanstack-query/root-provider';
+import { AppAbilityProvider } from './utils/context/ability-context';
 import { AuthContextProvider } from './utils/context/auth-context';
 import { ThemeProvider } from './utils/context/theme-context';
 import { useAppAbility } from './utils/hooks/use-app-ability';
@@ -48,15 +47,15 @@ if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <StrictMode>
-      <AbilityProvider value={ability}>
-        <ThemeProvider defaultTheme='light' storageKey='tooang.theme'>
-          <TanstackQueryProvider>
-            <AuthContextProvider>
+      <ThemeProvider defaultTheme='light' storageKey='tooang.theme'>
+        <TanstackQueryProvider>
+          <AuthContextProvider>
+            <AppAbilityProvider>
               <AppRouter />
-            </AuthContextProvider>
-          </TanstackQueryProvider>
-        </ThemeProvider>
-      </AbilityProvider>
+            </AppAbilityProvider>
+          </AuthContextProvider>
+        </TanstackQueryProvider>
+      </ThemeProvider>
     </StrictMode>,
   );
 }

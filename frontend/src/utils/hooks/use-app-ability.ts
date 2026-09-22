@@ -1,8 +1,5 @@
-import { useContext } from 'react';
+import { useAbility } from '@casl/react';
 
-import { AbilityContext } from '../context/ability-context';
+import type { AppAbility } from '@/types/ability-rule.type';
 
-export const useAppAbility = () => {
-  const ability = useContext(AbilityContext);
-  return ability;
-};
+export const useAppAbility = () => useAbility<AppAbility>();

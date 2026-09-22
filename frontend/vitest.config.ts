@@ -10,7 +10,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
     clearMocks: true,
     env: {
       VITE_BASE_SERVER_URL: 'http://localhost:5000',

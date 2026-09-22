@@ -1,3 +1,3 @@
-import { createAbility } from '@/utils/create-ability';
+import { createAbilityForUser } from '@/utils/create-ability';
 
-export const ability = createAbility([]);
+export const initialAbility = createAbilityForUser(null);
