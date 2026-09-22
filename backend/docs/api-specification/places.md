@@ -14,6 +14,12 @@
 published and draft places ordered by `createdAt DESC, id ASC` with standard metadata.
 Place-membership grants do not authorize this global endpoint.
 
+`GET /api/v1/places/:placeId/management` requires `place.read` for the target place.
+ADMIN/SUPER_ADMIN global grants can read any active place, while membership access is
+restricted to the actor's active place membership. It returns `data.place` using the
+safe management representation. Foreign, deleted, or revoked membership scope is
+hidden with `404`.
+
 | Route                                      | Permission      | Body                               | Success                   |
 | ------------------------------------------ | --------------- | ---------------------------------- | ------------------------- |
 | `POST /api/v1/places`                      | `place.create`  | Create fields below                | `201`, `data.place`       |

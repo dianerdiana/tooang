@@ -58,6 +58,16 @@ export class PlacesController {
     });
   }
 
+  @Get(':placeId/management')
+  @RequirePermissions(PERMISSION.PLACE_READ)
+  async getManagement(
+    @CurrentActor() actor: AuthenticatedActor,
+    @ZodParam(placeIdParamSchema) params: PlaceIdParam,
+  ) {
+    const place = await this.service.getManagement(actor, params.placeId);
+    return HttpResponse.success({ message: 'Management place retrieved', data: { place } });
+  }
+
   @Get(':slug')
   @Public()
   async get(@ZodParam(placeSlugParamSchema) params: PlaceSlugParam) {

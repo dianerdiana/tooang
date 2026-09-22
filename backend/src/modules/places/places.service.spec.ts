@@ -8,6 +8,46 @@ import type { PlacesRepository } from './places.repository';
 import { PlacesService } from './places.service';
 
 describe('PlacesService', () => {
+  it('resolves target-place access before returning management details', async () => {
+    const place = {
+      id: 'place-id',
+      name: 'Managed Place',
+      slug: 'managed-place',
+      type: 'CAFE' as const,
+      description: null,
+      address: 'Address',
+      city: null,
+      latitude: null,
+      longitude: null,
+      phone: null,
+      whatsapp: null,
+      timezone: 'Asia/Jakarta',
+      isPublished: false,
+      isOrderingEnabled: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      logoAsset: null,
+      coverAsset: null,
+    };
+    const findActivePlaceDetails = jest.fn(() => Promise.resolve(place));
+    const assertPermission = jest.fn(() => Promise.resolve({ source: 'membership' }));
+    const service = new PlacesService(
+      { findActivePlaceDetails } as unknown as PlacesRepository,
+      {} as never,
+      {} as never,
+      { assertPermission } as never,
+    );
+    const actor = { id: 'owner-id', userId: 'usr_owner', platformRole: PlatformRole.USER };
+
+    await expect(service.getManagement(actor, 'place-id')).resolves.toMatchObject({
+      id: 'place-id',
+      logoUrl: null,
+      coverUrl: null,
+    });
+    expect(assertPermission).toHaveBeenCalledWith(actor, 'place-id', 'place.read');
+    expect(findActivePlaceDetails).toHaveBeenCalledWith('place-id');
+  });
+
   it('allows only a global place reader to list management places', async () => {
     const listManagement = jest.fn(() => Promise.resolve({ places: [], totalItems: 0 }));
     const repository = { listManagement } as unknown as PlacesRepository;

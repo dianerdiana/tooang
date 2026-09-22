@@ -89,6 +89,32 @@ describeDatabase('Places API (PostgreSQL E2E)', () => {
       .expect(201);
     placeId = (created.body as { data: { place: { id: string } } }).data.place.id;
 
+    const globalManagementDetail = await request(server)
+      .get(`/api/v1/places/${placeId}/management`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    expect(globalManagementDetail.body).toMatchObject({
+      data: { place: { id: placeId, slug, isPublished: false } },
+    });
+
+    await prisma.user.update({ where: { id: actorId }, data: { platformRole: PlatformRole.USER } });
+    await request(server)
+      .get(`/api/v1/places/${placeId}/management`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(200);
+    await request(server)
+      .patch(`/api/v1/places/${placeId}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ phone: '022123456' })
+      .expect(200)
+      .expect(({ body }) =>
+        expect(body).toMatchObject({ data: { place: { phone: '022123456' } } }),
+      );
+    await prisma.user.update({
+      where: { id: actorId },
+      data: { platformRole: PlatformRole.SUPER_ADMIN },
+    });
+
     await request(server).get(`/api/v1/places/${slug}`).expect(404);
 
     await request(server)

@@ -65,6 +65,13 @@ export class PlacesService {
     };
   }
 
+  async getManagement(actor: AuthenticatedActor, placeId: string) {
+    await this.access.assertPermission(actor, placeId, PERMISSION.PLACE_READ);
+    const place = await this.repository.findActivePlaceDetails(placeId);
+    if (!place) throw new NotFoundException('Place not found');
+    return this.toResponse(place);
+  }
+
   async getPublic(slug: string, instant = new Date()) {
     const place = await this.repository.findPublicBySlug(slug);
     if (!place) throw new NotFoundException('Place not found');
