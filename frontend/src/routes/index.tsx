@@ -1,5 +1,5 @@
-import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
-import { LogOutIcon } from 'lucide-react';
+import { createFileRoute, Link, redirect, useRouter } from '@tanstack/react-router';
+import { LayoutDashboardIcon, LogOutIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 import { useLogoutMutation } from '@/features/auth/queries/auth.mutations';
 
+import { canAccessDashboard } from '@/utils/auth/dashboard-access';
 import { useAuth } from '@/utils/hooks/use-auth';
 
 export const Route = createFileRoute('/')({
@@ -23,6 +24,7 @@ function HomeRoute() {
   const router = useRouter();
   const { user } = useAuth();
   const logoutMutation = useLogoutMutation();
+  const hasDashboardAccess = canAccessDashboard(user);
 
   const handleLogout = async () => {
     try {
@@ -53,15 +55,24 @@ function HomeRoute() {
               <dd className='mt-1 font-medium'>{user?.platformRole}</dd>
             </div>
           </dl>
-          <Button
-            type='button'
-            variant='outline'
-            className='justify-self-start'
-            disabled={logoutMutation.isPending}
-            onClick={() => void handleLogout()}
-          >
-            <LogOutIcon /> {logoutMutation.isPending ? 'Signing out…' : 'Sign out'}
-          </Button>
+          <div className='flex flex-wrap gap-3'>
+            {hasDashboardAccess && (
+              <Button asChild>
+                <Link to='/dashboard'>
+                  <LayoutDashboardIcon /> Manage dashboard
+                </Link>
+              </Button>
+            )}
+            <Button
+              type='button'
+              variant='outline'
+              className='justify-self-start'
+              disabled={logoutMutation.isPending}
+              onClick={() => void handleLogout()}
+            >
+              <LogOutIcon /> {logoutMutation.isPending ? 'Signing out…' : 'Sign out'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </main>
