@@ -63,6 +63,7 @@ export class UsersService {
       placeMemberships: user.placeMemberships.map((membership) => {
         return {
           placeId: membership.placeId,
+          place: membership.place,
           role: membership.role,
           permissions: [...getMembershipPermissions(membership.role)],
           effectivePermissions: [

@@ -44,7 +44,13 @@ describe('UsersService', () => {
       findMe: jest.fn(() =>
         Promise.resolve({
           ...userRecord(),
-          placeMemberships: [{ placeId: 'place-1', role: 'CASHIER' }],
+          placeMemberships: [
+            {
+              placeId: 'place-1',
+              role: 'CASHIER',
+              place: { name: 'Ramen House', isPublished: true, isOrderingEnabled: true },
+            },
+          ],
         }),
       ),
     } as unknown as UsersRepository;
@@ -60,6 +66,11 @@ describe('UsersService', () => {
     expect(result.placeMemberships[0].effectivePermissions).toEqual(
       result.placeMemberships[0].permissions,
     );
+    expect(result.placeMemberships[0].place).toEqual({
+      name: 'Ramen House',
+      isPublished: true,
+      isOrderingEnabled: true,
+    });
     expect(result).not.toHaveProperty('id');
   });
 
@@ -68,7 +79,13 @@ describe('UsersService', () => {
       findMe: jest.fn(() =>
         Promise.resolve({
           ...userRecord(PlatformRole.ADMIN),
-          placeMemberships: [{ placeId: 'place-1', role: 'CASHIER' }],
+          placeMemberships: [
+            {
+              placeId: 'place-1',
+              role: 'CASHIER',
+              place: { name: 'Ramen House', isPublished: true, isOrderingEnabled: true },
+            },
+          ],
         }),
       ),
     } as unknown as UsersRepository;

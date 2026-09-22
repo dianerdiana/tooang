@@ -302,10 +302,16 @@ describeDatabase('Authentication and users API (PostgreSQL E2E)', () => {
     const targetMembership = (
       (meWithMembership.body as ApiBody).data.user.placeMemberships as Array<{
         placeId: string;
+        place: { name: string; isPublished: boolean; isOrderingEnabled: boolean };
         permissions: string[];
         effectivePermissions: string[];
       }>
     ).find(({ placeId }) => placeId === place.id);
+    expect(targetMembership?.place).toEqual({
+      name: 'Authorization E2E Place',
+      isPublished: false,
+      isOrderingEnabled: false,
+    });
     expect(targetMembership?.effectivePermissions).toEqual(targetMembership?.permissions);
     await request(server)
       .get(`/api/v1/places/${place.id}/members`)

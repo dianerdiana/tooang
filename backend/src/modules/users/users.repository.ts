@@ -36,8 +36,18 @@ export class UsersRepository {
         ...USER_RESPONSE_SELECT,
         placeMemberships: {
           where: { revokedAt: null, place: { deletedAt: null } },
-          select: { placeId: true, role: true },
-          orderBy: { placeId: 'asc' },
+          select: {
+            placeId: true,
+            role: true,
+            place: {
+              select: {
+                name: true,
+                isPublished: true,
+                isOrderingEnabled: true,
+              },
+            },
+          },
+          orderBy: [{ place: { name: 'asc' } }, { placeId: 'asc' }],
         },
       },
     });

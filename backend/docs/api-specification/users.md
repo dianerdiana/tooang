@@ -91,6 +91,11 @@ Authorization: Bearer <access-token>
       "placeMemberships": [
         {
           "placeId": "plc_01K4Y9A83K2Q7FJ5C8VW1M6N0P",
+          "place": {
+            "name": "Ramen House",
+            "isPublished": true,
+            "isOrderingEnabled": true
+          },
           "role": "OWNER",
           "permissions": [
             "order.read",
@@ -149,7 +154,7 @@ Authorization: Bearer <access-token>
 }
 ```
 
-The top-level `permissions` array contains platform-role capabilities. Membership `permissions` retains the membership-role allowlist for compatibility. Membership `effectivePermissions` adds any applicable global platform grant for that place context. All three are rendering metadata only; the backend reloads current state and independently enforces scope and domain invariants.
+The top-level `permissions` array contains platform-role capabilities. Each active membership includes a minimal `place` summary for authenticated scope selection; deleted places and revoked memberships are excluded. Membership `permissions` retains the membership-role allowlist for compatibility. Membership `effectivePermissions` adds any applicable global platform grant for that place context. All permission arrays are rendering metadata only; the backend reloads current state and independently enforces scope and domain invariants.
 
 ## Update my profile
 

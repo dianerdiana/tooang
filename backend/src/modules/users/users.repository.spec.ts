@@ -21,8 +21,18 @@ describe('UsersRepository', () => {
     });
     expect(query.select.placeMemberships).toEqual({
       where: { revokedAt: null, place: { deletedAt: null } },
-      select: { placeId: true, role: true },
-      orderBy: { placeId: 'asc' },
+      select: {
+        placeId: true,
+        role: true,
+        place: {
+          select: {
+            name: true,
+            isPublished: true,
+            isOrderingEnabled: true,
+          },
+        },
+      },
+      orderBy: [{ place: { name: 'asc' } }, { placeId: 'asc' }],
     });
     expect(query.select).not.toHaveProperty('id');
     expect(query.select).not.toHaveProperty('passwordHash');
