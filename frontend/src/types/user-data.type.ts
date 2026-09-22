@@ -3,6 +3,11 @@ import type { EffectivePermissions, PermissionIdentifier } from './permission.ty
 
 export type PlaceMembership = {
   placeId: string;
+  place: {
+    name: string;
+    isPublished: boolean;
+    isOrderingEnabled: boolean;
+  };
   role: PlaceMemberRole;
   permissions: PermissionIdentifier[];
   effectivePermissions: EffectivePermissions;

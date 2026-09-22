@@ -14,6 +14,16 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as NotFoundRouteImport } from './routes/not-found'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
+import { Route as DashboardBusinessHoursRouteImport } from './routes/dashboard.business-hours'
+import { Route as DashboardDiningTablesRouteImport } from './routes/dashboard.dining-tables'
+import { Route as DashboardMembersRouteImport } from './routes/dashboard.members'
+import { Route as DashboardMenuRouteImport } from './routes/dashboard.menu'
+import { Route as DashboardOrdersRouteImport } from './routes/dashboard.orders'
+import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settings'
+import { Route as DashboardPlatformOrdersRouteImport } from './routes/dashboard.platform.orders'
+import { Route as DashboardPlatformPlacesRouteImport } from './routes/dashboard.platform.places'
+import { Route as DashboardPlatformReviewsRouteImport } from './routes/dashboard.platform.reviews'
+import { Route as DashboardPlatformUsersRouteImport } from './routes/dashboard.platform.users'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,19 +50,90 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardBusinessHoursRoute = DashboardBusinessHoursRouteImport.update({
+  id: '/business-hours',
+  path: '/business-hours',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardDiningTablesRoute = DashboardDiningTablesRouteImport.update({
+  id: '/dining-tables',
+  path: '/dining-tables',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardMembersRoute = DashboardMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardMenuRoute = DashboardMenuRouteImport.update({
+  id: '/menu',
+  path: '/menu',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardOrdersRoute = DashboardOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardPlatformOrdersRoute = DashboardPlatformOrdersRouteImport.update({
+  id: '/platform/orders',
+  path: '/platform/orders',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardPlatformPlacesRoute = DashboardPlatformPlacesRouteImport.update({
+  id: '/platform/places',
+  path: '/platform/places',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardPlatformReviewsRoute =
+  DashboardPlatformReviewsRouteImport.update({
+    id: '/platform/reviews',
+    path: '/platform/reviews',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardPlatformUsersRoute = DashboardPlatformUsersRouteImport.update({
+  id: '/platform/users',
+  path: '/platform/users',
+  getParentRoute: () => DashboardRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/not-found': typeof NotFoundRoute
+  '/dashboard/business-hours': typeof DashboardBusinessHoursRoute
+  '/dashboard/dining-tables': typeof DashboardDiningTablesRoute
+  '/dashboard/members': typeof DashboardMembersRoute
+  '/dashboard/menu': typeof DashboardMenuRoute
+  '/dashboard/orders': typeof DashboardOrdersRoute
+  '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/dashboard/platform/orders': typeof DashboardPlatformOrdersRoute
+  '/dashboard/platform/places': typeof DashboardPlatformPlacesRoute
+  '/dashboard/platform/reviews': typeof DashboardPlatformReviewsRoute
+  '/dashboard/platform/users': typeof DashboardPlatformUsersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/not-found': typeof NotFoundRoute
+  '/dashboard/business-hours': typeof DashboardBusinessHoursRoute
+  '/dashboard/dining-tables': typeof DashboardDiningTablesRoute
+  '/dashboard/members': typeof DashboardMembersRoute
+  '/dashboard/menu': typeof DashboardMenuRoute
+  '/dashboard/orders': typeof DashboardOrdersRoute
+  '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/dashboard/platform/orders': typeof DashboardPlatformOrdersRoute
+  '/dashboard/platform/places': typeof DashboardPlatformPlacesRoute
+  '/dashboard/platform/reviews': typeof DashboardPlatformReviewsRoute
+  '/dashboard/platform/users': typeof DashboardPlatformUsersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -60,14 +141,69 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/not-found': typeof NotFoundRoute
+  '/dashboard/business-hours': typeof DashboardBusinessHoursRoute
+  '/dashboard/dining-tables': typeof DashboardDiningTablesRoute
+  '/dashboard/members': typeof DashboardMembersRoute
+  '/dashboard/menu': typeof DashboardMenuRoute
+  '/dashboard/orders': typeof DashboardOrdersRoute
+  '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/dashboard/platform/orders': typeof DashboardPlatformOrdersRoute
+  '/dashboard/platform/places': typeof DashboardPlatformPlacesRoute
+  '/dashboard/platform/reviews': typeof DashboardPlatformReviewsRoute
+  '/dashboard/platform/users': typeof DashboardPlatformUsersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/login' | '/not-found' | '/dashboard/'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/not-found'
+    | '/dashboard/business-hours'
+    | '/dashboard/dining-tables'
+    | '/dashboard/members'
+    | '/dashboard/menu'
+    | '/dashboard/orders'
+    | '/dashboard/settings'
+    | '/dashboard/'
+    | '/dashboard/platform/orders'
+    | '/dashboard/platform/places'
+    | '/dashboard/platform/reviews'
+    | '/dashboard/platform/users'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/not-found' | '/dashboard'
-  id: '__root__' | '/' | '/dashboard' | '/login' | '/not-found' | '/dashboard/'
+  to:
+    | '/'
+    | '/login'
+    | '/not-found'
+    | '/dashboard/business-hours'
+    | '/dashboard/dining-tables'
+    | '/dashboard/members'
+    | '/dashboard/menu'
+    | '/dashboard/orders'
+    | '/dashboard/settings'
+    | '/dashboard'
+    | '/dashboard/platform/orders'
+    | '/dashboard/platform/places'
+    | '/dashboard/platform/reviews'
+    | '/dashboard/platform/users'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/not-found'
+    | '/dashboard/business-hours'
+    | '/dashboard/dining-tables'
+    | '/dashboard/members'
+    | '/dashboard/menu'
+    | '/dashboard/orders'
+    | '/dashboard/settings'
+    | '/dashboard/'
+    | '/dashboard/platform/orders'
+    | '/dashboard/platform/places'
+    | '/dashboard/platform/reviews'
+    | '/dashboard/platform/users'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -114,15 +250,105 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/business-hours': {
+      id: '/dashboard/business-hours'
+      path: '/business-hours'
+      fullPath: '/dashboard/business-hours'
+      preLoaderRoute: typeof DashboardBusinessHoursRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/dining-tables': {
+      id: '/dashboard/dining-tables'
+      path: '/dining-tables'
+      fullPath: '/dashboard/dining-tables'
+      preLoaderRoute: typeof DashboardDiningTablesRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/members': {
+      id: '/dashboard/members'
+      path: '/members'
+      fullPath: '/dashboard/members'
+      preLoaderRoute: typeof DashboardMembersRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/menu': {
+      id: '/dashboard/menu'
+      path: '/menu'
+      fullPath: '/dashboard/menu'
+      preLoaderRoute: typeof DashboardMenuRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/orders': {
+      id: '/dashboard/orders'
+      path: '/orders'
+      fullPath: '/dashboard/orders'
+      preLoaderRoute: typeof DashboardOrdersRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/settings': {
+      id: '/dashboard/settings'
+      path: '/settings'
+      fullPath: '/dashboard/settings'
+      preLoaderRoute: typeof DashboardSettingsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/platform/orders': {
+      id: '/dashboard/platform/orders'
+      path: '/platform/orders'
+      fullPath: '/dashboard/platform/orders'
+      preLoaderRoute: typeof DashboardPlatformOrdersRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/platform/places': {
+      id: '/dashboard/platform/places'
+      path: '/platform/places'
+      fullPath: '/dashboard/platform/places'
+      preLoaderRoute: typeof DashboardPlatformPlacesRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/platform/reviews': {
+      id: '/dashboard/platform/reviews'
+      path: '/platform/reviews'
+      fullPath: '/dashboard/platform/reviews'
+      preLoaderRoute: typeof DashboardPlatformReviewsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/platform/users': {
+      id: '/dashboard/platform/users'
+      path: '/platform/users'
+      fullPath: '/dashboard/platform/users'
+      preLoaderRoute: typeof DashboardPlatformUsersRouteImport
+      parentRoute: typeof DashboardRoute
+    }
   }
 }
 
 interface DashboardRouteChildren {
+  DashboardBusinessHoursRoute: typeof DashboardBusinessHoursRoute
+  DashboardDiningTablesRoute: typeof DashboardDiningTablesRoute
+  DashboardMembersRoute: typeof DashboardMembersRoute
+  DashboardMenuRoute: typeof DashboardMenuRoute
+  DashboardOrdersRoute: typeof DashboardOrdersRoute
+  DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardPlatformOrdersRoute: typeof DashboardPlatformOrdersRoute
+  DashboardPlatformPlacesRoute: typeof DashboardPlatformPlacesRoute
+  DashboardPlatformReviewsRoute: typeof DashboardPlatformReviewsRoute
+  DashboardPlatformUsersRoute: typeof DashboardPlatformUsersRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardBusinessHoursRoute: DashboardBusinessHoursRoute,
+  DashboardDiningTablesRoute: DashboardDiningTablesRoute,
+  DashboardMembersRoute: DashboardMembersRoute,
+  DashboardMenuRoute: DashboardMenuRoute,
+  DashboardOrdersRoute: DashboardOrdersRoute,
+  DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
+  DashboardPlatformOrdersRoute: DashboardPlatformOrdersRoute,
+  DashboardPlatformPlacesRoute: DashboardPlatformPlacesRoute,
+  DashboardPlatformReviewsRoute: DashboardPlatformReviewsRoute,
+  DashboardPlatformUsersRoute: DashboardPlatformUsersRoute,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(

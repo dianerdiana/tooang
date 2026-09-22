@@ -17,12 +17,14 @@ const authenticatedUser = (overrides: Partial<AuthenticatedUser> = {}): Authenti
   placeMemberships: [
     {
       placeId: 'place_one',
+      place: { name: 'Place One', isPublished: true, isOrderingEnabled: true },
       role: PlaceMemberRole.OWNER,
       permissions: [PERMISSION.PLACE_UPDATE],
       effectivePermissions: [PERMISSION.PLACE_READ, PERMISSION.PLACE_READ, PERMISSION.PLACE_UPDATE],
     },
     {
       placeId: 'place_two',
+      place: { name: 'Place Two', isPublished: true, isOrderingEnabled: true },
       role: PlaceMemberRole.CASHIER,
       permissions: [PERMISSION.ORDER_CONFIRM],
       effectivePermissions: [PERMISSION.ORDER_READ, PERMISSION.ORDER_CONFIRM],
@@ -109,6 +111,7 @@ describe('backend-driven ability factory', () => {
         placeMemberships: [
           {
             placeId: 'place_one',
+            place: { name: 'Place One', isPublished: true, isOrderingEnabled: true },
             role: PlaceMemberRole.OWNER,
             permissions: [],
             effectivePermissions: [],

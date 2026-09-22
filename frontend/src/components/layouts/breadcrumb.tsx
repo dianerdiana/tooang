@@ -9,6 +9,7 @@ type BreadcrumbItem = {
   id: string;
   label: React.ReactNode;
   to?: LinkProps['to'];
+  search?: LinkProps['search'];
 };
 
 type BreadcrumbProps = React.ComponentProps<'nav'> & {
@@ -31,6 +32,7 @@ function Breadcrumb({ className, items, ...props }: BreadcrumbProps) {
                 {!isCurrent && item.to ? (
                   <Link
                     to={item.to}
+                    search={item.search}
                     className='rounded-sm underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
                   >
                     {item.label}

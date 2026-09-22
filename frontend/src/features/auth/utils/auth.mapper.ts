@@ -11,6 +11,7 @@ export const toAuthenticatedUser = (user: MeUserResponse): AuthenticatedUser => 
   globalPermissions: [...(user.globalPermissions ?? [])],
   placeMemberships: user.placeMemberships.map((membership) => ({
     placeId: membership.placeId,
+    place: { ...membership.place },
     role: membership.role,
     permissions: [...membership.permissions],
     effectivePermissions: [...membership.effectivePermissions],

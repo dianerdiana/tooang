@@ -1,15 +1,33 @@
 import type { ComponentType, SVGProps } from 'react';
 
-import { Link, type LinkProps } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 
 import { cn } from '@/utils/utils';
 
 type DashboardNavigationIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
+type DashboardNavigationSearch = {
+  placeId?: string;
+};
+
+type DashboardNavigationPath =
+  | '/dashboard'
+  | '/dashboard/orders'
+  | '/dashboard/menu'
+  | '/dashboard/dining-tables'
+  | '/dashboard/business-hours'
+  | '/dashboard/members'
+  | '/dashboard/settings'
+  | '/dashboard/platform/places'
+  | '/dashboard/platform/orders'
+  | '/dashboard/platform/reviews'
+  | '/dashboard/platform/users';
+
 type DashboardNavigationItem = {
   id: string;
   label: string;
-  to: LinkProps['to'];
+  to: DashboardNavigationPath;
+  search?: DashboardNavigationSearch;
   icon?: DashboardNavigationIcon;
   exact?: boolean;
 };
@@ -45,6 +63,7 @@ function DashboardNavigation({ className, groups, onNavigate }: DashboardNavigat
                 <li key={item.id}>
                   <Link
                     to={item.to}
+                    search={item.search}
                     activeOptions={{ exact: item.exact }}
                     activeProps={{
                       'aria-current': 'page',
@@ -75,5 +94,7 @@ export {
   type DashboardNavigationGroup,
   type DashboardNavigationIcon,
   type DashboardNavigationItem,
+  type DashboardNavigationPath,
   type DashboardNavigationProps,
+  type DashboardNavigationSearch,
 };

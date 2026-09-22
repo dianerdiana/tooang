@@ -19,6 +19,7 @@ describe('toAuthenticatedUser', () => {
       placeMemberships: [
         {
           placeId: 'place_1',
+          place: { name: 'Mapped Place', isPublished: true, isOrderingEnabled: false },
           role: PlaceMemberRole.OWNER,
           permissions: [PERMISSION.ORDER_READ],
           effectivePermissions: [PERMISSION.PLACE_READ],
@@ -33,12 +34,14 @@ describe('toAuthenticatedUser', () => {
     expect(user.permissions).toEqual([PERMISSION.PROFILE_READ]);
     expect(user.globalPermissions).toEqual([PERMISSION.PLACE_DELETE]);
     expect(user.placeMemberships[0]).toMatchObject({
+      place: { name: 'Mapped Place', isPublished: true, isOrderingEnabled: false },
       role: PlaceMemberRole.OWNER,
       permissions: [PERMISSION.ORDER_READ],
       effectivePermissions: [PERMISSION.PLACE_READ],
     });
     expect(user.permissions).not.toBe(response.permissions);
     expect(user.globalPermissions).not.toBe(response.globalPermissions);
+    expect(user.placeMemberships[0]?.place).not.toBe(response.placeMemberships[0]?.place);
     expect(user.placeMemberships[0]?.permissions).not.toBe(response.placeMemberships[0]?.permissions);
     expect(user.placeMemberships[0]?.effectivePermissions).not.toBe(response.placeMemberships[0]?.effectivePermissions);
   });

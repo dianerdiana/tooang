@@ -27,6 +27,7 @@ describe('dashboard access', () => {
         placeMemberships: [
           {
             placeId: 'place_owner',
+            place: { name: 'Owner Place', isPublished: true, isOrderingEnabled: true },
             role: PlaceMemberRole.OWNER,
             permissions: [PERMISSION.PLACE_UPDATE],
             effectivePermissions: [PERMISSION.PLACE_UPDATE],
@@ -40,6 +41,7 @@ describe('dashboard access', () => {
         placeMemberships: [
           {
             placeId: 'place_cashier',
+            place: { name: 'Cashier Place', isPublished: true, isOrderingEnabled: true },
             role: PlaceMemberRole.CASHIER,
             permissions: [PERMISSION.ORDER_CONFIRM],
             effectivePermissions: [PERMISSION.ORDER_CONFIRM],
@@ -74,6 +76,7 @@ describe('dashboard access', () => {
         placeMemberships: [
           {
             placeId: 'place_empty',
+            place: { name: 'Empty Place', isPublished: false, isOrderingEnabled: false },
             role: PlaceMemberRole.CASHIER,
             permissions: [PERMISSION.ORDER_CONFIRM],
             effectivePermissions: [],

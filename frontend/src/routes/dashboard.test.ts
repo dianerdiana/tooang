@@ -21,11 +21,15 @@ const user = (overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser => 
   ...overrides,
 });
 
-const runBeforeLoad = (auth: { isAuthenticated: boolean; user: AuthenticatedUser | null }) => {
+const runBeforeLoad = (
+  auth: { isAuthenticated: boolean; user: AuthenticatedUser | null },
+  search: { placeId?: string } = {},
+) => {
   try {
     Route.options.beforeLoad?.({
       context: { auth },
-      location: { href: '/dashboard' },
+      location: { href: '/dashboard', pathname: '/dashboard' },
+      search,
     } as never);
     return null;
   } catch (error) {
@@ -59,6 +63,7 @@ describe('/dashboard route guard', () => {
       placeMemberships: [
         {
           placeId: 'place_owner',
+          place: { name: 'Owner Place', isPublished: true, isOrderingEnabled: true },
           role: PlaceMemberRole.OWNER,
           permissions: [PERMISSION.PLACE_UPDATE],
           effectivePermissions: [PERMISSION.PLACE_UPDATE],
@@ -67,5 +72,30 @@ describe('/dashboard route guard', () => {
     });
 
     expect(runBeforeLoad({ isAuthenticated: true, user: owner })).toBeNull();
+  });
+
+  it('canonicalizes a stale selected place to the first accessible membership', () => {
+    const owner = user({
+      placeMemberships: [
+        {
+          placeId: 'place_owner',
+          place: { name: 'Owner Place', isPublished: true, isOrderingEnabled: true },
+          role: PlaceMemberRole.OWNER,
+          permissions: [PERMISSION.PLACE_UPDATE],
+          effectivePermissions: [PERMISSION.PLACE_UPDATE],
+        },
+      ],
+    });
+
+    const result = runBeforeLoad({ isAuthenticated: true, user: owner }, { placeId: 'stale_place' });
+
+    expect(isRedirect(result)).toBe(true);
+    if (isRedirect(result)) {
+      expect(result.options).toMatchObject({
+        to: '/dashboard',
+        search: { placeId: 'place_owner' },
+        replace: true,
+      });
+    }
   });
 });

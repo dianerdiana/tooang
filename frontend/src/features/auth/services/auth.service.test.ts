@@ -27,12 +27,14 @@ const profile = {
   placeMemberships: [
     {
       placeId: 'place-owner',
+      place: { name: 'Owner Place', isPublished: true, isOrderingEnabled: true },
       role: PlaceMemberRole.OWNER,
       permissions: [PERMISSION.PLACE_READ, PERMISSION.PLACE_UPDATE],
       effectivePermissions: [PERMISSION.PLACE_READ, PERMISSION.PLACE_UPDATE],
     },
     {
       placeId: 'place-cashier',
+      place: { name: 'Cashier Place', isPublished: false, isOrderingEnabled: false },
       role: PlaceMemberRole.CASHIER,
       permissions: [PERMISSION.ORDER_READ, PERMISSION.ORDER_CONFIRM],
       effectivePermissions: [PERMISSION.ORDER_READ, PERMISSION.ORDER_CONFIRM],

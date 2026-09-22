@@ -24,6 +24,7 @@ const user: AuthenticatedUser = {
   placeMemberships: [
     {
       placeId: 'place_one',
+      place: { name: 'Place One', isPublished: true, isOrderingEnabled: true },
       role: PlaceMemberRole.CASHIER,
       permissions: [PERMISSION.ORDER_CONFIRM],
       effectivePermissions: [PERMISSION.ORDER_CONFIRM],

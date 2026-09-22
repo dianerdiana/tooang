@@ -30,6 +30,11 @@ export type RefreshResponse = {
 
 export type MePlaceMembershipResponse = {
   placeId: string;
+  place: {
+    name: string;
+    isPublished: boolean;
+    isOrderingEnabled: boolean;
+  };
   role: PlaceMemberRole;
   permissions: PermissionIdentifier[];
   effectivePermissions: EffectivePermissions;
