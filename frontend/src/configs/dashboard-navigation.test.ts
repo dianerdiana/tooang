@@ -40,12 +40,13 @@ describe('buildDashboardNavigation', () => {
     const selectedPlace = membership('place_cashier', 'Cashier Place', PlaceMemberRole.CASHIER, [
       PERMISSION.ORDER_READ,
       PERMISSION.ORDER_CONFIRM,
+      PERMISSION.PLACE_READ,
       PERMISSION.TABLE_READ,
       PERMISSION.PLACE_MEMBER_READ,
     ]);
     const navigation = buildDashboardNavigation({ user: user({ placeMemberships: [selectedPlace] }), selectedPlace });
 
-    expect(itemLabels(navigation, 'place')).toEqual(['Orders', 'Dining Tables']);
+    expect(itemLabels(navigation, 'place')).toEqual(['Orders', 'Dining Tables', 'Business Hours']);
     expect(itemLabels(navigation, 'platform')).toEqual([]);
   });
 

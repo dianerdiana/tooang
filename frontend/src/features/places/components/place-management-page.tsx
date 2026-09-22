@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/ui/status-badge';
 
+import { BusinessHoursPanel } from '@/features/business-hours/components/business-hours-page';
+
 import { isApplicationError } from '@/utils/api-error.util';
 import { canAtPlace } from '@/utils/auth/has-permission';
 import { useAppAbility } from '@/utils/hooks/use-app-ability';
@@ -623,6 +625,7 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
           availability={<PlaceAvailabilityControls place={place} canPublish={canPublish} canManageOrdering={canEdit} />}
         />
       )}
+      {platformContext && <BusinessHoursPanel placeId={place.id} timezone={place.timezone} canEdit={canEdit} />}
       {platformContext && (
         <Button asChild variant='outline'>
           <Link to='/dashboard/platform/places' search={listSearch ?? { page: 1, limit: 20 }}>

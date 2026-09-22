@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { DashboardPlaceholderPage } from '@/components/layouts/dashboard-placeholder-page';
-
 import { dashboardRoutePermissions } from '@/configs/dashboard-navigation';
+
+import { BusinessHoursPage } from '@/features/business-hours/components/business-hours-page';
 
 import { requirePlaceDashboardRoute } from '@/utils/auth/dashboard-route-access';
 
@@ -15,12 +15,6 @@ export const Route = createFileRoute('/dashboard/business-hours')({
 
 function BusinessHoursRoute() {
   const { selectedPlace } = Route.useRouteContext();
-  const search = Route.useSearch();
-  return (
-    <DashboardPlaceholderPage
-      title='Business hours'
-      description={`Manage business hours for ${selectedPlace?.place.name}.`}
-      search={search}
-    />
-  );
+  if (!selectedPlace) return null;
+  return <BusinessHoursPage placeId={selectedPlace.placeId} />;
 }
