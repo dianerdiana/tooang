@@ -1,12 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { DashboardPlaceholderPage } from '@/components/layouts/dashboard-placeholder-page';
-
 import { dashboardRoutePermissions } from '@/configs/dashboard-navigation';
+
+import { ManagementPlacesPage } from '@/features/places/components/management-places-page';
+import { parsePlacesSearch } from '@/features/places/schemas/places.schema';
 
 import { requirePlatformDashboardRoute } from '@/utils/auth/dashboard-route-access';
 
 export const Route = createFileRoute('/dashboard/platform/places')({
+  validateSearch: parsePlacesSearch,
   beforeLoad: ({ context }) =>
     requirePlatformDashboardRoute(context.auth.user, dashboardRoutePermissions.platform.places),
   head: () => ({ meta: [{ title: 'Platform Places | Tooang' }] }),
@@ -14,12 +16,14 @@ export const Route = createFileRoute('/dashboard/platform/places')({
 });
 
 function PlatformPlacesRoute() {
+  const filters = Route.useSearch();
+  const navigate = Route.useNavigate();
+
   return (
-    <DashboardPlaceholderPage
-      title='Places'
-      description='Manage places across the Tooang platform.'
-      search={Route.useSearch()}
-      scopeLabel='Platform'
+    <ManagementPlacesPage
+      key={`${filters.search ?? ''}:${filters.city ?? ''}`}
+      filters={filters}
+      onFiltersChange={(nextFilters) => void navigate({ search: nextFilters })}
     />
   );
 }
