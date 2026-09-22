@@ -3,13 +3,14 @@ import { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Building2Icon, Loader2Icon, PencilIcon } from 'lucide-react';
+import { Building2Icon, Loader2Icon, PencilIcon, PowerIcon, SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { FormControl, FormField, FormLabel, FormMessage } from '@/components/forms/form-field';
 import { PageHeader } from '@/components/layouts/page-header';
 import { SectionCard } from '@/components/layouts/section-card';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ErrorState } from '@/components/ui/error-state';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,7 +23,11 @@ import { useAppAbility } from '@/utils/hooks/use-app-ability';
 
 import { PERMISSION } from '@/types/permission.type';
 
-import { useUpdatePlaceMutation } from '../queries/places.mutation';
+import {
+  useSetPlaceOrderingMutation,
+  useSetPlacePublishingMutation,
+  useUpdatePlaceMutation,
+} from '../queries/places.mutation';
 import { managementPlaceQueryOptions } from '../queries/places.query';
 import { changedPlaceProfileFields, placeProfileSchema, placeToFormValues } from '../schemas/places.schema';
 import {
@@ -100,7 +105,140 @@ function PlaceMedia({ place }: { place: PlaceSummary }) {
   );
 }
 
-function PlaceOverview({ place }: { place: PlaceSummary }) {
+function AvailabilityStatus({ place }: { place: PlaceSummary }) {
+  return (
+    <div className='flex flex-wrap gap-2'>
+      <StatusBadge tone={place.isPublished ? 'success' : 'neutral'} showDot>
+        {place.isPublished ? 'Published' : 'Draft'}
+      </StatusBadge>
+      <StatusBadge tone={place.isOrderingEnabled ? 'primary' : 'neutral'} showDot>
+        {place.isOrderingEnabled ? 'Ordering enabled' : 'Ordering disabled'}
+      </StatusBadge>
+    </div>
+  );
+}
+
+const operationErrorMessage = (error: unknown, operation: 'publishing' | 'ordering') => {
+  if (!isApplicationError(error)) return `Unable to update ${operation}. Please try again.`;
+  if (error.httpStatus === 403) return `You no longer have permission to update ${operation}.`;
+  if (error.httpStatus === 404) return 'This place is no longer available in your management scope.';
+  if (error.isNetworkError) return `Could not reach the server to update ${operation}. Please try again.`;
+  return error.message;
+};
+
+type PlaceAvailabilityControlsProps = {
+  place: PlaceSummary;
+  canPublish: boolean;
+  canManageOrdering: boolean;
+};
+
+function PlaceAvailabilityControls({ place, canPublish, canManageOrdering }: PlaceAvailabilityControlsProps) {
+  const publishing = useSetPlacePublishingMutation(place.id);
+  const ordering = useSetPlaceOrderingMutation(place.id);
+  const isPending = publishing.isPending || ordering.isPending;
+
+  const changePublishing = async (isPublished: boolean) => {
+    try {
+      await publishing.mutateAsync({ isPublished });
+      toast.success(isPublished ? 'Place published.' : 'Place unpublished. Ordering is disabled.');
+    } catch {
+      // The normalized mutation error is rendered with the publishing control.
+    }
+  };
+
+  const changeOrdering = async (isOrderingEnabled: boolean) => {
+    try {
+      await ordering.mutateAsync({ isOrderingEnabled });
+      toast.success(isOrderingEnabled ? 'Ordering enabled.' : 'Ordering disabled.');
+    } catch {
+      // The normalized mutation error is rendered with the ordering control.
+    }
+  };
+
+  return (
+    <SectionCard title='Availability' description='Publication and ordering are separate backend operations.'>
+      <div className='space-y-5'>
+        <AvailabilityStatus place={place} />
+
+        <div className='grid gap-4 sm:grid-cols-2'>
+          <div className='space-y-3 rounded-lg border p-4'>
+            <div>
+              <h3 className='font-semibold'>Publishing</h3>
+              <p className='mt-1 text-sm text-muted-foreground'>
+                {place.isPublished ? 'Customers can discover this place.' : 'This place is hidden from discovery.'}
+              </p>
+            </div>
+            {publishing.isError && (
+              <p role='alert' className='text-sm text-destructive'>
+                {operationErrorMessage(publishing.error, 'publishing')}
+              </p>
+            )}
+            {canPublish &&
+              (place.isPublished ? (
+                <ConfirmDialog
+                  title={`Unpublish “${place.name}”?`}
+                  description='The place will disappear from public discovery and ordering will also be disabled.'
+                  confirmLabel='Unpublish place'
+                  variant='destructive'
+                  isPending={publishing.isPending}
+                  onConfirm={() => void changePublishing(false)}
+                  trigger={
+                    <Button type='button' variant='outline' disabled={isPending}>
+                      <PowerIcon aria-hidden />
+                      Unpublish
+                    </Button>
+                  }
+                />
+              ) : (
+                <Button type='button' onClick={() => void changePublishing(true)} disabled={isPending}>
+                  <SendIcon aria-hidden />
+                  {publishing.isPending ? 'Publishing…' : 'Publish place'}
+                </Button>
+              ))}
+          </div>
+
+          <div className='space-y-3 rounded-lg border p-4'>
+            <div>
+              <h3 className='font-semibold'>Ordering</h3>
+              <p className='mt-1 text-sm text-muted-foreground'>
+                {place.isOrderingEnabled ? 'Customers can submit new orders.' : 'Customers cannot submit new orders.'}
+              </p>
+            </div>
+            {ordering.isError && (
+              <p role='alert' className='text-sm text-destructive'>
+                {operationErrorMessage(ordering.error, 'ordering')}
+              </p>
+            )}
+            {canManageOrdering &&
+              (place.isOrderingEnabled ? (
+                <ConfirmDialog
+                  title={`Disable ordering for “${place.name}”?`}
+                  description='Customers will no longer be able to submit new orders. Existing orders are unaffected.'
+                  confirmLabel='Disable ordering'
+                  variant='destructive'
+                  isPending={ordering.isPending}
+                  onConfirm={() => void changeOrdering(false)}
+                  trigger={
+                    <Button type='button' variant='outline' disabled={isPending}>
+                      <PowerIcon aria-hidden />
+                      Disable ordering
+                    </Button>
+                  }
+                />
+              ) : (
+                <Button type='button' onClick={() => void changeOrdering(true)} disabled={isPending}>
+                  <PowerIcon aria-hidden />
+                  {ordering.isPending ? 'Enabling…' : 'Enable ordering'}
+                </Button>
+              ))}
+          </div>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+function PlaceOverview({ place, availability }: { place: PlaceSummary; availability?: React.ReactNode }) {
   return (
     <div className='grid gap-5 xl:grid-cols-2'>
       <SectionCard title='Profile' description='Identity and customer-facing description.'>
@@ -113,16 +251,11 @@ function PlaceOverview({ place }: { place: PlaceSummary }) {
         </dl>
       </SectionCard>
 
-      <SectionCard title='Availability' description='Current read-only customer availability states.'>
-        <div className='flex flex-wrap gap-2'>
-          <StatusBadge tone={place.isPublished ? 'success' : 'neutral'} showDot>
-            {place.isPublished ? 'Published' : 'Draft'}
-          </StatusBadge>
-          <StatusBadge tone={place.isOrderingEnabled ? 'primary' : 'neutral'} showDot>
-            {place.isOrderingEnabled ? 'Ordering enabled' : 'Ordering disabled'}
-          </StatusBadge>
-        </div>
-      </SectionCard>
+      {availability ?? (
+        <SectionCard title='Availability' description='Current read-only customer availability states.'>
+          <AvailabilityStatus place={place} />
+        </SectionCard>
+      )}
 
       <SectionCard title='Location' description='Address and map coordinates.'>
         <dl className='grid gap-5 sm:grid-cols-2'>
@@ -443,6 +576,7 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
 
   const place = query.data;
   const canEdit = canAtPlace(ability, place.id, PERMISSION.PLACE_UPDATE);
+  const canPublish = canAtPlace(ability, place.id, PERMISSION.PLACE_PUBLISH);
 
   return (
     <>
@@ -484,7 +618,10 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
           onSaved={() => setIsEditing(false)}
         />
       ) : (
-        <PlaceOverview place={place} />
+        <PlaceOverview
+          place={place}
+          availability={<PlaceAvailabilityControls place={place} canPublish={canPublish} canManageOrdering={canEdit} />}
+        />
       )}
       {platformContext && (
         <Button asChild variant='outline'>
@@ -497,4 +634,11 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
   );
 }
 
-export { PlaceManagementPage, type PlaceManagementPageProps, PlaceOverview, PlaceProfileForm };
+export {
+  AvailabilityStatus,
+  PlaceAvailabilityControls,
+  PlaceManagementPage,
+  type PlaceManagementPageProps,
+  PlaceOverview,
+  PlaceProfileForm,
+};

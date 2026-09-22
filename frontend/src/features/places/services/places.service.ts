@@ -10,6 +10,8 @@ import type {
   PlaceCreateInput,
   PlaceListParams,
   PlaceListResult,
+  PlaceOrderingInput,
+  PlacePublishingInput,
   PlaceSummary,
   PlaceUpdateInput,
 } from '../types/places.type';
@@ -51,6 +53,30 @@ export const placesService = {
     try {
       const response = await api.patch<PlaceUpdateInput, ApiResponse<{ place: PlaceSummary }>>(
         `/places/${placeId}`,
+        input,
+      );
+      return unwrapApiResponse(response.data).place;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
+  async setPublishing(placeId: string, input: PlacePublishingInput): Promise<PlaceSummary> {
+    try {
+      const response = await api.patch<PlacePublishingInput, ApiResponse<{ place: PlaceSummary }>>(
+        `/places/${placeId}/publishing`,
+        input,
+      );
+      return unwrapApiResponse(response.data).place;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
+  async setOrdering(placeId: string, input: PlaceOrderingInput): Promise<PlaceSummary> {
+    try {
+      const response = await api.patch<PlaceOrderingInput, ApiResponse<{ place: PlaceSummary }>>(
+        `/places/${placeId}/ordering`,
         input,
       );
       return unwrapApiResponse(response.data).place;

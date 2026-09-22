@@ -2,9 +2,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { describe, expect, it } from 'vitest';
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
 import type { PlaceSummary } from '../types/places.type';
 
-import { PlaceOverview } from './place-management-page';
+import { PlaceAvailabilityControls, PlaceOverview } from './place-management-page';
 
 const place: PlaceSummary = {
   id: 'place-1',
@@ -39,5 +41,42 @@ describe('place management overview', () => {
     expect(markup).toContain('No cover');
     expect(markup).not.toContain('Publish place');
     expect(markup).not.toContain('Enable ordering');
+  });
+
+  it('keeps publishing and ordering controls independently permissioned', () => {
+    const queryClient = new QueryClient();
+    const publishingOnly = renderToStaticMarkup(
+      <QueryClientProvider client={queryClient}>
+        <PlaceAvailabilityControls place={place} canPublish canManageOrdering={false} />
+      </QueryClientProvider>,
+    );
+    const readOnly = renderToStaticMarkup(
+      <QueryClientProvider client={queryClient}>
+        <PlaceAvailabilityControls place={place} canPublish={false} canManageOrdering={false} />
+      </QueryClientProvider>,
+    );
+
+    expect(publishingOnly).toContain('Publish place');
+    expect(publishingOnly).not.toContain('Enable ordering');
+    expect(readOnly).toContain('Draft');
+    expect(readOnly).toContain('Ordering disabled');
+    expect(readOnly).not.toContain('Publish place');
+    expect(readOnly).not.toContain('Enable ordering');
+  });
+
+  it('renders disruptive transitions through confirmation triggers', () => {
+    const queryClient = new QueryClient();
+    const markup = renderToStaticMarkup(
+      <QueryClientProvider client={queryClient}>
+        <PlaceAvailabilityControls
+          place={{ ...place, isPublished: true, isOrderingEnabled: true }}
+          canPublish
+          canManageOrdering
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(markup).toContain('Unpublish');
+    expect(markup).toContain('Disable ordering');
   });
 });

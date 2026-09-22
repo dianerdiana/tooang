@@ -79,6 +79,14 @@ export type PlaceCreateInput = {
   whatsapp?: string;
 };
 
+export type PlacePublishingInput = {
+  isPublished: boolean;
+};
+
+export type PlaceOrderingInput = {
+  isOrderingEnabled: boolean;
+};
+
 export type PlaceProfileFormValues = {
   name: string;
   slug: string;

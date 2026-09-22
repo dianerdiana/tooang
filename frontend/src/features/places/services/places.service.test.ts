@@ -56,6 +56,24 @@ describe('placesService', () => {
     expect(apiMock.patch).toHaveBeenCalledWith('/places/place-1', { name: 'Tooang Cafe' });
   });
 
+  it('uses distinct publishing and ordering operations', async () => {
+    const published = { id: 'place-1', isPublished: true, isOrderingEnabled: false };
+    const ordering = { id: 'place-1', isPublished: true, isOrderingEnabled: true };
+    apiMock.patch
+      .mockResolvedValueOnce({
+        data: { error: false, message: 'Place publishing updated', data: { place: published } },
+      })
+      .mockResolvedValueOnce({
+        data: { error: false, message: 'Place ordering updated', data: { place: ordering } },
+      });
+
+    await expect(placesService.setPublishing('place-1', { isPublished: true })).resolves.toEqual(published);
+    await expect(placesService.setOrdering('place-1', { isOrderingEnabled: true })).resolves.toEqual(ordering);
+
+    expect(apiMock.patch).toHaveBeenNthCalledWith(1, '/places/place-1/publishing', { isPublished: true });
+    expect(apiMock.patch).toHaveBeenNthCalledWith(2, '/places/place-1/ordering', { isOrderingEnabled: true });
+  });
+
   it('sends only normalized documented management filters', async () => {
     await expect(
       placesService.listManagement({ page: 2, search: '  Bandung ', city: ' Bandung ', type: 'CAFE' }),
