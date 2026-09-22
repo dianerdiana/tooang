@@ -19,6 +19,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 
 import { BusinessHoursPanel } from '@/features/business-hours/components/business-hours-page';
 import { DiningTablesPanel } from '@/features/dining-tables/components/dining-tables-page';
+import { MenuCategoriesPanel } from '@/features/menu-categories/components/menu-categories-page';
 
 import { isApplicationError } from '@/utils/api-error.util';
 import { canAtPlace } from '@/utils/auth/has-permission';
@@ -585,6 +586,11 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
     canUpdate: canAtPlace(ability, place.id, PERMISSION.TABLE_UPDATE),
     canDelete: canAtPlace(ability, place.id, PERMISSION.TABLE_DELETE),
   };
+  const menuCategoryPermissions = {
+    canCreate: canAtPlace(ability, place.id, PERMISSION.MENU_CREATE),
+    canUpdate: canAtPlace(ability, place.id, PERMISSION.MENU_UPDATE),
+    canDelete: canAtPlace(ability, place.id, PERMISSION.MENU_DELETE),
+  };
 
   return (
     <>
@@ -633,6 +639,7 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
       )}
       {platformContext && <BusinessHoursPanel placeId={place.id} timezone={place.timezone} canEdit={canEdit} />}
       {platformContext && <DiningTablesPanel placeId={place.id} permissions={diningTablePermissions} />}
+      {platformContext && <MenuCategoriesPanel placeId={place.id} permissions={menuCategoryPermissions} />}
       {platformContext && (
         <Button asChild variant='outline'>
           <Link to='/dashboard/platform/places' search={listSearch ?? { page: 1, limit: 20 }}>
