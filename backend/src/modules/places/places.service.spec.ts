@@ -1,3 +1,5 @@
+import { ForbiddenException } from '@nestjs/common';
+
 import { jest } from '@jest/globals';
 
 import { PlatformRole } from '@/generated/prisma/client';
@@ -6,6 +8,30 @@ import type { PlacesRepository } from './places.repository';
 import { PlacesService } from './places.service';
 
 describe('PlacesService', () => {
+  it('allows only a global place reader to list management places', async () => {
+    const listManagement = jest.fn(() => Promise.resolve({ places: [], totalItems: 0 }));
+    const repository = { listManagement } as unknown as PlacesRepository;
+    const service = new PlacesService(repository, {} as never, {} as never, {} as never);
+    const input = { page: 1, limit: 20 };
+
+    await expect(
+      service.listManagement(
+        { id: 'admin-id', userId: 'usr_admin', platformRole: PlatformRole.ADMIN },
+        input,
+      ),
+    ).resolves.toEqual({
+      places: [],
+      meta: { page: 1, limit: 20, totalItems: 0, totalPages: 0 },
+    });
+    await expect(
+      service.listManagement(
+        { id: 'user-id', userId: 'usr_user', platformRole: PlatformRole.USER },
+        input,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(listManagement).toHaveBeenCalledTimes(1);
+  });
+
   it('creates the place and initial OWNER membership with both audits in one transaction', async () => {
     const place = {
       id: 'place-id',

@@ -8,6 +8,12 @@
 
 ## Management
 
+`GET /api/v1/places/management` requires global `place.read`. It accepts `page` (1),
+`limit` (20, maximum 100), optional `search` (maximum 120), `type`
+(`RESTAURANT|CAFE|FOOD_STALL|OTHER`), and `city` (maximum 100). It returns active
+published and draft places ordered by `createdAt DESC, id ASC` with standard metadata.
+Place-membership grants do not authorize this global endpoint.
+
 | Route                                      | Permission      | Body                               | Success                   |
 | ------------------------------------------ | --------------- | ---------------------------------- | ------------------------- |
 | `POST /api/v1/places`                      | `place.create`  | Create fields below                | `201`, `data.place`       |

@@ -44,6 +44,20 @@ export class PlacesController {
     });
   }
 
+  @Get('management')
+  @RequirePermissions(PERMISSION.PLACE_READ)
+  async listManagement(
+    @CurrentActor() actor: AuthenticatedActor,
+    @ZodQuery(listPlacesSchema) query: ListPlacesInput,
+  ) {
+    const result = await this.service.listManagement(actor, query);
+    return HttpResponse.success({
+      message: 'Management places retrieved',
+      data: { places: result.places },
+      meta: result.meta,
+    });
+  }
+
   @Get(':slug')
   @Public()
   async get(@ZodParam(placeSlugParamSchema) params: PlaceSlugParam) {

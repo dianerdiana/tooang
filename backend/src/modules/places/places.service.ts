@@ -1,8 +1,13 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { Prisma } from '@/generated/prisma/client';
 
-import { type AuthenticatedActor, PERMISSION } from '@/common/auth';
+import { type AuthenticatedActor, hasGlobalPlatformPermission, PERMISSION } from '@/common/auth';
 
 import { AuditService } from '@/modules/audit/audit.service';
 
@@ -30,6 +35,24 @@ export class PlacesService {
 
   async listPublic(input: ListPlacesInput) {
     const result = await this.repository.listPublic(input);
+    return {
+      places: result.places.map((place) => this.toResponse(place)),
+      meta: {
+        page: input.page,
+        limit: input.limit,
+        ...(input.search ? { search: input.search } : {}),
+        totalItems: result.totalItems,
+        totalPages: Math.ceil(result.totalItems / input.limit),
+      },
+    };
+  }
+
+  async listManagement(actor: AuthenticatedActor, input: ListPlacesInput) {
+    if (!hasGlobalPlatformPermission(actor.platformRole, PERMISSION.PLACE_READ)) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+
+    const result = await this.repository.listManagement(input);
     return {
       places: result.places.map((place) => this.toResponse(place)),
       meta: {

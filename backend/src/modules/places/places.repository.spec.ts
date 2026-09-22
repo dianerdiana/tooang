@@ -33,6 +33,27 @@ describe('PlacesRepository predicates', () => {
     expect(query.take).toBe(20);
   });
 
+  it('lists active management places without hiding drafts', async () => {
+    const findMany = jest.fn(() => Promise.resolve([]));
+    const count = jest.fn(() => Promise.resolve(0));
+    const prisma = {
+      place: { findMany, count },
+      $transaction: jest.fn(() => Promise.resolve([[], 0])),
+    };
+    const repository = new PlacesRepository(prisma as never);
+
+    await repository.listManagement({ page: 1, limit: 20, search: 'Bandung' });
+
+    const query = findMany.mock.calls[0]?.[0] as unknown as {
+      where: Record<string, unknown>;
+      orderBy: object[];
+    };
+    expect(query.where).toMatchObject({ deletedAt: null });
+    expect(query.where).not.toHaveProperty('isPublished');
+    expect(query.where).toHaveProperty('OR');
+    expect(query.orderBy).toEqual([{ createdAt: 'desc' }, { id: 'asc' }]);
+  });
+
   it('treats only active workflow orders and unexpired pending orders as unresolved', async () => {
     const count = jest.fn(() => Promise.resolve(0));
     const db = { order: { count } };

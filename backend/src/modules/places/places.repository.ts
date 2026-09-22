@@ -131,6 +131,39 @@ export class PlacesRepository {
     return { places, totalItems };
   }
 
+  async listManagement(input: {
+    page: number;
+    limit: number;
+    search?: string;
+    type?: PlaceType;
+    city?: string;
+  }) {
+    const where: Prisma.PlaceWhereInput = {
+      deletedAt: null,
+      ...(input.type ? { type: input.type } : {}),
+      ...(input.city ? { city: { equals: input.city, mode: 'insensitive' } } : {}),
+      ...(input.search
+        ? {
+            OR: [
+              { name: { contains: input.search, mode: 'insensitive' } },
+              { city: { contains: input.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    const [places, totalItems] = await this.prisma.$transaction([
+      this.prisma.place.findMany({
+        where,
+        select: SAFE_PLACE_SELECT,
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: (input.page - 1) * input.limit,
+        take: input.limit,
+      }),
+      this.prisma.place.count({ where }),
+    ]);
+    return { places, totalItems };
+  }
+
   findPublicBySlug(slug: string) {
     return this.prisma.place.findFirst({
       where: { slug, isPublished: true, deletedAt: null },
