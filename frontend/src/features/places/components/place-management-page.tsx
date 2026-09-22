@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/ui/status-badge';
 
 import { BusinessHoursPanel } from '@/features/business-hours/components/business-hours-page';
+import { DiningTablesPanel } from '@/features/dining-tables/components/dining-tables-page';
 
 import { isApplicationError } from '@/utils/api-error.util';
 import { canAtPlace } from '@/utils/auth/has-permission';
@@ -579,6 +580,11 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
   const place = query.data;
   const canEdit = canAtPlace(ability, place.id, PERMISSION.PLACE_UPDATE);
   const canPublish = canAtPlace(ability, place.id, PERMISSION.PLACE_PUBLISH);
+  const diningTablePermissions = {
+    canCreate: canAtPlace(ability, place.id, PERMISSION.TABLE_CREATE),
+    canUpdate: canAtPlace(ability, place.id, PERMISSION.TABLE_UPDATE),
+    canDelete: canAtPlace(ability, place.id, PERMISSION.TABLE_DELETE),
+  };
 
   return (
     <>
@@ -626,6 +632,7 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
         />
       )}
       {platformContext && <BusinessHoursPanel placeId={place.id} timezone={place.timezone} canEdit={canEdit} />}
+      {platformContext && <DiningTablesPanel placeId={place.id} permissions={diningTablePermissions} />}
       {platformContext && (
         <Button asChild variant='outline'>
           <Link to='/dashboard/platform/places' search={listSearch ?? { page: 1, limit: 20 }}>

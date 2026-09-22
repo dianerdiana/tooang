@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { DashboardPlaceholderPage } from '@/components/layouts/dashboard-placeholder-page';
-
 import { dashboardRoutePermissions } from '@/configs/dashboard-navigation';
+
+import { DiningTablesPage } from '@/features/dining-tables/components/dining-tables-page';
 
 import { requirePlaceDashboardRoute } from '@/utils/auth/dashboard-route-access';
 
@@ -15,12 +15,6 @@ export const Route = createFileRoute('/dashboard/dining-tables')({
 
 function DiningTablesRoute() {
   const { selectedPlace } = Route.useRouteContext();
-  const search = Route.useSearch();
-  return (
-    <DashboardPlaceholderPage
-      title='Dining tables'
-      description={`View dining tables for ${selectedPlace?.place.name}.`}
-      search={search}
-    />
-  );
+  if (!selectedPlace) return null;
+  return <DiningTablesPage placeId={selectedPlace.placeId} />;
 }
