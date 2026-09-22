@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { Building2Icon, SearchIcon, XIcon } from 'lucide-react';
 
 import { PageHeader } from '@/components/layouts/page-header';
@@ -47,13 +48,22 @@ function PlaceStatuses({ place }: { place: PlaceSummary }) {
   );
 }
 
-function PlaceCards({ places }: { places: PlaceSummary[] }) {
+function PlaceCards({ places, filters }: { places: PlaceSummary[]; filters: NormalizedPlaceListParams }) {
   return (
     <div className='space-y-3 md:hidden' aria-label='Places'>
       {places.map((place) => (
         <article key={place.id} className='space-y-4 rounded-surface border bg-surface p-4 shadow-xs'>
           <div className='min-w-0'>
-            <h2 className='truncate font-semibold'>{place.name}</h2>
+            <h2 className='truncate font-semibold'>
+              <Link
+                to='/dashboard/platform/places/$placeId'
+                params={{ placeId: place.id }}
+                search={filters}
+                className='underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+              >
+                {place.name}
+              </Link>
+            </h2>
             <p className='mt-1 truncate text-sm text-muted-foreground'>/{place.slug}</p>
           </div>
           <PlaceStatuses place={place} />
@@ -76,7 +86,7 @@ function PlaceCards({ places }: { places: PlaceSummary[] }) {
   );
 }
 
-function PlacesTable({ places }: { places: PlaceSummary[] }) {
+function PlacesTable({ places, filters }: { places: PlaceSummary[]; filters: NormalizedPlaceListParams }) {
   return (
     <div className='hidden overflow-hidden rounded-surface border bg-table shadow-xs md:block'>
       <Table aria-label='Places'>
@@ -93,7 +103,14 @@ function PlacesTable({ places }: { places: PlaceSummary[] }) {
           {places.map((place) => (
             <TableRow key={place.id}>
               <TableCell>
-                <span className='block max-w-56 truncate font-semibold'>{place.name}</span>
+                <Link
+                  to='/dashboard/platform/places/$placeId'
+                  params={{ placeId: place.id }}
+                  search={filters}
+                  className='block max-w-56 truncate font-semibold underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                >
+                  {place.name}
+                </Link>
                 <span className='block max-w-56 truncate text-xs text-muted-foreground'>/{place.slug}</span>
               </TableCell>
               <TableCell>{placeTypeLabels[place.type]}</TableCell>
@@ -252,8 +269,8 @@ function ManagementPlacesPage({ filters, onFiltersChange }: ManagementPlacesPage
         />
       ) : (
         <div className='space-y-4'>
-          <PlaceCards places={places} />
-          <PlacesTable places={places} />
+          <PlaceCards places={places} filters={filters} />
+          <PlacesTable places={places} filters={filters} />
           <Pagination
             page={filters.page}
             pageSize={filters.limit}

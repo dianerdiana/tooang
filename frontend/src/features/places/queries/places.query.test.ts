@@ -23,4 +23,9 @@ describe('management place list state', () => {
     expect(first).not.toEqual(second);
     expect(first).not.toEqual(third);
   });
+
+  it('isolates management details by place ID', () => {
+    expect(placesKeys.managementDetail('place-a')).not.toEqual(placesKeys.managementDetail('place-b'));
+    expect(placesKeys.managementDetail('place-a')).toEqual(['places', 'management', 'detail', 'place-a']);
+  });
 });

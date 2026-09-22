@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { DashboardPlaceholderPage } from '@/components/layouts/dashboard-placeholder-page';
-
 import { dashboardRoutePermissions } from '@/configs/dashboard-navigation';
+
+import { PlaceManagementPage } from '@/features/places/components/place-management-page';
 
 import { requirePlaceDashboardRoute } from '@/utils/auth/dashboard-route-access';
 
@@ -15,12 +15,6 @@ export const Route = createFileRoute('/dashboard/settings')({
 
 function SettingsRoute() {
   const { selectedPlace } = Route.useRouteContext();
-  const search = Route.useSearch();
-  return (
-    <DashboardPlaceholderPage
-      title='Place settings'
-      description={`Manage settings for ${selectedPlace?.place.name}.`}
-      search={search}
-    />
-  );
+  if (!selectedPlace) return null;
+  return <PlaceManagementPage placeId={selectedPlace.placeId} />;
 }

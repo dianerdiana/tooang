@@ -50,3 +50,31 @@ export type PlaceListResult = {
   places: PlaceSummary[];
   meta: ApiPaginationMeta;
 };
+
+export type PlaceUpdateInput = Partial<{
+  name: string;
+  slug: string;
+  type: PlaceType;
+  description: string | null;
+  address: string;
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  phone: string | null;
+  whatsapp: string | null;
+  timezone: string;
+}>;
+
+export type PlaceProfileFormValues = {
+  name: string;
+  slug: string;
+  type: PlaceType;
+  description: string;
+  address: string;
+  city: string;
+  latitude: string;
+  longitude: string;
+  phone: string;
+  whatsapp: string;
+  timezone: string;
+};

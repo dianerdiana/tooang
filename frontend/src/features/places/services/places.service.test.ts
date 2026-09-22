@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const apiMock = vi.hoisted(() => ({ get: vi.fn() }));
+const apiMock = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
 
 vi.mock('@/configs/api-config', () => ({ api: apiMock }));
 
@@ -18,7 +18,24 @@ const response = {
 describe('placesService', () => {
   beforeEach(() => {
     apiMock.get.mockReset();
+    apiMock.patch.mockReset();
     apiMock.get.mockResolvedValue(response);
+  });
+
+  it('loads management details by ID and updates only the provided fields', async () => {
+    const place = { id: 'place-1', name: 'Tooang Cafe' };
+    apiMock.get.mockResolvedValueOnce({
+      data: { error: false, message: 'Management place retrieved', data: { place } },
+    });
+    apiMock.patch.mockResolvedValueOnce({
+      data: { error: false, message: 'Place updated', data: { place } },
+    });
+
+    await expect(placesService.getManagement('place-1')).resolves.toEqual(place);
+    await expect(placesService.update('place-1', { name: 'Tooang Cafe' })).resolves.toEqual(place);
+
+    expect(apiMock.get).toHaveBeenCalledWith('/places/place-1/management');
+    expect(apiMock.patch).toHaveBeenCalledWith('/places/place-1', { name: 'Tooang Cafe' });
   });
 
   it('sends only normalized documented management filters', async () => {

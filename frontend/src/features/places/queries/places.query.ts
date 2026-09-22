@@ -15,3 +15,10 @@ export const managementPlacesQueryOptions = (params: PlaceListParams) => {
     staleTime: 15_000,
   });
 };
+
+export const managementPlaceQueryOptions = (placeId: string) =>
+  queryOptions({
+    queryKey: placesKeys.managementDetail(placeId),
+    queryFn: () => placesService.getManagement(placeId),
+    staleTime: 15_000,
+  });

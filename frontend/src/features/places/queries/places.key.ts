@@ -5,4 +5,5 @@ export const placesKeys = {
   all: ['places'] as const,
   management: () => [...placesKeys.all, 'management'] as const,
   managementList: (params: PlaceListParams) => [...placesKeys.management(), normalizePlaceListParams(params)] as const,
+  managementDetail: (placeId: string) => [...placesKeys.management(), 'detail', placeId] as const,
 };

@@ -24,6 +24,7 @@ import { Route as DashboardPlatformOrdersRouteImport } from './routes/dashboard.
 import { Route as DashboardPlatformPlacesRouteImport } from './routes/dashboard.platform.places'
 import { Route as DashboardPlatformReviewsRouteImport } from './routes/dashboard.platform.reviews'
 import { Route as DashboardPlatformUsersRouteImport } from './routes/dashboard.platform.users'
+import { Route as DashboardPlatformPlacesPlaceIdRouteImport } from './routes/dashboard.platform.places_.$placeId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -101,6 +102,12 @@ const DashboardPlatformUsersRoute = DashboardPlatformUsersRouteImport.update({
   path: '/platform/users',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardPlatformPlacesPlaceIdRoute =
+  DashboardPlatformPlacesPlaceIdRouteImport.update({
+    id: '/platform/places_/$placeId',
+    path: '/platform/places/$placeId',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/platform/places': typeof DashboardPlatformPlacesRoute
   '/dashboard/platform/reviews': typeof DashboardPlatformReviewsRoute
   '/dashboard/platform/users': typeof DashboardPlatformUsersRoute
+  '/dashboard/platform/places/$placeId': typeof DashboardPlatformPlacesPlaceIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -134,6 +142,7 @@ export interface FileRoutesByTo {
   '/dashboard/platform/places': typeof DashboardPlatformPlacesRoute
   '/dashboard/platform/reviews': typeof DashboardPlatformReviewsRoute
   '/dashboard/platform/users': typeof DashboardPlatformUsersRoute
+  '/dashboard/platform/places/$placeId': typeof DashboardPlatformPlacesPlaceIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -152,6 +161,7 @@ export interface FileRoutesById {
   '/dashboard/platform/places': typeof DashboardPlatformPlacesRoute
   '/dashboard/platform/reviews': typeof DashboardPlatformReviewsRoute
   '/dashboard/platform/users': typeof DashboardPlatformUsersRoute
+  '/dashboard/platform/places_/$placeId': typeof DashboardPlatformPlacesPlaceIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/dashboard/platform/places'
     | '/dashboard/platform/reviews'
     | '/dashboard/platform/users'
+    | '/dashboard/platform/places/$placeId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/dashboard/platform/places'
     | '/dashboard/platform/reviews'
     | '/dashboard/platform/users'
+    | '/dashboard/platform/places/$placeId'
   id:
     | '__root__'
     | '/'
@@ -204,6 +216,7 @@ export interface FileRouteTypes {
     | '/dashboard/platform/places'
     | '/dashboard/platform/reviews'
     | '/dashboard/platform/users'
+    | '/dashboard/platform/places_/$placeId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -320,6 +333,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardPlatformUsersRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/platform/places_/$placeId': {
+      id: '/dashboard/platform/places_/$placeId'
+      path: '/platform/places/$placeId'
+      fullPath: '/dashboard/platform/places/$placeId'
+      preLoaderRoute: typeof DashboardPlatformPlacesPlaceIdRouteImport
+      parentRoute: typeof DashboardRoute
+    }
   }
 }
 
@@ -335,6 +355,7 @@ interface DashboardRouteChildren {
   DashboardPlatformPlacesRoute: typeof DashboardPlatformPlacesRoute
   DashboardPlatformReviewsRoute: typeof DashboardPlatformReviewsRoute
   DashboardPlatformUsersRoute: typeof DashboardPlatformUsersRoute
+  DashboardPlatformPlacesPlaceIdRoute: typeof DashboardPlatformPlacesPlaceIdRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
@@ -349,6 +370,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardPlatformPlacesRoute: DashboardPlatformPlacesRoute,
   DashboardPlatformReviewsRoute: DashboardPlatformReviewsRoute,
   DashboardPlatformUsersRoute: DashboardPlatformUsersRoute,
+  DashboardPlatformPlacesPlaceIdRoute: DashboardPlatformPlacesPlaceIdRoute,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
