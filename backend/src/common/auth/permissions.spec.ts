@@ -3,6 +3,7 @@ import { PlaceMemberRole, PlatformRole } from '@/generated/prisma/client';
 import {
   canAttemptPermission,
   getEffectivePlacePermissions,
+  getGlobalPlatformPermissions,
   getMembershipPermissions,
   getMembershipPermissionScope,
   getMembershipRolesForPermission,
@@ -104,6 +105,7 @@ describe('SRS v1.3 permission contract', () => {
     expect(hasPlatformPermission(PlatformRole.USER, PERMISSION.TABLE_READ)).toBe(false);
     expect(hasPlatformPermission(PlatformRole.USER, PERMISSION.PLACE_MEMBER_READ)).toBe(false);
     expect(hasGlobalPlatformPermission(PlatformRole.USER, PERMISSION.ORDER_READ)).toBe(false);
+    expect(getGlobalPlatformPermissions(PlatformRole.USER)).toEqual([]);
   });
 
   it('defines ADMIN global and restricted grants without security administration', () => {
@@ -164,6 +166,11 @@ describe('SRS v1.3 permission contract', () => {
       expect(hasGlobalPlatformPermission(PlatformRole.ADMIN, permission)).toBe(true);
     }
     expect(hasGlobalPlatformPermission(PlatformRole.ADMIN, PERMISSION.USER_DEACTIVATE)).toBe(false);
+    expect(getGlobalPlatformPermissions(PlatformRole.ADMIN)).toContain(PERMISSION.PLACE_READ);
+    expect(getGlobalPlatformPermissions(PlatformRole.ADMIN)).toContain(PERMISSION.ORDER_READ);
+    expect(getGlobalPlatformPermissions(PlatformRole.ADMIN)).not.toContain(
+      PERMISSION.USER_DEACTIVATE,
+    );
     expect(hasPlatformPermission(PlatformRole.ADMIN, PERMISSION.OWNER_ASSIGN)).toBe(false);
     expect(hasPlatformPermission(PlatformRole.ADMIN, PERMISSION.PLATFORM_ROLE_UPDATE)).toBe(false);
     expect(hasGlobalPlatformPermission(PlatformRole.ADMIN, PERMISSION.ORDER_CONFIRM)).toBe(false);
@@ -217,6 +224,9 @@ describe('SRS v1.3 permission contract', () => {
     }
     expect(hasGlobalPlatformPermission(PlatformRole.SUPER_ADMIN, PERMISSION.ORDER_CONFIRM)).toBe(
       false,
+    );
+    expect(getGlobalPlatformPermissions(PlatformRole.SUPER_ADMIN)).toContain(
+      PERMISSION.OWNER_ASSIGN,
     );
   });
 

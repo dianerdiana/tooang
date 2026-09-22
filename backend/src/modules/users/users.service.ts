@@ -10,6 +10,7 @@ import { PlatformRole, Prisma } from '@/generated/prisma/client';
 import {
   type AuthenticatedActor,
   getEffectivePlacePermissions,
+  getGlobalPlatformPermissions,
   getMembershipPermissions,
   getPlatformPermissions,
   getPlatformPermissionScopes,
@@ -58,6 +59,7 @@ export class UsersService {
     return {
       ...safeUser(user),
       permissions: [...getPlatformPermissions(user.platformRole)],
+      globalPermissions: [...getGlobalPlatformPermissions(user.platformRole)],
       placeMemberships: user.placeMemberships.map((membership) => {
         return {
           placeId: membership.placeId,

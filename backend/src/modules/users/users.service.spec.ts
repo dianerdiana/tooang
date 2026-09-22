@@ -55,6 +55,7 @@ describe('UsersService', () => {
     expect(result.permissions).not.toContain('place.read');
     expect(result.permissions).not.toContain('table.read');
     expect(result.permissions).not.toContain('place_member.read');
+    expect(result.globalPermissions).toEqual([]);
     expect(result.placeMemberships[0].permissions).toContain('order.confirm');
     expect(result.placeMemberships[0].effectivePermissions).toEqual(
       result.placeMemberships[0].permissions,
@@ -74,10 +75,30 @@ describe('UsersService', () => {
     const service = new UsersService(repository, audit as never, transactionalPrisma as never);
     const result = await service.getMe(actor(PlatformRole.ADMIN));
 
+    expect(result.globalPermissions).toContain('place.update');
+    expect(result.globalPermissions).toContain('order.read');
+    expect(result.globalPermissions).not.toContain('user.deactivate');
     expect(result.placeMemberships[0].permissions).not.toContain('place.update');
     expect(result.placeMemberships[0].effectivePermissions).toContain('place.update');
     expect(result.placeMemberships[0].effectivePermissions).toContain('review.moderate');
     expect(result.placeMemberships[0].effectivePermissions).not.toContain('user.read');
+  });
+
+  it('returns SUPER_ADMIN global permissions without requiring a membership', async () => {
+    const repository = {
+      findMe: jest.fn(() =>
+        Promise.resolve({
+          ...userRecord(PlatformRole.SUPER_ADMIN),
+          placeMemberships: [],
+        }),
+      ),
+    } as unknown as UsersRepository;
+    const service = new UsersService(repository, audit as never, transactionalPrisma as never);
+    const result = await service.getMe(actor(PlatformRole.SUPER_ADMIN));
+
+    expect(result.globalPermissions).toContain('owner.assign');
+    expect(result.globalPermissions).toContain('platform_role.update');
+    expect(result.placeMemberships).toEqual([]);
   });
 
   it('prevents ADMIN from deactivating an ADMIN', async () => {

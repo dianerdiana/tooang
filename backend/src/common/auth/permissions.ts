@@ -221,6 +221,16 @@ export function getPlatformPermissions(role: unknown): readonly Permission[] {
   return isPlatformRole(role) ? PLATFORM_PERMISSIONS[role] : EMPTY_PERMISSIONS;
 }
 
+export function getGlobalPlatformPermissions(role: unknown): readonly Permission[] {
+  if (!isPlatformRole(role)) return EMPTY_PERMISSIONS;
+
+  return Object.freeze(
+    getPlatformPermissions(role).filter((permission) =>
+      getPlatformPermissionScopes(role, permission).includes(PLATFORM_PERMISSION_SCOPE.GLOBAL),
+    ),
+  );
+}
+
 export function getMembershipPermissionScope(
   role: unknown,
   permission: unknown,

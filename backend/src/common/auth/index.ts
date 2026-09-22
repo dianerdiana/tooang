@@ -8,6 +8,7 @@ export {
   canAttemptPermission,
   type EffectivePermissionGrant,
   getEffectivePlacePermissions,
+  getGlobalPlatformPermissions,
   getMembershipPermissions,
   getMembershipPermissionScope,
   getMembershipRolesForPermission,
