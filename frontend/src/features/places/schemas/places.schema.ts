@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import type { PlaceProfileFormValues, PlaceSummary, PlaceUpdateInput } from '../types/places.type';
+import type {
+  PlaceCreateFormValues,
+  PlaceCreateInput,
+  PlaceProfileFormValues,
+  PlaceSummary,
+  PlaceUpdateInput,
+} from '../types/places.type';
 import { type NormalizedPlaceListParams, PLACE_TYPE, type PlaceListParams } from '../types/places.type';
 
 export const DEFAULT_PLACES_PAGE = 1;
@@ -92,6 +98,39 @@ export const placeProfileSchema = z.object({
       }
     }, 'Enter a valid IANA timezone'),
 });
+
+export const createPlaceFormSchema = placeProfileSchema;
+
+export const defaultCreatePlaceValues: PlaceCreateFormValues = {
+  name: '',
+  slug: '',
+  type: PLACE_TYPE.RESTAURANT,
+  description: '',
+  address: '',
+  city: '',
+  latitude: '',
+  longitude: '',
+  phone: '',
+  whatsapp: '',
+  timezone: 'Asia/Jakarta',
+};
+
+export const normalizeCreatePlaceInput = (values: PlaceCreateFormValues): PlaceCreateInput => {
+  const parsed = createPlaceFormSchema.parse(values);
+  return {
+    name: parsed.name,
+    slug: parsed.slug,
+    type: parsed.type,
+    address: parsed.address,
+    timezone: parsed.timezone,
+    ...(parsed.description ? { description: parsed.description } : {}),
+    ...(parsed.city ? { city: parsed.city } : {}),
+    ...(parsed.latitude ? { latitude: Number(parsed.latitude) } : {}),
+    ...(parsed.longitude ? { longitude: Number(parsed.longitude) } : {}),
+    ...(parsed.phone ? { phone: parsed.phone } : {}),
+    ...(parsed.whatsapp ? { whatsapp: parsed.whatsapp } : {}),
+  };
+};
 
 export const placeToFormValues = (place: PlaceSummary): PlaceProfileFormValues => ({
   name: place.name,

@@ -2,7 +2,7 @@ import { type FormEvent, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Building2Icon, SearchIcon, XIcon } from 'lucide-react';
+import { Building2Icon, PlusIcon, SearchIcon, XIcon } from 'lucide-react';
 
 import { PageHeader } from '@/components/layouts/page-header';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,9 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { isApplicationError } from '@/utils/api-error.util';
+import { useAppAbility } from '@/utils/hooks/use-app-ability';
+
+import { PERMISSION } from '@/types/permission.type';
 
 import { managementPlacesQueryOptions } from '../queries/places.query';
 import { type NormalizedPlaceListParams, PLACE_TYPE, type PlaceSummary, type PlaceType } from '../types/places.type';
@@ -146,6 +149,8 @@ function ManagementPlacesPage({ filters, onFiltersChange }: ManagementPlacesPage
   const [search, setSearch] = useState(filters.search ?? '');
   const [city, setCity] = useState(filters.city ?? '');
   const placesQuery = useQuery(managementPlacesQueryOptions(filters));
+  const ability = useAppAbility();
+  const canCreate = ability.can(PERMISSION.PLACE_CREATE, 'Place');
   const hasFilters = Boolean(filters.search || filters.type || filters.city);
 
   const updateFilters = (next: Partial<NormalizedPlaceListParams>) =>
@@ -175,6 +180,16 @@ function ManagementPlacesPage({ filters, onFiltersChange }: ManagementPlacesPage
       <PageHeader
         title='Places'
         description='View active places across the Tooang platform, including published places and drafts.'
+        actions={
+          canCreate ? (
+            <Button asChild>
+              <Link to='/dashboard/platform/places/new' search={filters}>
+                <PlusIcon aria-hidden />
+                Create place
+              </Link>
+            </Button>
+          ) : undefined
+        }
       />
 
       <form

@@ -65,6 +65,20 @@ export type PlaceUpdateInput = Partial<{
   timezone: string;
 }>;
 
+export type PlaceCreateInput = {
+  name: string;
+  slug: string;
+  type: PlaceType;
+  address: string;
+  timezone: string;
+  description?: string;
+  city?: string;
+  latitude?: number;
+  longitude?: number;
+  phone?: string;
+  whatsapp?: string;
+};
+
 export type PlaceProfileFormValues = {
   name: string;
   slug: string;
@@ -78,3 +92,5 @@ export type PlaceProfileFormValues = {
   whatsapp: string;
   timezone: string;
 };
+
+export type PlaceCreateFormValues = PlaceProfileFormValues;

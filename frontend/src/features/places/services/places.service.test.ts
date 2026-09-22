@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const apiMock = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
+const apiMock = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), patch: vi.fn() }));
 
 vi.mock('@/configs/api-config', () => ({ api: apiMock }));
 
@@ -18,8 +18,26 @@ const response = {
 describe('placesService', () => {
   beforeEach(() => {
     apiMock.get.mockReset();
+    apiMock.post.mockReset();
     apiMock.patch.mockReset();
     apiMock.get.mockResolvedValue(response);
+  });
+
+  it('creates a place through the documented endpoint', async () => {
+    const place = { id: 'place-new', name: 'New Place', isPublished: false };
+    const input = {
+      name: 'New Place',
+      slug: 'new-place',
+      type: 'RESTAURANT' as const,
+      address: 'Address',
+      timezone: 'Asia/Jakarta',
+    };
+    apiMock.post.mockResolvedValueOnce({
+      data: { error: false, message: 'Place created', data: { place } },
+    });
+
+    await expect(placesService.create(input)).resolves.toEqual(place);
+    expect(apiMock.post).toHaveBeenCalledWith('/places', input);
   });
 
   it('loads management details by ID and updates only the provided fields', async () => {

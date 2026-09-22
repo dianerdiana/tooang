@@ -45,6 +45,15 @@ describe('dashboard route access', () => {
     expect(canAccessPlatformDashboardRoute(admin, [PERMISSION.REVIEW_MODERATE])).toBe(false);
   });
 
+  it('allows the create-place route only with a global create grant', () => {
+    expect(canAccessPlatformDashboardRoute(admin, [PERMISSION.PLACE_CREATE])).toBe(false);
+    expect(
+      canAccessPlatformDashboardRoute({ ...admin, globalPermissions: [PERMISSION.PLACE_CREATE] }, [
+        PERMISSION.PLACE_CREATE,
+      ]),
+    ).toBe(true);
+  });
+
   it('throws safe not-found redirects for denied direct route access', () => {
     for (const runGuard of [
       () => requirePlaceDashboardRoute(selectedPlace, [PERMISSION.MENU_UPDATE]),

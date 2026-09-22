@@ -6,11 +6,26 @@ import { unwrapApiResponse, unwrapPaginatedApiResponse } from '@/utils/api-respo
 import type { ApiPaginatedResponse, ApiResponse } from '@/types/api-response.type';
 
 import { normalizePlaceListParams } from '../schemas/places.schema';
-import type { PlaceListParams, PlaceListResult, PlaceSummary, PlaceUpdateInput } from '../types/places.type';
+import type {
+  PlaceCreateInput,
+  PlaceListParams,
+  PlaceListResult,
+  PlaceSummary,
+  PlaceUpdateInput,
+} from '../types/places.type';
 
 type PlaceListData = { places: PlaceSummary[] };
 
 export const placesService = {
+  async create(input: PlaceCreateInput): Promise<PlaceSummary> {
+    try {
+      const response = await api.post<PlaceCreateInput, ApiResponse<{ place: PlaceSummary }>>('/places', input);
+      return unwrapApiResponse(response.data).place;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
   async listManagement(params: PlaceListParams): Promise<PlaceListResult> {
     try {
       const response = await api.get<ApiPaginatedResponse<PlaceListData>>('/places/management', {

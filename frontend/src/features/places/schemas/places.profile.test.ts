@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import type { PlaceSummary } from '../types/places.type';
 
-import { changedPlaceProfileFields, placeProfileSchema, placeToFormValues } from './places.schema';
+import {
+  changedPlaceProfileFields,
+  defaultCreatePlaceValues,
+  normalizeCreatePlaceInput,
+  placeProfileSchema,
+  placeToFormValues,
+} from './places.schema';
 
 const place: PlaceSummary = {
   id: 'place-1',
@@ -26,6 +32,25 @@ const place: PlaceSummary = {
 };
 
 describe('place profile form schema', () => {
+  it('normalizes a create payload and omits blank optional fields', () => {
+    expect(
+      normalizeCreatePlaceInput({
+        ...defaultCreatePlaceValues,
+        name: '  New Place ',
+        slug: ' NEW-PLACE ',
+        address: ' Address ',
+        latitude: '-6.9',
+      }),
+    ).toEqual({
+      name: 'New Place',
+      slug: 'new-place',
+      type: 'RESTAURANT',
+      address: 'Address',
+      timezone: 'Asia/Jakarta',
+      latitude: -6.9,
+    });
+  });
+
   it('prepopulates all supported mutable fields', () => {
     expect(placeToFormValues(place)).toMatchObject({
       name: 'Tooang Cafe',
