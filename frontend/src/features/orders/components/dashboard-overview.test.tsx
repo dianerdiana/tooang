@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { PlaceMemberRole, PlatformRole } from '@/types/enums/user-role.enum';
 import { PERMISSION } from '@/types/permission.type';

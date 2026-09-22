@@ -16,8 +16,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 import { isApplicationError } from '@/utils/api-error.util';
 
-import { type NormalizedPlaceListParams, PLACE_TYPE, type PlaceSummary, type PlaceType } from '../types/places.type';
 import { managementPlacesQueryOptions } from '../queries/places.query';
+import { type NormalizedPlaceListParams, PLACE_TYPE, type PlaceSummary, type PlaceType } from '../types/places.type';
 
 type ManagementPlacesPageProps = {
   filters: NormalizedPlaceListParams;

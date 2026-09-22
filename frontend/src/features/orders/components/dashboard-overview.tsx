@@ -111,7 +111,9 @@ function PlatformOverviewContext() {
       </span>
       <div>
         <p className='font-semibold'>Platform</p>
-        <p className='text-sm text-muted-foreground'>Global management context for the capabilities available to you.</p>
+        <p className='text-sm text-muted-foreground'>
+          Global management context for the capabilities available to you.
+        </p>
       </div>
     </SectionCard>
   );

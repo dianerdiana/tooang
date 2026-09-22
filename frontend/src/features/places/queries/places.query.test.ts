@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { placesKeys } from './places.key';
 import { normalizePlaceListParams, parsePlacesSearch } from '../schemas/places.schema';
+
+import { placesKeys } from './places.key';
 
 describe('management place list state', () => {
   it('normalizes route input and rejects unsupported values through defaults', () => {
