@@ -17,11 +17,11 @@ export const usePermissions = () => {
   const can = useCallback((permission: PermissionIdentifier) => canPlatform(ability, permission), [ability]);
   const cannot = useCallback((permission: PermissionIdentifier) => cannotPlatform(ability, permission), [ability]);
   const canAtPlace = useCallback(
-    (permission: PermissionIdentifier, placeId: string) => checkCanAtPlace(ability, permission, placeId),
+    (placeId: string, permission: PermissionIdentifier) => checkCanAtPlace(ability, placeId, permission),
     [ability],
   );
   const cannotAtPlace = useCallback(
-    (permission: PermissionIdentifier, placeId: string) => checkCannotAtPlace(ability, permission, placeId),
+    (placeId: string, permission: PermissionIdentifier) => checkCannotAtPlace(ability, placeId, permission),
     [ability],
   );
 

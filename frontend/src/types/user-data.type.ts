@@ -14,6 +14,7 @@ export type AuthenticatedUser = {
   email: string;
   platformRole: PlatformRole;
   permissions: PermissionIdentifier[];
+  globalPermissions: PermissionIdentifier[];
   placeMemberships: PlaceMembership[];
   createdAt: string;
   updatedAt: string;

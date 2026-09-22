@@ -19,10 +19,18 @@ export function createAbilityRules(user: AuthenticatedUser | null): AbilityRule[
     rules.push({ action: permission, subject: 'Platform' });
   }
 
+  const globalPermissions = new Set(user.globalPermissions);
+
+  for (const permission of globalPermissions) {
+    rules.push({ action: permission, subject: 'Place' });
+  }
+
   const placeRules = new Set<string>();
 
   for (const membership of user.placeMemberships) {
     for (const permission of new Set(membership.effectivePermissions)) {
+      if (globalPermissions.has(permission)) continue;
+
       const ruleKey = `${membership.placeId}\0${permission}`;
       if (placeRules.has(ruleKey)) continue;
 

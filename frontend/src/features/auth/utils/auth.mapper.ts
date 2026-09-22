@@ -8,6 +8,7 @@ export const toAuthenticatedUser = (user: MeUserResponse): AuthenticatedUser => 
   email: user.email,
   platformRole: user.platformRole,
   permissions: [...user.permissions],
+  globalPermissions: [...(user.globalPermissions ?? [])],
   placeMemberships: user.placeMemberships.map((membership) => ({
     placeId: membership.placeId,
     role: membership.role,

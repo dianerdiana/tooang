@@ -23,6 +23,7 @@ const profile = {
   email: 'dian@example.com',
   platformRole: PlatformRole.USER,
   permissions: [PERMISSION.PROFILE_READ],
+  globalPermissions: [],
   placeMemberships: [
     {
       placeId: 'place-owner',

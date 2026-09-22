@@ -41,6 +41,7 @@ export type MeUserResponse = {
   email: string;
   platformRole: PlatformRole;
   permissions: PermissionIdentifier[];
+  globalPermissions?: PermissionIdentifier[];
   placeMemberships: MePlaceMembershipResponse[];
   createdAt: string;
   updatedAt: string;

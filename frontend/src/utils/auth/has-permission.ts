@@ -7,8 +7,9 @@ export const canPlatform = (ability: AppAbility, permission: PermissionIdentifie
 export const cannotPlatform = (ability: AppAbility, permission: PermissionIdentifier) =>
   ability.cannot(permission, 'Platform');
 
-export const canAtPlace = (ability: AppAbility, permission: PermissionIdentifier, placeId: string) =>
+/** UI affordance only; the backend remains the authorization boundary. */
+export const canAtPlace = (ability: AppAbility, placeId: string, permission: PermissionIdentifier) =>
   ability.can(permission, { type: 'Place', placeId } as PlaceSubject);
 
-export const cannotAtPlace = (ability: AppAbility, permission: PermissionIdentifier, placeId: string) =>
+export const cannotAtPlace = (ability: AppAbility, placeId: string, permission: PermissionIdentifier) =>
   ability.cannot(permission, { type: 'Place', placeId } as PlaceSubject);

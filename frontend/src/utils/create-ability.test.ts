@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { PlaceMemberRole, PlatformRole } from '@/types/enums/user-role.enum';
-import { PERMISSION } from '@/types/permission.type';
+import { PERMISSION, PERMISSIONS } from '@/types/permission.type';
 import type { AuthenticatedUser } from '@/types/user-data.type';
 
 import { canAtPlace, cannotAtPlace, cannotPlatform, canPlatform } from './auth/has-permission';
@@ -13,12 +13,13 @@ const authenticatedUser = (overrides: Partial<AuthenticatedUser> = {}): Authenti
   email: 'admin-owner@example.com',
   platformRole: PlatformRole.ADMIN,
   permissions: [PERMISSION.PROFILE_READ, PERMISSION.ORDER_READ],
+  globalPermissions: [],
   placeMemberships: [
     {
       placeId: 'place_one',
       role: PlaceMemberRole.OWNER,
       permissions: [PERMISSION.PLACE_UPDATE],
-      effectivePermissions: [PERMISSION.PLACE_READ, PERMISSION.PLACE_READ],
+      effectivePermissions: [PERMISSION.PLACE_READ, PERMISSION.PLACE_READ, PERMISSION.PLACE_UPDATE],
     },
     {
       placeId: 'place_two',
@@ -45,6 +46,11 @@ describe('backend-driven ability factory', () => {
         conditions: { placeId: 'place_one' },
       },
       {
+        action: PERMISSION.PLACE_UPDATE,
+        subject: 'Place',
+        conditions: { placeId: 'place_one' },
+      },
+      {
         action: PERMISSION.ORDER_READ,
         subject: 'Place',
         conditions: { placeId: 'place_two' },
@@ -62,10 +68,37 @@ describe('backend-driven ability factory', () => {
 
     expect(canPlatform(ability, PERMISSION.ORDER_READ)).toBe(true);
     expect(cannotPlatform(ability, PERMISSION.PLACE_READ)).toBe(true);
-    expect(canAtPlace(ability, PERMISSION.PLACE_READ, 'place_one')).toBe(true);
-    expect(cannotAtPlace(ability, PERMISSION.PLACE_READ, 'place_two')).toBe(true);
-    expect(cannotAtPlace(ability, PERMISSION.ORDER_READ, 'place_one')).toBe(true);
-    expect(cannotAtPlace(ability, PERMISSION.ORDER_READ, 'unknown_place')).toBe(true);
+    expect(canAtPlace(ability, 'place_one', PERMISSION.PLACE_UPDATE)).toBe(true);
+    expect(cannotAtPlace(ability, 'place_two', PERMISSION.PLACE_UPDATE)).toBe(true);
+    expect(canAtPlace(ability, 'place_two', PERMISSION.ORDER_CONFIRM)).toBe(true);
+    expect(cannotAtPlace(ability, 'place_one', PERMISSION.ORDER_CONFIRM)).toBe(true);
+    expect(cannotAtPlace(ability, 'unknown_place', PERMISSION.ORDER_CONFIRM)).toBe(true);
+  });
+
+  it('applies global place permissions without requiring a membership', () => {
+    const ability = createAbilityForUser(
+      authenticatedUser({
+        permissions: [PERMISSION.PLACE_UPDATE],
+        globalPermissions: [PERMISSION.PLACE_UPDATE, PERMISSION.PLACE_UPDATE],
+        placeMemberships: [],
+      }),
+    );
+
+    expect(canAtPlace(ability, 'place_without_membership', PERMISSION.PLACE_UPDATE)).toBe(true);
+    expect(ability.rules.filter(({ action }) => action === PERMISSION.PLACE_UPDATE)).toHaveLength(2);
+  });
+
+  it('does not promote a non-global platform permission to place-wide access', () => {
+    const ability = createAbilityForUser(
+      authenticatedUser({
+        permissions: [PERMISSION.ORDER_READ],
+        globalPermissions: [],
+        placeMemberships: [],
+      }),
+    );
+
+    expect(canPlatform(ability, PERMISSION.ORDER_READ)).toBe(true);
+    expect(cannotAtPlace(ability, 'place_one', PERMISSION.ORDER_READ)).toBe(true);
   });
 
   it('does not infer grants from platform or membership roles', () => {
@@ -85,7 +118,7 @@ describe('backend-driven ability factory', () => {
     );
 
     expect(cannotPlatform(ability, PERMISSION.OWNER_ASSIGN)).toBe(true);
-    expect(cannotAtPlace(ability, PERMISSION.PLACE_UPDATE, 'place_one')).toBe(true);
+    expect(cannotAtPlace(ability, 'place_one', PERMISSION.PLACE_UPDATE)).toBe(true);
   });
 
   it('returns an empty ability when the authenticated user is cleared', () => {
@@ -93,6 +126,13 @@ describe('backend-driven ability factory', () => {
 
     expect(ability.rules).toEqual([]);
     expect(cannotPlatform(ability, PERMISSION.PROFILE_READ)).toBe(true);
-    expect(cannotAtPlace(ability, PERMISSION.PLACE_READ, 'place_one')).toBe(true);
+    expect(cannotAtPlace(ability, 'place_one', PERMISSION.PLACE_READ)).toBe(true);
+  });
+
+  it('keeps permission identifiers independent from place IDs', () => {
+    const rules = createAbilityRules(authenticatedUser());
+
+    expect(rules.every(({ action }) => PERMISSIONS.includes(action))).toBe(true);
+    expect(rules.every(({ action }) => !action.includes('place_one'))).toBe(true);
   });
 });

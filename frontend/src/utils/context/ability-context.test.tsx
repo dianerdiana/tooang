@@ -20,6 +20,7 @@ const user: AuthenticatedUser = {
   email: 'permissions@example.com',
   platformRole: PlatformRole.USER,
   permissions: [PERMISSION.PROFILE_READ],
+  globalPermissions: [],
   placeMemberships: [
     {
       placeId: 'place_one',
@@ -52,8 +53,8 @@ const PermissionProbe = () => {
     <span>
       {can(PERMISSION.PROFILE_READ) ? 'can-profile' : 'cannot-profile'}|
       {cannot(PERMISSION.USER_DEACTIVATE) ? 'cannot-deactivate' : 'can-deactivate'}|
-      {canAtPlace(PERMISSION.ORDER_CONFIRM, 'place_one') ? 'can-confirm' : 'cannot-confirm'}|
-      {cannotAtPlace(PERMISSION.ORDER_CONFIRM, 'place_two') ? 'cannot-confirm-other' : 'can-confirm-other'}
+      {canAtPlace('place_one', PERMISSION.ORDER_CONFIRM) ? 'can-confirm' : 'cannot-confirm'}|
+      {cannotAtPlace('place_two', PERMISSION.ORDER_CONFIRM) ? 'cannot-confirm-other' : 'can-confirm-other'}
     </span>
   );
 };
