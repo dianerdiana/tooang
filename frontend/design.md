@@ -978,6 +978,7 @@ WCAG 2.2 AA is the baseline, including:
 4. English is the current UI authoring language, while currency/number formatting is Indonesian. Localization strategy is not yet documented.
 5. A temporary text wordmark is safer than reusing the known-invalid legacy brand assets.
 6. Bottom navigation is useful for the customer mobile experience, but its exact destinations require information-architecture validation once all public routes exist.
+7. Dashboard place selection uses validated optional `?placeId=` URL state; stale values are canonicalized and platform routes do not use it for scope.
 
 ### Stakeholder approval required
 
@@ -989,7 +990,6 @@ WCAG 2.2 AA is the baseline, including:
 | Exact mobile bottom-nav destinations        | Public/customer route set is not implemented yet                                | Discover, Orders, Cart, Account; keep menu contextual.                                                       |
 | Whether public pages may force light theme  | Architecture notes some public layouts may force light, while app supports dark | Honor user/system theme unless QA proves a specific blocker.                                                 |
 | Guest cart behavior                         | Backend cart is authenticated-user owned                                        | Prompt login before cart mutation; do not create local guest-cart promises without product/backend decision. |
-| Place-switch persistence/URL shape          | Multi-place access is implemented conceptually, route IA is not final           | Put `placeId` in dashboard route context and persist last valid selection as convenience only.               |
 | Refresh cadence for incoming orders         | API exists, realtime transport is not documented                                | Use conservative query polling/background refresh that preserves focus; do not imply realtime.               |
 | QR download/print controls                  | Verification exists, output actions are not explicitly required                 | Show scannable QR and code; add export actions only after product approval.                                  |
 
