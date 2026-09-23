@@ -1,12 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { DashboardPlaceholderPage } from '@/components/layouts/dashboard-placeholder-page';
-
 import { dashboardRoutePermissions } from '@/configs/dashboard-navigation';
+
+import { ReviewModerationPage } from '@/features/reviews/components/review-moderation-page';
+import { parseReviewModerationSearch } from '@/features/reviews/schemas/reviews.schema';
 
 import { requirePlatformDashboardRoute } from '@/utils/auth/dashboard-route-access';
 
 export const Route = createFileRoute('/dashboard/platform/reviews')({
+  validateSearch: parseReviewModerationSearch,
   beforeLoad: ({ context }) =>
     requirePlatformDashboardRoute(context.auth.user, dashboardRoutePermissions.platform.reviews),
   head: () => ({ meta: [{ title: 'Review Moderation | Tooang' }] }),
@@ -14,12 +16,10 @@ export const Route = createFileRoute('/dashboard/platform/reviews')({
 });
 
 function PlatformReviewsRoute() {
+  const filters = Route.useSearch();
+  const navigate = Route.useNavigate();
+
   return (
-    <DashboardPlaceholderPage
-      title='Reviews'
-      description='Moderate reviews across the Tooang platform.'
-      search={Route.useSearch()}
-      scopeLabel='Platform'
-    />
+    <ReviewModerationPage filters={filters} onFiltersChange={(nextFilters) => void navigate({ search: nextFilters })} />
   );
 }
