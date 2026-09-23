@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { PlatformRole } from '@/types/enums/user-role.enum';
 
-import { normalizeUserListParams, parseUsersSearch } from '../schemas/users.schema';
+import { normalizeUserListParams, parseUsersSearch, platformRoleUpdateSchema } from '../schemas/users.schema';
 
 import { usersKeys } from './users.key';
 
@@ -51,5 +51,13 @@ describe('user list state', () => {
   it('provides stable future detail keys under the users namespace', () => {
     expect(usersKeys.detail('usr_one')).toEqual(['users', 'detail', 'usr_one']);
     expect(usersKeys.detail('usr_one')).not.toEqual(usersKeys.detail('usr_two'));
+  });
+
+  it('accepts only strict documented platform-role update payloads', () => {
+    expect(platformRoleUpdateSchema.parse({ platformRole: PlatformRole.SUPER_ADMIN })).toEqual({
+      platformRole: PlatformRole.SUPER_ADMIN,
+    });
+    expect(() => platformRoleUpdateSchema.parse({ platformRole: 'OWNER' })).toThrow();
+    expect(() => platformRoleUpdateSchema.parse({ platformRole: PlatformRole.USER, custom: true })).toThrow();
   });
 });

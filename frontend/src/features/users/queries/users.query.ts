@@ -15,3 +15,10 @@ export const usersQueryOptions = (params: UserListParams) => {
     staleTime: 15_000,
   });
 };
+
+export const userQueryOptions = (userId: string) =>
+  queryOptions({
+    queryKey: usersKeys.detail(userId),
+    queryFn: () => usersService.get(userId),
+    staleTime: 15_000,
+  });
