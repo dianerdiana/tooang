@@ -50,12 +50,7 @@ export const dashboardRoutePermissions = {
     ],
     orders: [PERMISSION.ORDER_READ],
     reviews: [PERMISSION.REVIEW_MODERATE],
-    users: [
-      PERMISSION.USER_READ,
-      PERMISSION.USER_DEACTIVATE,
-      PERMISSION.PLATFORM_ROLE_ASSIGN,
-      PERMISSION.PLATFORM_ROLE_UPDATE,
-    ],
+    users: [PERMISSION.USER_READ],
   },
 } as const satisfies Record<string, Record<string, readonly PermissionIdentifier[]>>;
 

@@ -89,6 +89,26 @@ describe('buildDashboardNavigation', () => {
     expect(itemLabels(navigation, 'platform')).toEqual(['Places', 'Orders', 'Reviews', 'Users']);
   });
 
+  it('requires user.read specifically before exposing platform users', () => {
+    const withoutRead = buildDashboardNavigation({
+      user: user({
+        platformRole: PlatformRole.ADMIN,
+        globalPermissions: [PERMISSION.USER_DEACTIVATE, PERMISSION.PLATFORM_ROLE_UPDATE],
+      }),
+      selectedPlace: null,
+    });
+    const withRead = buildDashboardNavigation({
+      user: user({
+        platformRole: PlatformRole.ADMIN,
+        globalPermissions: [PERMISSION.USER_READ],
+      }),
+      selectedPlace: null,
+    });
+
+    expect(itemLabels(withoutRead, 'platform')).not.toContain('Users');
+    expect(itemLabels(withRead, 'platform')).toContain('Users');
+  });
+
   it('updates place navigation and link search when the selected membership changes', () => {
     const cashier = membership('place_cashier', 'Cashier Place', PlaceMemberRole.CASHIER, [PERMISSION.ORDER_READ]);
     const owner = membership('place_owner', 'Owner Place', PlaceMemberRole.OWNER, [PERMISSION.MENU_UPDATE]);
