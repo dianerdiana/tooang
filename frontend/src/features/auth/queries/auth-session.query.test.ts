@@ -48,6 +48,27 @@ describe('auth session query', () => {
     expect(queryClient.getQueryData(AUTH_SESSION_QUERY_KEY)).toBe(user);
   });
 
+  it('starts in a pending bootstrap state before /me resolves', async () => {
+    let resolveSession!: (value: typeof user) => void;
+    authServiceMock.restoreSession.mockReturnValue(
+      new Promise<typeof user>((resolve) => {
+        resolveSession = resolve;
+      }),
+    );
+
+    const bootstrap = queryClient.fetchQuery(authSessionQueryOptions());
+
+    expect(queryClient.getQueryState(AUTH_SESSION_QUERY_KEY)).toMatchObject({
+      status: 'pending',
+      fetchStatus: 'fetching',
+    });
+    expect(queryClient.getQueryData(AUTH_SESSION_QUERY_KEY)).toBeUndefined();
+
+    resolveSession(user);
+    await expect(bootstrap).resolves.toBe(user);
+    expect(queryClient.getQueryState(AUTH_SESSION_QUERY_KEY)).toMatchObject({ status: 'success', fetchStatus: 'idle' });
+  });
+
   it('does not cache user data when bootstrap fails', async () => {
     authServiceMock.restoreSession.mockRejectedValue({
       error: true,

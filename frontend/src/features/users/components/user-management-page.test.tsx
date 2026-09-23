@@ -47,6 +47,8 @@ describe('user management collections', () => {
 
     expect(table.match(/Deactivate/g)?.length).toBe(3);
     expect(cards.match(/Deactivate/g)?.length).toBe(3);
+    expect(table.match(/aria-haspopup="dialog"/g)?.length).toBe(3);
+    expect(cards.match(/aria-haspopup="dialog"/g)?.length).toBe(3);
   });
 
   it('shows platform-role controls only when the specific permission visibility allows it', () => {

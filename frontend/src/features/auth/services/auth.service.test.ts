@@ -139,4 +139,9 @@ describe('authService', () => {
       isNetworkError: true,
     });
   });
+
+  it('logs out through the transport and resolves after cleanup succeeds', async () => {
+    await expect(authService.logout()).resolves.toBeUndefined();
+    expect(apiMock.logout).toHaveBeenCalledOnce();
+  });
 });

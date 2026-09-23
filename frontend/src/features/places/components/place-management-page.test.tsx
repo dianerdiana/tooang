@@ -78,6 +78,7 @@ describe('place management overview', () => {
 
     expect(markup).toContain('Unpublish');
     expect(markup).toContain('Disable ordering');
+    expect(markup.match(/aria-haspopup="dialog"/g)?.length).toBe(2);
   });
 
   it('gates place logo and cover lifecycle controls through media permissions', () => {
