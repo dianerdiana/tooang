@@ -14,5 +14,8 @@ export type PlaceMember = {
   revokedAt: string | null;
 };
 
+export type SetPlaceMemberInput = { role: PlaceMemberRole };
 export type SetCashierInput = { role: 'CASHIER' };
-export type CashierFormValues = { userId: string };
+export type SetOwnerInput = { role: 'OWNER' };
+export type PlaceMemberFormValues = { userId: string };
+export type CashierFormValues = PlaceMemberFormValues;
