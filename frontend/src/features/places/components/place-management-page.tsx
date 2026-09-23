@@ -596,6 +596,8 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
     canRead: canAtPlace(ability, place.id, PERMISSION.PLACE_MEMBER_READ),
     canAssignCashier: canAtPlace(ability, place.id, PERMISSION.CASHIER_ASSIGN),
     canRevokeCashier: canAtPlace(ability, place.id, PERMISSION.CASHIER_REVOKE),
+    canAssignOwner: canAtPlace(ability, place.id, PERMISSION.OWNER_ASSIGN),
+    canRevokeOwner: canAtPlace(ability, place.id, PERMISSION.OWNER_REVOKE),
   };
 
   return (
