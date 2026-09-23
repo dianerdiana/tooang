@@ -21,12 +21,21 @@ const permissions = (canRevokeCashier: boolean): PlaceMemberPermissions => ({
   canRead: true,
   canAssignCashier: false,
   canRevokeCashier,
+  canAssignOwner: false,
+  canRevokeOwner: false,
 });
+
+const onChangeRole = () => undefined;
 
 describe('place member table', () => {
   it('renders only safe identity and membership presentation fields', () => {
     const markup = renderToStaticMarkup(
-      <MembersTable members={[member('CASHIER')]} permissions={permissions(false)} onRevoke={() => undefined} />,
+      <MembersTable
+        members={[member('CASHIER')]}
+        permissions={permissions(false)}
+        onRevoke={() => undefined}
+        onChangeRole={onChangeRole}
+      />,
     );
     expect(markup).toContain('Cashier Person');
     expect(markup).toContain('cashier@example.com');
@@ -38,10 +47,20 @@ describe('place member table', () => {
 
   it('offers revocation only for CASHIER rows with effective permission', () => {
     const cashier = renderToStaticMarkup(
-      <MembersTable members={[member('CASHIER')]} permissions={permissions(true)} onRevoke={() => undefined} />,
+      <MembersTable
+        members={[member('CASHIER')]}
+        permissions={permissions(true)}
+        onRevoke={() => undefined}
+        onChangeRole={onChangeRole}
+      />,
     );
     const owner = renderToStaticMarkup(
-      <MembersTable members={[member('OWNER')]} permissions={permissions(true)} onRevoke={() => undefined} />,
+      <MembersTable
+        members={[member('OWNER')]}
+        permissions={permissions(true)}
+        onRevoke={() => undefined}
+        onChangeRole={onChangeRole}
+      />,
     );
     expect(cashier).toContain('Revoke');
     expect(owner).not.toContain('Revoke');
@@ -49,9 +68,44 @@ describe('place member table', () => {
 
   it('renders exactly the self-only collection supplied by the backend', () => {
     const markup = renderToStaticMarkup(
-      <MembersTable members={[member('CASHIER')]} permissions={permissions(false)} onRevoke={() => undefined} />,
+      <MembersTable
+        members={[member('CASHIER')]}
+        permissions={permissions(false)}
+        onRevoke={() => undefined}
+        onChangeRole={onChangeRole}
+      />,
     );
     expect(markup).toContain('Cashier Person');
     expect(markup).not.toContain('Owner Person');
+  });
+
+  it('keeps OWNER operations separate and exclusive to OWNER capabilities', () => {
+    const cashierOnly = renderToStaticMarkup(
+      <MembersTable
+        members={[member('OWNER'), member('CASHIER')]}
+        permissions={{ ...permissions(true), canAssignCashier: true }}
+        onRevoke={() => undefined}
+        onChangeRole={onChangeRole}
+      />,
+    );
+    const superAdmin = renderToStaticMarkup(
+      <MembersTable
+        members={[member('OWNER'), member('CASHIER')]}
+        permissions={{
+          ...permissions(true),
+          canAssignCashier: true,
+          canAssignOwner: true,
+          canRevokeOwner: true,
+        }}
+        onRevoke={() => undefined}
+        onChangeRole={onChangeRole}
+      />,
+    );
+
+    expect(cashierOnly).not.toContain('Promote to owner');
+    expect(cashierOnly).not.toContain('Change to cashier');
+    expect(superAdmin).toContain('Promote to owner');
+    expect(superAdmin).toContain('Change to cashier');
+    expect(superAdmin).toContain('Revoke');
   });
 });

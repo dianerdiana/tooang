@@ -22,12 +22,28 @@ import { useAppAbility } from '@/utils/hooks/use-app-ability';
 
 import { PERMISSION } from '@/types/permission.type';
 
-import { useRevokeCashierMutation, useSetCashierMutation } from '../queries/place-members.mutation';
+import {
+  useRevokeCashierMutation,
+  useSetCashierMutation,
+  useSetMemberRoleMutation,
+  useSetOwnerMutation,
+} from '../queries/place-members.mutation';
 import { placeMembersQueryOptions } from '../queries/place-members.query';
-import { cashierFormValues, publicUserIdSchema, toCashierAssignment } from '../schemas/place-members.schema';
-import type { PlaceMember } from '../types/place-members.type';
+import {
+  cashierFormValues,
+  publicUserIdSchema,
+  toCashierAssignment,
+  toOwnerAssignment,
+} from '../schemas/place-members.schema';
+import type { PlaceMember, PlaceMemberRole } from '../types/place-members.type';
 
-export type PlaceMemberPermissions = { canRead: boolean; canAssignCashier: boolean; canRevokeCashier: boolean };
+export type PlaceMemberPermissions = {
+  canRead: boolean;
+  canAssignCashier: boolean;
+  canRevokeCashier: boolean;
+  canAssignOwner: boolean;
+  canRevokeOwner: boolean;
+};
 
 const operationError = (error: unknown, operation: string) => {
   if (!isApplicationError(error)) return `Unable to ${operation}. Please try again.`;
@@ -49,33 +65,46 @@ const firstMessage = (errors: unknown[]) => {
 const formatJoinedDate = (value: string) =>
   new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
 
-function AssignCashierDrawer({
+function AssignMemberDrawer({
   placeId,
+  role,
   open,
   onOpenChange,
 }: {
   placeId: string;
+  role: 'OWNER' | 'CASHIER';
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const mutation = useSetCashierMutation(placeId);
+  const cashierMutation = useSetCashierMutation(placeId);
+  const ownerMutation = useSetOwnerMutation(placeId);
+  const mutation = role === 'OWNER' ? ownerMutation : cashierMutation;
+  const [ownerAssignment, setOwnerAssignment] = useState<ReturnType<typeof toOwnerAssignment>>();
+  const submitAssignment = async (
+    assignment: ReturnType<typeof toCashierAssignment> | ReturnType<typeof toOwnerAssignment>,
+  ) => {
+    try {
+      const member = await mutation.mutateAsync(assignment as never);
+      toast.success(`${member.user.fullName} is now ${role === 'OWNER' ? 'an owner' : 'a cashier'}.`);
+      setOwnerAssignment(undefined);
+      form.reset();
+      onOpenChange(false);
+    } catch {
+      // Normalized API errors are rendered below.
+    }
+  };
   const form = useForm({
     defaultValues: cashierFormValues(),
     onSubmit: async ({ value }) => {
-      try {
-        const assignment = toCashierAssignment(value);
-        const member = await mutation.mutateAsync(assignment);
-        toast.success(`${member.user.fullName} is now a cashier.`);
-        form.reset();
-        onOpenChange(false);
-      } catch {
-        // Validation is rendered by the field; normalized API errors are rendered below.
-      }
+      const assignment = role === 'OWNER' ? toOwnerAssignment(value) : toCashierAssignment(value);
+      if (role === 'OWNER') setOwnerAssignment(assignment as ReturnType<typeof toOwnerAssignment>);
+      else await submitAssignment(assignment);
     },
   });
   const changeOpen = (next: boolean) => {
     if (!next) {
       mutation.reset();
+      setOwnerAssignment(undefined);
       form.reset();
     }
     onOpenChange(next);
@@ -86,8 +115,8 @@ function AssignCashierDrawer({
       open={open}
       onOpenChange={changeOpen}
       side='right'
-      title='Assign cashier'
-      description='Enter the public user ID. This operation can only assign or reactivate CASHIER membership.'
+      title={role === 'OWNER' ? 'Assign owner' : 'Assign cashier'}
+      description={`Enter the public user ID. This assigns, reactivates, or changes the membership to ${role}.`}
     >
       <form
         className='space-y-5'
@@ -121,11 +150,11 @@ function AssignCashierDrawer({
           )}
         </form.Field>
         <div className='rounded-md border bg-muted/30 p-3 text-sm'>
-          <span className='font-medium'>Membership role:</span> CASHIER
+          <span className='font-medium'>Membership role:</span> {role}
         </div>
         {mutation.isError && (
           <p role='alert' className='text-sm text-destructive'>
-            {operationError(mutation.error, 'assign this cashier')}
+            {operationError(mutation.error, `assign this ${role.toLowerCase()}`)}
           </p>
         )}
         <div className='flex justify-end gap-2'>
@@ -143,12 +172,23 @@ function AssignCashierDrawer({
                 ) : (
                   <PlusIcon aria-hidden />
                 )}
-                {isSubmitting || mutation.isPending ? 'Assigning…' : 'Assign cashier'}
+                {isSubmitting || mutation.isPending ? 'Assigning…' : `Assign ${role.toLowerCase()}`}
               </Button>
             )}
           </form.Subscribe>
         </div>
       </form>
+      {role === 'OWNER' && (
+        <ConfirmDialog
+          open={ownerAssignment !== undefined}
+          onOpenChange={(next) => !next && !mutation.isPending && setOwnerAssignment(undefined)}
+          title='Assign OWNER membership?'
+          description={`This grants OWNER access to ${ownerAssignment?.userId ?? 'this user'}. The backend will verify authorization and invariants.`}
+          confirmLabel='Assign owner'
+          isPending={mutation.isPending}
+          onConfirm={() => ownerAssignment && void submitAssignment(ownerAssignment)}
+        />
+      )}
     </ResponsiveDrawer>
   );
 }
@@ -157,11 +197,13 @@ export function MembersTable({
   members,
   permissions,
   onRevoke,
+  onChangeRole,
   revokingUserId,
 }: {
   members: PlaceMember[];
   permissions: PlaceMemberPermissions;
   onRevoke: (member: PlaceMember) => void;
+  onChangeRole: (member: PlaceMember, role: PlaceMemberRole) => void;
   revokingUserId?: string;
 }) {
   const columns = useMemo<ColumnDef<PlaceMember>[]>(
@@ -194,27 +236,66 @@ export function MembersTable({
       {
         id: 'actions',
         header: () => <span className='sr-only'>Actions</span>,
-        cell: ({ row }) =>
-          row.original.role === 'CASHIER' && permissions.canRevokeCashier ? (
-            <div className='flex justify-end'>
-              <ConfirmDialog
-                title={`Revoke ${row.original.user.fullName}?`}
-                description='This user will immediately lose CASHIER access to this place.'
-                confirmLabel='Revoke cashier'
-                variant='destructive'
-                isPending={revokingUserId === row.original.user.userId}
-                onConfirm={() => onRevoke(row.original)}
-                trigger={
-                  <Button type='button' variant='ghost' size='sm' disabled={Boolean(revokingUserId)}>
-                    <Trash2Icon aria-hidden /> Revoke
-                  </Button>
-                }
-              />
+        cell: ({ row }) => {
+          const member = row.original;
+          const canPromote = member.role === 'CASHIER' && permissions.canAssignOwner;
+          const canDemote = member.role === 'OWNER' && permissions.canRevokeOwner && permissions.canAssignCashier;
+          const canRevoke =
+            (member.role === 'OWNER' && permissions.canRevokeOwner) ||
+            (member.role === 'CASHIER' && permissions.canRevokeCashier);
+          if (!canPromote && !canDemote && !canRevoke) return null;
+          return (
+            <div className='flex justify-end gap-1'>
+              {canPromote && (
+                <ConfirmDialog
+                  title={`Promote ${member.user.fullName} to OWNER?`}
+                  description='This changes the membership from CASHIER to OWNER and grants owner-level place access.'
+                  confirmLabel='Promote to owner'
+                  isPending={revokingUserId === member.user.userId}
+                  onConfirm={() => onChangeRole(member, 'OWNER')}
+                  trigger={
+                    <Button type='button' variant='outline' size='sm'>
+                      Promote to owner
+                    </Button>
+                  }
+                />
+              )}
+              {canDemote && (
+                <ConfirmDialog
+                  title={`Change ${member.user.fullName} to CASHIER?`}
+                  description='This removes OWNER access and retains CASHIER access. The backend will enforce the last-OWNER invariant.'
+                  confirmLabel='Change to cashier'
+                  variant='destructive'
+                  isPending={revokingUserId === member.user.userId}
+                  onConfirm={() => onChangeRole(member, 'CASHIER')}
+                  trigger={
+                    <Button type='button' variant='outline' size='sm'>
+                      Change to cashier
+                    </Button>
+                  }
+                />
+              )}
+              {canRevoke && (
+                <ConfirmDialog
+                  title={`Revoke ${member.user.fullName}'s ${member.role} membership?`}
+                  description={`This user will immediately lose ${member.role} access to this place. The backend will enforce membership invariants.`}
+                  confirmLabel={`Revoke ${member.role.toLowerCase()}`}
+                  variant='destructive'
+                  isPending={revokingUserId === member.user.userId}
+                  onConfirm={() => onRevoke(member)}
+                  trigger={
+                    <Button type='button' variant='ghost' size='sm' disabled={Boolean(revokingUserId)}>
+                      <Trash2Icon aria-hidden /> Revoke
+                    </Button>
+                  }
+                />
+              )}
             </div>
-          ) : null,
+          );
+        },
       },
     ],
-    [onRevoke, permissions.canRevokeCashier, revokingUserId],
+    [onChangeRole, onRevoke, permissions, revokingUserId],
   );
   return (
     <DataTable
@@ -231,7 +312,8 @@ export function MembersTable({
 export function MembersPanel({ placeId, permissions }: { placeId: string; permissions: PlaceMemberPermissions }) {
   const query = useQuery({ ...placeMembersQueryOptions(placeId), enabled: permissions.canRead });
   const revokeMutation = useRevokeCashierMutation(placeId);
-  const [assigning, setAssigning] = useState(false);
+  const changeRoleMutation = useSetMemberRoleMutation(placeId);
+  const [assigningRole, setAssigningRole] = useState<PlaceMemberRole>();
   const [revokingUserId, setRevokingUserId] = useState<string>();
   const [revokeError, setRevokeError] = useState<string>();
   const revoke = async (member: PlaceMember) => {
@@ -239,9 +321,21 @@ export function MembersPanel({ placeId, permissions }: { placeId: string; permis
     setRevokingUserId(member.user.userId);
     try {
       await revokeMutation.mutateAsync(member.user.userId);
-      toast.success(`${member.user.fullName}'s cashier membership was revoked.`);
+      toast.success(`${member.user.fullName}'s ${member.role.toLowerCase()} membership was revoked.`);
     } catch (error) {
-      setRevokeError(operationError(error, 'revoke this cashier'));
+      setRevokeError(operationError(error, `revoke this ${member.role.toLowerCase()}`));
+    } finally {
+      setRevokingUserId(undefined);
+    }
+  };
+  const changeRole = async (member: PlaceMember, role: PlaceMemberRole) => {
+    setRevokeError(undefined);
+    setRevokingUserId(member.user.userId);
+    try {
+      await changeRoleMutation.mutateAsync({ userId: member.user.userId, input: { role } });
+      toast.success(`${member.user.fullName} is now ${role === 'OWNER' ? 'an owner' : 'a cashier'}.`);
+    } catch (error) {
+      setRevokeError(operationError(error, `change this membership to ${role}`));
     } finally {
       setRevokingUserId(undefined);
     }
@@ -252,18 +346,30 @@ export function MembersPanel({ placeId, permissions }: { placeId: string; permis
       title='Place members'
       description='Active memberships returned by the backend. This collection is currently unpaginated.'
       action={
-        permissions.canAssignCashier ? (
-          <Button type='button' onClick={() => setAssigning(true)}>
-            <PlusIcon aria-hidden /> Assign cashier
-          </Button>
+        permissions.canAssignCashier || permissions.canAssignOwner ? (
+          <div className='flex gap-2'>
+            {permissions.canAssignCashier && (
+              <Button type='button' variant='outline' onClick={() => setAssigningRole('CASHIER')}>
+                <PlusIcon aria-hidden /> Assign cashier
+              </Button>
+            )}
+            {permissions.canAssignOwner && (
+              <Button type='button' onClick={() => setAssigningRole('OWNER')}>
+                <PlusIcon aria-hidden /> Assign owner
+              </Button>
+            )}
+          </div>
         ) : undefined
       }
     >
-      {!permissions.canAssignCashier && !permissions.canRevokeCashier && (
-        <p className='mb-4 flex items-center gap-2 text-sm text-muted-foreground'>
-          <LockIcon className='size-4' aria-hidden /> You have read-only access to membership data.
-        </p>
-      )}
+      {!permissions.canAssignCashier &&
+        !permissions.canRevokeCashier &&
+        !permissions.canAssignOwner &&
+        !permissions.canRevokeOwner && (
+          <p className='mb-4 flex items-center gap-2 text-sm text-muted-foreground'>
+            <LockIcon className='size-4' aria-hidden /> You have read-only access to membership data.
+          </p>
+        )}
       {revokeError && (
         <p role='alert' className='mb-4 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive'>
           {revokeError}
@@ -284,11 +390,17 @@ export function MembersPanel({ placeId, permissions }: { placeId: string; permis
           members={query.data ?? []}
           permissions={permissions}
           onRevoke={(member) => void revoke(member)}
+          onChangeRole={(member, role) => void changeRole(member, role)}
           revokingUserId={revokingUserId}
         />
       )}
-      {permissions.canAssignCashier && (
-        <AssignCashierDrawer placeId={placeId} open={assigning} onOpenChange={setAssigning} />
+      {assigningRole && (
+        <AssignMemberDrawer
+          placeId={placeId}
+          role={assigningRole}
+          open
+          onOpenChange={(open) => !open && setAssigningRole(undefined)}
+        />
       )}
     </SectionCard>
   );
@@ -300,6 +412,8 @@ export function MembersPage({ placeId, placeName }: { placeId: string; placeName
     canRead: canAtPlace(ability, placeId, PERMISSION.PLACE_MEMBER_READ),
     canAssignCashier: canAtPlace(ability, placeId, PERMISSION.CASHIER_ASSIGN),
     canRevokeCashier: canAtPlace(ability, placeId, PERMISSION.CASHIER_REVOKE),
+    canAssignOwner: canAtPlace(ability, placeId, PERMISSION.OWNER_ASSIGN),
+    canRevokeOwner: canAtPlace(ability, placeId, PERMISSION.OWNER_REVOKE),
   };
   return (
     <>
