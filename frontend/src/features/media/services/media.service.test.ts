@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const apiMock = vi.hoisted(() => ({ post: vi.fn() }));
+const apiMock = vi.hoisted(() => ({ delete: vi.fn(), post: vi.fn() }));
 vi.mock('@/configs/api-config', () => ({ api: apiMock }));
 
 import { MEDIA_TARGET, type MediaUploadAuthorization } from '../types/media.type';
@@ -22,7 +22,7 @@ const authorization: MediaUploadAuthorization = {
 };
 
 describe('mediaService', () => {
-  beforeEach(() => apiMock.post.mockReset());
+  beforeEach(() => Object.values(apiMock).forEach((mock) => mock.mockReset()));
 
   it('creates and completes upload intents with exact documented payloads', async () => {
     apiMock.post.mockResolvedValueOnce({
@@ -58,5 +58,19 @@ describe('mediaService', () => {
         sizeBytes: 1,
       }),
     ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', message: 'Media unavailable', isNetworkError: false });
+  });
+
+  it('detaches logo, cover, and menu-item images through exact bodyless endpoints', async () => {
+    apiMock.delete.mockResolvedValue({
+      data: { error: false, message: 'Removed', data: { media: { imageUrl: null } } },
+    });
+
+    await expect(mediaService.detachPlaceLogo('place/id')).resolves.toEqual({ imageUrl: null });
+    await expect(mediaService.detachPlaceCover('place/id')).resolves.toEqual({ imageUrl: null });
+    await expect(mediaService.detachMenuItemImage('place/id', 'item/id')).resolves.toEqual({ imageUrl: null });
+
+    expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/places/place%2Fid/media/logo');
+    expect(apiMock.delete).toHaveBeenNthCalledWith(2, '/places/place%2Fid/media/cover');
+    expect(apiMock.delete).toHaveBeenNthCalledWith(3, '/places/place%2Fid/menu-items/item%2Fid/image');
   });
 });

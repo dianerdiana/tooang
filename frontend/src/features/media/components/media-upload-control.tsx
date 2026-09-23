@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 import { ImageUpIcon, Loader2Icon, XIcon } from 'lucide-react';
 
@@ -12,19 +12,36 @@ import { MEDIA_FILE_ACCEPT, type MediaTargetIdentity, type MediaUploadResult } f
 
 export function MediaUploadControl({
   target,
+  currentImageUrl,
+  label = 'Image',
   onUploaded,
+  onReset,
 }: {
   target: MediaTargetIdentity;
+  currentImageUrl?: string | null;
+  label?: string;
   onUploaded?: (result: MediaUploadResult) => void;
+  onReset?: () => void;
 }) {
+  const inputId = useId();
   const workflow = useMediaUpload();
   const [file, setFile] = useState<File>();
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string>();
   const [validationError, setValidationError] = useState<string>();
+
+  useEffect(
+    () => () => {
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+    },
+    [localPreviewUrl],
+  );
 
   const clear = () => {
     workflow.reset();
     setFile(undefined);
+    setLocalPreviewUrl(undefined);
     setValidationError(undefined);
+    onReset?.();
   };
 
   const submit = async () => {
@@ -39,12 +56,25 @@ export function MediaUploadControl({
 
   return (
     <div className='space-y-4 rounded-surface border bg-surface p-4'>
+      <div className='overflow-hidden rounded-md border bg-muted/30'>
+        {localPreviewUrl || currentImageUrl ? (
+          <img
+            src={localPreviewUrl ?? currentImageUrl ?? undefined}
+            alt={`${label} preview`}
+            className='aspect-video w-full object-cover'
+          />
+        ) : (
+          <div className='flex aspect-video items-center justify-center text-sm text-muted-foreground'>
+            No {label.toLowerCase()}
+          </div>
+        )}
+      </div>
       <div className='space-y-1.5'>
-        <label htmlFor='media-upload-file' className='text-sm font-medium'>
-          Image file
+        <label htmlFor={inputId} className='text-sm font-medium'>
+          {label} file
         </label>
         <Input
-          id='media-upload-file'
+          id={inputId}
           type='file'
           accept={MEDIA_FILE_ACCEPT}
           disabled={workflow.isPending}
@@ -52,11 +82,13 @@ export function MediaUploadControl({
             workflow.reset();
             const selected = event.target.files?.[0];
             setFile(undefined);
+            setLocalPreviewUrl(undefined);
             setValidationError(undefined);
             if (!selected) return;
             try {
               validateMediaFile(selected);
               setFile(selected);
+              setLocalPreviewUrl(URL.createObjectURL(selected));
             } catch (error) {
               setValidationError(error instanceof Error ? error.message : 'Choose a supported image.');
             }
@@ -109,7 +141,7 @@ export function MediaUploadControl({
             ) : (
               <ImageUpIcon aria-hidden />
             )}
-            Upload image
+            {currentImageUrl ? `Replace ${label.toLowerCase()}` : `Upload ${label.toLowerCase()}`}
           </Button>
         )}
       </div>

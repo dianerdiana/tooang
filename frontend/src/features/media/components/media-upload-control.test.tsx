@@ -18,4 +18,17 @@ describe('MediaUploadControl', () => {
     expect(markup).toContain('Upload image');
     expect(markup).not.toContain('private_');
   });
+
+  it('shows the authoritative current preview and replacement action', () => {
+    const markup = renderToStaticMarkup(
+      <MediaUploadControl
+        target={{ target: MEDIA_TARGET.PLACE_COVER, placeId: '550e8400-e29b-41d4-a716-446655440000' }}
+        label='Cover'
+        currentImageUrl='https://ik.example/cover.webp'
+      />,
+    );
+    expect(markup).toContain('https://ik.example/cover.webp');
+    expect(markup).toContain('Cover preview');
+    expect(markup).toContain('Replace cover');
+  });
 });

@@ -41,7 +41,8 @@ export type MediaUploadAuthorization = {
 
 export type ImageKitUploadResult = { fileId: string };
 export type CompleteUploadIntentInput = { fileId: string };
-export type MediaUploadResult = { imageUrl: string };
+export type MediaAssociationResult = { imageUrl: string | null };
+export type MediaUploadResult = MediaAssociationResult & { imageUrl: string };
 
 export type MediaUploadPhase = 'idle' | 'authorizing' | 'uploading' | 'completing' | 'success' | 'error';
 export type UploadProgressHandler = (percentage: number) => void;
