@@ -1,9 +1,10 @@
 import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { AUTH_SESSION_QUERY_KEY } from '@/features/auth/queries/auth-session.query';
+import { placesKeys } from '@/features/places/queries/places.key';
 
 import { placeMembersService } from '../services/place-members.service';
-import type { SetCashierInput } from '../types/place-members.type';
+import type { SetCashierInput, SetOwnerInput } from '../types/place-members.type';
 
 import { placeMembersKeys } from './place-members.query';
 
@@ -11,7 +12,26 @@ export const invalidateMembershipData = async (client: QueryClient, placeId: str
   await Promise.all([
     client.invalidateQueries({ queryKey: placeMembersKeys.list(placeId) }),
     client.invalidateQueries({ queryKey: AUTH_SESSION_QUERY_KEY }),
+    client.invalidateQueries({ queryKey: placesKeys.management() }),
   ]);
+};
+
+export const useSetOwnerMutation = (placeId: string) => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, input }: { userId: string; input: SetOwnerInput }) =>
+      placeMembersService.setOwner(placeId, userId, input),
+    onSuccess: () => invalidateMembershipData(client, placeId),
+  });
+};
+
+export const useSetMemberRoleMutation = (placeId: string) => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, input }: { userId: string; input: SetCashierInput | SetOwnerInput }) =>
+      placeMembersService.set(placeId, userId, input),
+    onSuccess: () => invalidateMembershipData(client, placeId),
+  });
 };
 
 export const useSetCashierMutation = (placeId: string) => {
@@ -30,3 +50,5 @@ export const useRevokeCashierMutation = (placeId: string) => {
     onSuccess: () => invalidateMembershipData(client, placeId),
   });
 };
+
+export const useRevokeOwnerMutation = useRevokeCashierMutation;
