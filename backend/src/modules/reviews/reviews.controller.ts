@@ -16,8 +16,12 @@ import { HttpResponse } from '@/common/responses';
 import {
   type CreateReviewInput,
   createReviewSchema,
+  type MenuItemReviewModerationListInput,
+  menuItemReviewModerationListSchema,
   type MenuItemReviewParam,
   menuItemReviewParamSchema,
+  type PlaceReviewModerationListInput,
+  placeReviewModerationListSchema,
   type PlaceReviewParam,
   placeReviewParamSchema,
   type ReviewIdParam,
@@ -154,6 +158,32 @@ export class MyReviewsController {
 @Controller()
 export class ReviewModerationController {
   constructor(private readonly service: ReviewsService) {}
+
+  @Get('place-reviews')
+  @RequirePermissions(PERMISSION.REVIEW_MODERATE)
+  async listPlaceReviews(
+    @ZodQuery(placeReviewModerationListSchema) query: PlaceReviewModerationListInput,
+  ) {
+    const result = await this.service.listPlaceReviewsForModeration(query);
+    return HttpResponse.success({
+      message: 'Place reviews retrieved for moderation',
+      data: { reviews: result.reviews },
+      meta: result.meta,
+    });
+  }
+
+  @Get('menu-item-reviews')
+  @RequirePermissions(PERMISSION.REVIEW_MODERATE)
+  async listMenuItemReviews(
+    @ZodQuery(menuItemReviewModerationListSchema) query: MenuItemReviewModerationListInput,
+  ) {
+    const result = await this.service.listMenuItemReviewsForModeration(query);
+    return HttpResponse.success({
+      message: 'Menu-item reviews retrieved for moderation',
+      data: { reviews: result.reviews },
+      meta: result.meta,
+    });
+  }
 
   @Delete('place-reviews/:reviewId')
   @RequirePermissions(PERMISSION.REVIEW_MODERATE)
