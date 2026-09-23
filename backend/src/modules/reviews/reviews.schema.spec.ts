@@ -1,4 +1,10 @@
-import { createReviewSchema, reviewListSchema, updateReviewSchema } from './reviews.schema';
+import {
+  createReviewSchema,
+  menuItemReviewModerationListSchema,
+  placeReviewModerationListSchema,
+  reviewListSchema,
+  updateReviewSchema,
+} from './reviews.schema';
 
 const orderId = '5D2B73E0-84F0-4F8C-A3E8-733E7B8312AE';
 
@@ -34,5 +40,23 @@ describe('review schemas', () => {
   it('applies bounded pagination defaults', () => {
     expect(reviewListSchema.parse({})).toEqual({ page: 1, limit: 20 });
     expect(() => reviewListSchema.parse({ limit: 101 })).toThrow();
+  });
+
+  it('accepts only documented moderation-list filters', () => {
+    expect(placeReviewModerationListSchema.parse({ placeId: orderId })).toEqual({
+      page: 1,
+      limit: 20,
+      placeId: orderId.toLowerCase(),
+    });
+    expect(
+      menuItemReviewModerationListSchema.parse({ placeId: orderId, menuItemId: orderId }),
+    ).toEqual({
+      page: 1,
+      limit: 20,
+      placeId: orderId.toLowerCase(),
+      menuItemId: orderId.toLowerCase(),
+    });
+    expect(() => placeReviewModerationListSchema.parse({ menuItemId: orderId })).toThrow();
+    expect(() => menuItemReviewModerationListSchema.parse({ limit: 101 })).toThrow();
   });
 });

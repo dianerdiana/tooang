@@ -38,6 +38,21 @@ export const reviewListSchema = z
   })
   .strict();
 
+export const placeReviewModerationListSchema = z
+  .object({
+    ...paginationFields,
+    placeId: uuid.optional(),
+  })
+  .strict();
+
+export const menuItemReviewModerationListSchema = z
+  .object({
+    ...paginationFields,
+    placeId: uuid.optional(),
+    menuItemId: uuid.optional(),
+  })
+  .strict();
+
 export const placeReviewParamSchema = z.object({ placeId: uuid }).strict();
 
 export const menuItemReviewParamSchema = z.object({ placeId: uuid, menuItemId: uuid }).strict();
@@ -47,6 +62,8 @@ export const reviewIdParamSchema = z.object({ reviewId: uuid }).strict();
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;
 export type UpdateReviewInput = z.infer<typeof updateReviewSchema>;
 export type ReviewListInput = z.infer<typeof reviewListSchema>;
+export type PlaceReviewModerationListInput = z.infer<typeof placeReviewModerationListSchema>;
+export type MenuItemReviewModerationListInput = z.infer<typeof menuItemReviewModerationListSchema>;
 export type PlaceReviewParam = z.infer<typeof placeReviewParamSchema>;
 export type MenuItemReviewParam = z.infer<typeof menuItemReviewParamSchema>;
 export type ReviewIdParam = z.infer<typeof reviewIdParamSchema>;
