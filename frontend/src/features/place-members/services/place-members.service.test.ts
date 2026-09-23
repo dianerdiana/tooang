@@ -25,10 +25,17 @@ describe('placeMembersService', () => {
     expect(apiMock.get).toHaveBeenCalledWith('/places/place-1/members');
   });
 
-  it('only assigns CASHIER and encodes the public user identifier', async () => {
+  it('assigns documented CASHIER and OWNER roles and encodes the public user identifier', async () => {
     apiMock.put.mockResolvedValueOnce(success({ member }));
     await placeMembersService.setCashier('place-1', 'user/public', { role: 'CASHIER' });
     expect(apiMock.put).toHaveBeenCalledWith('/places/place-1/members/user%2Fpublic', { role: 'CASHIER' });
+    apiMock.put.mockResolvedValueOnce(success({ member: { ...member, role: 'OWNER' } }));
+    await placeMembersService.setOwner('place-1', 'owner/public', { role: 'OWNER' });
+    expect(apiMock.put).toHaveBeenCalledWith('/places/place-1/members/owner%2Fpublic', { role: 'OWNER' });
+    await expect(placeMembersService.set('place-1', 'user', { role: 'MANAGER' as 'OWNER' })).rejects.toMatchObject({
+      code: 'APPLICATION_ERROR',
+    });
+    expect(apiMock.put).toHaveBeenCalledTimes(2);
   });
 
   it('revokes through the place-scoped membership endpoint', async () => {

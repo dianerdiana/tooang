@@ -5,7 +5,8 @@ import { unwrapApiResponse } from '@/utils/api-response.util';
 
 import type { ApiResponse } from '@/types/api-response.type';
 
-import type { PlaceMember, SetCashierInput } from '../types/place-members.type';
+import { setPlaceMemberSchema } from '../schemas/place-members.schema';
+import type { PlaceMember, SetPlaceMemberInput } from '../types/place-members.type';
 
 export const placeMembersService = {
   async list(placeId: string): Promise<PlaceMember[]> {
@@ -17,16 +18,25 @@ export const placeMembersService = {
     }
   },
 
-  async setCashier(placeId: string, userId: string, input: SetCashierInput): Promise<PlaceMember> {
+  async set(placeId: string, userId: string, input: SetPlaceMemberInput): Promise<PlaceMember> {
     try {
-      const response = await api.put<SetCashierInput, ApiResponse<{ member: PlaceMember }>>(
+      const body = setPlaceMemberSchema.parse(input);
+      const response = await api.put<SetPlaceMemberInput, ApiResponse<{ member: PlaceMember }>>(
         `/places/${placeId}/members/${encodeURIComponent(userId)}`,
-        input,
+        body,
       );
       return unwrapApiResponse(response.data).member;
     } catch (error) {
       throw toApiError(error);
     }
+  },
+
+  setCashier(placeId: string, userId: string, input: { role: 'CASHIER' }): Promise<PlaceMember> {
+    return this.set(placeId, userId, input);
+  },
+
+  setOwner(placeId: string, userId: string, input: { role: 'OWNER' }): Promise<PlaceMember> {
+    return this.set(placeId, userId, input);
   },
 
   async revoke(placeId: string, userId: string): Promise<PlaceMember> {
