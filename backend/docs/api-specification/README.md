@@ -33,7 +33,7 @@ Existing `/api/v1` request and response contracts are stable. A backward-incompa
 | Menus          | Management routes below `/places/:placeId/menu-categories` and `/menu-items`; public `GET /places/:placeId/menu`                                 | [menus.md](menus.md)                   |
 | Carts          | `GET /me/carts/:placeId`, `POST /me/carts/:placeId/items`, `PATCH/DELETE /me/carts/:placeId/items/:menuItemId`                                   | [carts.md](carts.md)                   |
 | Orders         | Checkout and own orders below `/me/orders`; place queue below `/places/:placeId/orders`; global `/orders`; public `/order-verifications/:token`  | [orders.md](orders.md)                 |
-| Reviews        | Public/create place and item reviews, own update/delete routes, and global moderation delete routes                                              | [reviews.md](reviews.md)               |
+| Reviews        | Public/create reviews, own mutations, and global moderation list/delete routes                                                                   | [reviews.md](reviews.md)               |
 | Media          | Upload intents and place/menu-image detach routes                                                                                                | [media.md](media.md)                   |
 | Readiness      | `GET /health/ready`                                                                                                                              | [health.md](health.md)                 |
 
