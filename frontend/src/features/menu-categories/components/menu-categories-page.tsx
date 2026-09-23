@@ -577,6 +577,8 @@ function MenuCategoriesPage({ placeId }: { placeId: string }) {
     canCreate: canAtPlace(ability, placeId, PERMISSION.MENU_CREATE),
     canUpdate: canAtPlace(ability, placeId, PERMISSION.MENU_UPDATE),
     canDelete: canAtPlace(ability, placeId, PERMISSION.MENU_DELETE),
+    canUploadMedia: canAtPlace(ability, placeId, PERMISSION.MEDIA_UPLOAD),
+    canDeleteMedia: canAtPlace(ability, placeId, PERMISSION.MEDIA_DELETE),
   };
   return (
     <>
