@@ -26,6 +26,32 @@ export const MENU_ITEM_REVIEW_SELECT = {
   user: { select: { userId: true, fullName: true } },
 } satisfies Prisma.MenuItemReviewSelect;
 
+export const PLACE_REVIEW_MODERATION_SELECT = {
+  id: true,
+  rating: true,
+  comment: true,
+  createdAt: true,
+  updatedAt: true,
+  user: { select: { userId: true, fullName: true } },
+  place: { select: { id: true, name: true } },
+} satisfies Prisma.PlaceReviewSelect;
+
+export const MENU_ITEM_REVIEW_MODERATION_SELECT = {
+  id: true,
+  rating: true,
+  comment: true,
+  createdAt: true,
+  updatedAt: true,
+  user: { select: { userId: true, fullName: true } },
+  menuItem: {
+    select: {
+      id: true,
+      name: true,
+      place: { select: { id: true, name: true } },
+    },
+  },
+} satisfies Prisma.MenuItemReviewSelect;
+
 type ReviewWrite = { rating: number; comment: string | null };
 type ReviewPatch = { rating?: number; comment?: string | null };
 
@@ -257,6 +283,47 @@ export class ReviewsRepository {
       }),
     ]);
     return { reviews, totalItems, summary };
+  }
+
+  async listPlaceReviewsForModeration(page: number, limit: number, placeId?: string) {
+    const where: Prisma.PlaceReviewWhereInput = {
+      deletedAt: null,
+      ...(placeId ? { placeId } : {}),
+    };
+    const [reviews, totalItems] = await this.prisma.$transaction([
+      this.prisma.placeReview.findMany({
+        where,
+        select: PLACE_REVIEW_MODERATION_SELECT,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.placeReview.count({ where }),
+    ]);
+    return { reviews, totalItems };
+  }
+
+  async listMenuItemReviewsForModeration(
+    page: number,
+    limit: number,
+    filters: { placeId?: string; menuItemId?: string },
+  ) {
+    const where: Prisma.MenuItemReviewWhereInput = {
+      deletedAt: null,
+      ...(filters.menuItemId ? { menuItemId: filters.menuItemId } : {}),
+      ...(filters.placeId ? { menuItem: { placeId: filters.placeId } } : {}),
+    };
+    const [reviews, totalItems] = await this.prisma.$transaction([
+      this.prisma.menuItemReview.findMany({
+        where,
+        select: MENU_ITEM_REVIEW_MODERATION_SELECT,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.menuItemReview.count({ where }),
+    ]);
+    return { reviews, totalItems };
   }
 
   findActivePlaceReviewForModeration(reviewId: string, db: ReviewsDbClient) {
