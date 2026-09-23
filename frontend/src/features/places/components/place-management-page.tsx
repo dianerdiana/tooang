@@ -26,6 +26,7 @@ import { MembersPanel } from '@/features/place-members/components/place-members-
 
 import { isApplicationError } from '@/utils/api-error.util';
 import { canAtPlace } from '@/utils/auth/has-permission';
+import { getDashboardErrorPresentation, getDashboardErrorTone, getSafeMutationError } from '@/utils/dashboard-error';
 import { useAppAbility } from '@/utils/hooks/use-app-ability';
 
 import { PERMISSION } from '@/types/permission.type';
@@ -137,11 +138,7 @@ function AvailabilityStatus({ place }: { place: PlaceSummary }) {
 }
 
 const operationErrorMessage = (error: unknown, operation: 'publishing' | 'ordering') => {
-  if (!isApplicationError(error)) return `Unable to update ${operation}. Please try again.`;
-  if (error.httpStatus === 403) return `You no longer have permission to update ${operation}.`;
-  if (error.httpStatus === 404) return 'This place is no longer available in your management scope.';
-  if (error.isNetworkError) return `Could not reach the server to update ${operation}. Please try again.`;
-  return error.message;
+  return getSafeMutationError(error, `Unable to update ${operation}. Please try again.`);
 };
 
 type PlaceAvailabilityControlsProps = {
@@ -159,8 +156,10 @@ function PlaceAvailabilityControls({ place, canPublish, canManageOrdering }: Pla
     try {
       await publishing.mutateAsync({ isPublished });
       toast.success(isPublished ? 'Place published.' : 'Place unpublished. Ordering is disabled.');
-    } catch {
-      // The normalized mutation error is rendered with the publishing control.
+    } catch (error) {
+      if (!isPublished) {
+        toast.error(getSafeMutationError(error, 'Unable to unpublish this place. Please try again.'));
+      }
     }
   };
 
@@ -168,8 +167,10 @@ function PlaceAvailabilityControls({ place, canPublish, canManageOrdering }: Pla
     try {
       await ordering.mutateAsync({ isOrderingEnabled });
       toast.success(isOrderingEnabled ? 'Ordering enabled.' : 'Ordering disabled.');
-    } catch {
-      // The normalized mutation error is rendered with the ordering control.
+    } catch (error) {
+      if (!isOrderingEnabled) {
+        toast.error(getSafeMutationError(error, 'Unable to disable ordering. Please try again.'));
+      }
     }
   };
 
@@ -583,19 +584,23 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
   }
 
   if (query.isError || !query.data) {
-    const status = isApplicationError(query.error) ? query.error.httpStatus : undefined;
+    const errorPresentation = getDashboardErrorPresentation(query.error);
     return (
       <ErrorState
-        title={status === 404 ? 'Place not found' : status === 403 ? 'Access denied' : 'Could not load place'}
-        description={
-          status === 404
-            ? 'This place is unavailable or outside your access.'
-            : status === 403
-              ? 'You do not have permission to view this place.'
-              : 'Try loading the place details again.'
-        }
-        onRetry={status === 403 || status === 404 ? undefined : () => void query.refetch()}
+        title={errorPresentation.title}
+        description={errorPresentation.description}
+        tone={getDashboardErrorTone(errorPresentation.kind)}
+        onRetry={errorPresentation.canRetry ? () => void query.refetch() : undefined}
         isRetrying={query.isFetching}
+        secondaryAction={
+          platformContext ? (
+            <Button size='sm' asChild>
+              <Link to='/dashboard/platform/places' search={listSearch ?? { page: 1, limit: 20 }}>
+                Back to places
+              </Link>
+            </Button>
+          ) : undefined
+        }
       />
     );
   }

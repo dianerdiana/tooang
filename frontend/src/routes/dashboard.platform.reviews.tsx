@@ -1,5 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
+import { DashboardRouteError } from '@/components/layouts/dashboard-route-error';
+
 import { dashboardRoutePermissions } from '@/configs/dashboard-navigation';
 
 import { ReviewModerationPage } from '@/features/reviews/components/review-moderation-page';
@@ -12,6 +14,7 @@ export const Route = createFileRoute('/dashboard/platform/reviews')({
   beforeLoad: ({ context }) =>
     requirePlatformDashboardRoute(context.auth.user, dashboardRoutePermissions.platform.reviews),
   head: () => ({ meta: [{ title: 'Review Moderation | Tooang' }] }),
+  errorComponent: DashboardRouteError,
   component: PlatformReviewsRoute,
 });
 

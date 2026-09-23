@@ -4,6 +4,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools';
 import { createRootRouteWithContext, HeadContent, Outlet } from '@tanstack/react-router';
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools';
 
+import ApplicationError from '@/components/pages/application-error';
 import NotFound from '@/components/pages/not-found';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -23,7 +24,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   }),
   component: RootDocument,
   notFoundComponent: NotFound,
-  errorComponent: NotFound,
+  errorComponent: ApplicationError,
 });
 
 function RootDocument() {

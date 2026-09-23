@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import { AlertCircle, RotateCcw } from 'lucide-react';
+import { AlertCircle, Ban, RefreshCw, RotateCcw, SearchX } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 
@@ -12,6 +12,8 @@ type ErrorStateProps = Omit<React.ComponentProps<'div'>, 'title'> & {
   onRetry?: () => void;
   retryLabel?: string;
   isRetrying?: boolean;
+  secondaryAction?: React.ReactNode;
+  tone?: 'error' | 'forbidden' | 'not-found' | 'conflict';
   compact?: boolean;
 };
 
@@ -22,9 +24,14 @@ function ErrorState({
   onRetry,
   retryLabel = 'Try again',
   isRetrying = false,
+  secondaryAction,
+  tone = 'error',
   compact = false,
   ...props
 }: ErrorStateProps) {
+  const Icon =
+    tone === 'forbidden' ? Ban : tone === 'not-found' ? SearchX : tone === 'conflict' ? RefreshCw : AlertCircle;
+
   return (
     <div
       data-slot='error-state'
@@ -37,15 +44,20 @@ function ErrorState({
       {...props}
     >
       <div className='mb-4 flex size-11 items-center justify-center rounded-full bg-destructive/10 text-destructive'>
-        <AlertCircle className='size-5' aria-hidden />
+        <Icon className='size-5' aria-hidden />
       </div>
       <h3 className='text-base font-semibold'>{title}</h3>
       {description && <div className='mt-1 max-w-md text-sm text-muted-foreground'>{description}</div>}
-      {onRetry && (
-        <Button className='mt-5' variant='outline' size='sm' onClick={onRetry} disabled={isRetrying}>
-          <RotateCcw className={cn(isRetrying && 'animate-spin')} aria-hidden />
-          {isRetrying ? 'Retrying…' : retryLabel}
-        </Button>
+      {(onRetry || secondaryAction) && (
+        <div className='mt-5 flex flex-wrap items-center justify-center gap-2'>
+          {onRetry && (
+            <Button variant='outline' size='sm' onClick={onRetry} disabled={isRetrying}>
+              <RotateCcw className={cn(isRetrying && 'animate-spin')} aria-hidden />
+              {isRetrying ? 'Retrying…' : retryLabel}
+            </Button>
+          )}
+          {secondaryAction}
+        </div>
       )}
     </div>
   );

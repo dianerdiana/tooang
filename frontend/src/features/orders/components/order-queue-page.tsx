@@ -13,6 +13,7 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { Pagination } from '@/components/ui/pagination';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
+import { getDashboardErrorPresentation, getDashboardErrorTone } from '@/utils/dashboard-error';
 import { formatCurrency } from '@/utils/format-currency';
 import { formatTimeAgo } from '@/utils/format-time-ago.util';
 import { cn } from '@/utils/utils';
@@ -177,6 +178,7 @@ function OrderQueuePage({ placeId, placeName, filters, onFiltersChange }: OrderQ
   );
   const options = orderListQueryOptions({ kind: 'place', placeId }, params);
   const query = useQuery({ ...options, placeholderData: keepPreviousData });
+  const errorPresentation = getDashboardErrorPresentation(query.error);
   const activeFilterCount = Number(Boolean(filters.status)) + Number(Boolean(filters.fulfillmentType));
   const hasFilters = activeFilterCount > 0;
   const meta = query.data?.meta;
@@ -240,9 +242,10 @@ function OrderQueuePage({ placeId, placeName, filters, onFiltersChange }: OrderQ
             <LoadingState label='Loading operational orders' />
           ) : query.isError && !query.data ? (
             <ErrorState
-              title='Could not load orders'
-              description='The selected place order queue is unavailable. Check your access or try again.'
-              onRetry={() => void query.refetch()}
+              title={errorPresentation.title}
+              description={errorPresentation.description}
+              tone={getDashboardErrorTone(errorPresentation.kind)}
+              onRetry={errorPresentation.canRetry ? () => void query.refetch() : undefined}
               isRetrying={query.isFetching}
             />
           ) : (query.data?.orders.length ?? 0) === 0 ? (

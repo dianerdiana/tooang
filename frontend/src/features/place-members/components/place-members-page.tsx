@@ -16,8 +16,8 @@ import { Input } from '@/components/ui/input';
 import { ResponsiveDrawer } from '@/components/ui/responsive-drawer';
 import { StatusBadge } from '@/components/ui/status-badge';
 
-import { isApplicationError } from '@/utils/api-error.util';
 import { canAtPlace } from '@/utils/auth/has-permission';
+import { getDashboardErrorPresentation, getDashboardErrorTone, getSafeMutationError } from '@/utils/dashboard-error';
 import { useAppAbility } from '@/utils/hooks/use-app-ability';
 
 import { PERMISSION } from '@/types/permission.type';
@@ -46,12 +46,7 @@ export type PlaceMemberPermissions = {
 };
 
 const operationError = (error: unknown, operation: string) => {
-  if (!isApplicationError(error)) return `Unable to ${operation}. Please try again.`;
-  if (error.httpStatus === 403) return `You no longer have permission to ${operation}.`;
-  if (error.httpStatus === 404) return 'The user or membership is unavailable or outside your access.';
-  if (error.httpStatus === 409) return error.message;
-  if (error.isNetworkError) return `Could not reach the server to ${operation}. Please try again.`;
-  return error.message;
+  return getSafeMutationError(error, `Unable to ${operation}. Please try again.`);
 };
 
 const firstMessage = (errors: unknown[]) => {
@@ -311,6 +306,7 @@ export function MembersTable({
 
 export function MembersPanel({ placeId, permissions }: { placeId: string; permissions: PlaceMemberPermissions }) {
   const query = useQuery({ ...placeMembersQueryOptions(placeId), enabled: permissions.canRead });
+  const errorPresentation = getDashboardErrorPresentation(query.error);
   const revokeMutation = useRevokeCashierMutation(placeId);
   const changeRoleMutation = useSetMemberRoleMutation(placeId);
   const [assigningRole, setAssigningRole] = useState<PlaceMemberRole>();
@@ -323,7 +319,12 @@ export function MembersPanel({ placeId, permissions }: { placeId: string; permis
       await revokeMutation.mutateAsync(member.user.userId);
       toast.success(`${member.user.fullName}'s ${member.role.toLowerCase()} membership was revoked.`);
     } catch (error) {
-      setRevokeError(operationError(error, `revoke this ${member.role.toLowerCase()}`));
+      const message = getSafeMutationError(
+        error,
+        `Unable to revoke this ${member.role.toLowerCase()}. Please try again.`,
+      );
+      setRevokeError(message);
+      toast.error(message);
     } finally {
       setRevokingUserId(undefined);
     }
@@ -381,8 +382,10 @@ export function MembersPanel({ placeId, permissions }: { placeId: string; permis
         <DataTable
           columns={[]}
           data={[]}
-          error={operationError(query.error, 'load place members')}
-          onRetry={() => void query.refetch()}
+          errorTitle={errorPresentation.title}
+          error={errorPresentation.description}
+          errorTone={getDashboardErrorTone(errorPresentation.kind)}
+          onRetry={errorPresentation.canRetry ? () => void query.refetch() : undefined}
           isRetrying={query.isFetching}
         />
       ) : (

@@ -1,5 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
+import { DashboardRouteError } from '@/components/layouts/dashboard-route-error';
+
 import { dashboardRoutePermissions } from '@/configs/dashboard-navigation';
 
 import { BusinessHoursPage } from '@/features/business-hours/components/business-hours-page';
@@ -10,6 +12,7 @@ export const Route = createFileRoute('/dashboard/business-hours')({
   beforeLoad: ({ context }) =>
     requirePlaceDashboardRoute(context.selectedPlace, dashboardRoutePermissions.place.businessHours),
   head: () => ({ meta: [{ title: 'Business Hours | Tooang' }] }),
+  errorComponent: DashboardRouteError,
   component: BusinessHoursRoute,
 });
 

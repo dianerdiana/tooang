@@ -1,5 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
+import { DashboardRouteError } from '@/components/layouts/dashboard-route-error';
+
 import { OrderQueuePage } from '@/features/orders/components/order-queue-page';
 import { parseOrderQueueSearch } from '@/features/orders/schemas/order-list.schema';
 
@@ -11,6 +13,7 @@ export const Route = createFileRoute('/dashboard/orders')({
   validateSearch: parseOrderQueueSearch,
   beforeLoad: ({ context }) => requirePlaceDashboardRoute(context.selectedPlace, [PERMISSION.ORDER_READ]),
   head: () => ({ meta: [{ title: 'Orders | Tooang' }] }),
+  errorComponent: DashboardRouteError,
   component: OrdersRoute,
 });
 

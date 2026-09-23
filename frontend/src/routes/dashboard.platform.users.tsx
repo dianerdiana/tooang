@@ -1,5 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
+import { DashboardRouteError } from '@/components/layouts/dashboard-route-error';
+
 import { UserManagementPage } from '@/features/users/components/user-management-page';
 import { parseUsersSearch } from '@/features/users/schemas/users.schema';
 
@@ -11,6 +13,7 @@ export const Route = createFileRoute('/dashboard/platform/users')({
   validateSearch: parseUsersSearch,
   beforeLoad: ({ context }) => requirePlatformDashboardRoute(context.auth.user, [PERMISSION.USER_READ]),
   head: () => ({ meta: [{ title: 'Platform Users | Tooang' }] }),
+  errorComponent: DashboardRouteError,
   component: PlatformUsersRoute,
 });
 

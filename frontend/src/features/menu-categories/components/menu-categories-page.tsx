@@ -24,6 +24,7 @@ import { managementPlaceQueryOptions } from '@/features/places/queries/places.qu
 
 import { isApplicationError } from '@/utils/api-error.util';
 import { canAtPlace } from '@/utils/auth/has-permission';
+import { getDashboardErrorPresentation, getDashboardErrorTone, getSafeMutationError } from '@/utils/dashboard-error';
 import { useAppAbility } from '@/utils/hooks/use-app-ability';
 
 import { PERMISSION } from '@/types/permission.type';
@@ -80,12 +81,7 @@ const fieldMessage = (errors: unknown[], touched: boolean) => {
 };
 
 const operationError = (error: unknown, operation: string) => {
-  if (!isApplicationError(error)) return `Unable to ${operation}. Please try again.`;
-  if (error.httpStatus === 403) return `You no longer have permission to ${operation}.`;
-  if (error.httpStatus === 404) return 'This menu category is unavailable or outside your access.';
-  if (error.httpStatus === 409) return error.message;
-  if (error.isNetworkError) return `Could not reach the server to ${operation}. Please try again.`;
-  return error.message;
+  return getSafeMutationError(error, `Unable to ${operation}. Please try again.`);
 };
 
 function CategoryStatusControl({
@@ -305,7 +301,9 @@ function CategoryDetail({
       toast.success(`${category.name} deleted.`);
       onDeleted();
     } catch (error) {
-      setDeleteError(operationError(error, 'delete this category'));
+      const message = operationError(error, 'delete this category');
+      setDeleteError(message);
+      toast.error(message);
     }
   };
 
@@ -453,6 +451,7 @@ function MenuCategoriesPanel({ placeId, permissions }: { placeId: string; permis
   const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const query = useQuery(menuCategoriesQueryOptions(placeId, filters));
+  const errorPresentation = getDashboardErrorPresentation(query.error);
   const columns = useMemo<ColumnDef<MenuCategory>[]>(
     () => [
       {
@@ -513,8 +512,10 @@ function MenuCategoriesPanel({ placeId, permissions }: { placeId: string; permis
         data={query.data?.categories ?? []}
         getRowId={(category) => category.categoryId}
         isLoading={query.isPending}
-        error={query.isError ? operationError(query.error, 'load menu categories') : undefined}
-        onRetry={() => void query.refetch()}
+        errorTitle={errorPresentation.title}
+        error={query.isError ? errorPresentation.description : undefined}
+        errorTone={getDashboardErrorTone(errorPresentation.kind)}
+        onRetry={errorPresentation.canRetry ? () => void query.refetch() : undefined}
         isRetrying={query.isFetching}
         ariaLabel='Menu categories'
         emptyTitle='No menu categories'

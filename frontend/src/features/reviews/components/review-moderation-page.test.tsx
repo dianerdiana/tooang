@@ -50,7 +50,7 @@ describe('moderation review results', () => {
     expect(markup).toContain('Remove');
   });
 
-  it('shows backend permission messages and clear missing-review errors', () => {
+  it('shows safe permission and missing-resource messages', () => {
     const forbidden: ApplicationError = {
       error: true,
       message: 'Insufficient permissions',
@@ -58,7 +58,7 @@ describe('moderation review results', () => {
       httpStatus: 403,
       isNetworkError: false,
     };
-    expect(moderationErrorMessage(forbidden)).toBe('Insufficient permissions');
-    expect(moderationErrorMessage({ ...forbidden, httpStatus: 404 })).toContain('no longer exists');
+    expect(moderationErrorMessage(forbidden)).toContain('capabilities changed');
+    expect(moderationErrorMessage({ ...forbidden, httpStatus: 404 })).toContain('removed');
   });
 });

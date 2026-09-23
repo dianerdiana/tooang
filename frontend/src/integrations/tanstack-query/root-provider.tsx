@@ -1,10 +1,16 @@
 import React from 'react';
 
-import { QueryClient, QueryClientProvider, type QueryFunctionContext, type QueryKey } from '@tanstack/react-query';
+import {
+  MutationCache,
+  QueryClient,
+  QueryClientProvider,
+  type QueryFunctionContext,
+  type QueryKey,
+} from '@tanstack/react-query';
 
 import { api } from '@/configs/api-config';
 
-import { toApiError } from '@/utils/api-error.util';
+import { isApplicationError, toApiError } from '@/utils/api-error.util';
 import { unwrapApiResponse } from '@/utils/api-response.util';
 
 import type { ApiResponse } from '@/types/api-response.type';
@@ -25,6 +31,13 @@ export const defaultQueryFn = async ({ queryKey }: QueryFunctionContext<QueryKey
 };
 
 export const queryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    onError: (error) => {
+      if (isApplicationError(error) && error.httpStatus === 409) {
+        void queryClient.invalidateQueries({ refetchType: 'active' });
+      }
+    },
+  }),
   defaultOptions: {
     queries: {
       queryFn: defaultQueryFn,

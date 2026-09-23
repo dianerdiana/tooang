@@ -32,6 +32,8 @@ type DataTableProps<TData, TValue> = {
   toolbar?: React.ReactNode;
   isLoading?: boolean;
   error?: React.ReactNode;
+  errorTitle?: React.ReactNode;
+  errorTone?: React.ComponentProps<typeof ErrorState>['tone'];
   onRetry?: () => void;
   isRetrying?: boolean;
   emptyState?: React.ReactNode;
@@ -56,6 +58,8 @@ function DataTable<TData, TValue>({
   toolbar,
   isLoading = false,
   error,
+  errorTitle,
+  errorTone,
   onRetry,
   isRetrying,
   emptyState,
@@ -110,7 +114,9 @@ function DataTable<TData, TValue>({
                 <TableCell colSpan={columnCount} className='p-4'>
                   <ErrorState
                     compact
+                    title={errorTitle}
                     description={error}
+                    tone={errorTone}
                     onRetry={onRetry}
                     isRetrying={isRetrying}
                     className='border-0 bg-transparent'

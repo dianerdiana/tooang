@@ -25,6 +25,7 @@ import { allMenuCategoriesQueryOptions } from '@/features/menu-categories/querie
 import type { MenuCategory } from '@/features/menu-categories/types/menu-categories.type';
 
 import { isApplicationError } from '@/utils/api-error.util';
+import { getDashboardErrorPresentation, getDashboardErrorTone, getSafeMutationError } from '@/utils/dashboard-error';
 import { formatCurrency } from '@/utils/format-currency';
 
 import {
@@ -79,12 +80,7 @@ const issueMessage = (error: unknown, fallback: string) => {
 };
 
 const operationError = (error: unknown, operation: string) => {
-  if (!isApplicationError(error)) return `Unable to ${operation}. Please try again.`;
-  if (error.httpStatus === 403) return `You no longer have permission to ${operation}.`;
-  if (error.httpStatus === 404) return 'This menu item or category is unavailable or outside your access.';
-  if (error.httpStatus === 409) return error.message;
-  if (error.isNetworkError) return `Could not reach the server to ${operation}. Please try again.`;
-  return error.message;
+  return getSafeMutationError(error, `Unable to ${operation}. Please try again.`);
 };
 
 function AvailabilityControl({
@@ -406,7 +402,9 @@ export function ItemDetail({
       toast.success(`${item.name} deleted.`);
       onDeleted();
     } catch (error) {
-      setDeleteError(operationError(error, 'delete this menu item'));
+      const message = operationError(error, 'delete this menu item');
+      setDeleteError(message);
+      toast.error(message);
     }
   };
   return (
@@ -540,6 +538,8 @@ export function MenuItemsPanel({ placeId, permissions }: { placeId: string; perm
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const query = useQuery(menuItemsQueryOptions(placeId, filters));
   const categoriesQuery = useQuery(allMenuCategoriesQueryOptions(placeId));
+  const listError = query.error ?? categoriesQuery.error;
+  const errorPresentation = getDashboardErrorPresentation(listError);
   const categories = useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
   const categoryNames = useMemo(
     () => new Map(categories.map((category) => [category.categoryId, category.name])),
@@ -625,17 +625,17 @@ export function MenuItemsPanel({ placeId, permissions }: { placeId: string; perm
         data={query.data?.items ?? []}
         getRowId={(item) => item.menuItemId}
         isLoading={query.isPending}
-        error={
-          query.isError
-            ? operationError(query.error, 'load menu items')
-            : categoriesQuery.isError
-              ? operationError(categoriesQuery.error, 'load menu categories')
-              : undefined
+        errorTitle={errorPresentation.title}
+        error={listError ? errorPresentation.description : undefined}
+        errorTone={getDashboardErrorTone(errorPresentation.kind)}
+        onRetry={
+          errorPresentation.canRetry
+            ? () => {
+                void query.refetch();
+                void categoriesQuery.refetch();
+              }
+            : undefined
         }
-        onRetry={() => {
-          void query.refetch();
-          void categoriesQuery.refetch();
-        }}
         isRetrying={query.isFetching || categoriesQuery.isFetching}
         ariaLabel='Menu items'
         emptyTitle={activeCount ? 'No menu items match these filters' : 'No menu items'}

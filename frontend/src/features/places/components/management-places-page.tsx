@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { isApplicationError } from '@/utils/api-error.util';
+import { getDashboardErrorPresentation, getDashboardErrorTone } from '@/utils/dashboard-error';
 import { useAppAbility } from '@/utils/hooks/use-app-ability';
 
 import { PERMISSION } from '@/types/permission.type';
@@ -167,9 +167,8 @@ function ManagementPlacesPage({ filters, onFiltersChange }: ManagementPlacesPage
     onFiltersChange({ page: 1, limit: filters.limit });
   };
 
-  const errorDescription = isApplicationError(placesQuery.error)
-    ? placesQuery.error.message
-    : 'We could not load the platform places. Please try again.';
+  const errorPresentation = getDashboardErrorPresentation(placesQuery.error);
+  const errorDescription = errorPresentation.description;
   const places = placesQuery.data?.places ?? [];
   const meta = placesQuery.data?.meta;
   const totalItems = meta?.totalItems ?? 0;
@@ -260,9 +259,10 @@ function ManagementPlacesPage({ filters, onFiltersChange }: ManagementPlacesPage
         <PlacesLoading />
       ) : placesQuery.isError && !placesQuery.data ? (
         <ErrorState
-          title='Could not load places'
+          title={errorPresentation.title}
           description={errorDescription}
-          onRetry={() => void placesQuery.refetch()}
+          tone={getDashboardErrorTone(errorPresentation.kind)}
+          onRetry={errorPresentation.canRetry ? () => void placesQuery.refetch() : undefined}
           isRetrying={placesQuery.isFetching}
         />
       ) : places.length === 0 ? (

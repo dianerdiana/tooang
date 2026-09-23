@@ -24,6 +24,7 @@ import { ResponsiveDrawer } from '@/components/ui/responsive-drawer';
 
 import { isApplicationError } from '@/utils/api-error.util';
 import { canAtPlace } from '@/utils/auth/has-permission';
+import { getDashboardErrorPresentation, getDashboardErrorTone, getSafeMutationError } from '@/utils/dashboard-error';
 import { formatCurrency } from '@/utils/format-currency';
 import { useAppAbility } from '@/utils/hooks/use-app-ability';
 import { cn } from '@/utils/utils';
@@ -382,11 +383,7 @@ function OrderActions({
 }
 
 function detailError(error: unknown) {
-  if (!isApplicationError(error)) return 'Could not load this order. Please try again.';
-  if (error.httpStatus === 404) return 'This order is unavailable or outside your current access.';
-  if (error.httpStatus === 403) return 'You no longer have permission to inspect this order.';
-  if (error.isNetworkError) return 'Could not reach the server. Check your connection and try again.';
-  return error.message;
+  return getSafeMutationError(error, 'Could not update this order. Please try again.');
 }
 
 function OrderDetailContent({ scope, orderId }: { scope: OrderDetailScope; orderId: string }) {
@@ -399,11 +396,13 @@ function OrderDetailContent({ scope, orderId }: { scope: OrderDetailScope; order
 
   if (query.isPending) return <LoadingState label='Loading order details' compact />;
   if ((query.isError && !query.data) || !query.data) {
+    const errorPresentation = getDashboardErrorPresentation(query.error);
     return (
       <ErrorState
-        title='Could not load order'
-        description={detailError(query.error)}
-        onRetry={() => void query.refetch()}
+        title={errorPresentation.title}
+        description={errorPresentation.description}
+        tone={getDashboardErrorTone(errorPresentation.kind)}
+        onRetry={errorPresentation.canRetry ? () => void query.refetch() : undefined}
         isRetrying={query.isFetching}
       />
     );
@@ -425,6 +424,9 @@ function OrderDetailContent({ scope, orderId }: { scope: OrderDetailScope; order
       toast.success(`${updated.orderCode} is now ${orderStatusPresentation[updated.status].label.toLowerCase()}.`);
       return true;
     } catch (error) {
+      if (input.status === ORDER_STATUS.CANCELLED) {
+        toast.error(getSafeMutationError(error, 'Unable to cancel this order. Please try again.'));
+      }
       if (isApplicationError(error) && error.httpStatus === 409) {
         await query.refetch();
         setNotice('The order changed before this action completed. Its latest state and actions are now shown.');

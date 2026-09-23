@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 import { createFileRoute, Outlet, redirect, useRouterState } from '@tanstack/react-router';
 
+import { DashboardRouteError } from '@/components/layouts/dashboard-route-error';
 import { DashboardShell } from '@/components/layouts/dashboard-shell';
 import { PlaceSwitcher } from '@/components/layouts/place-switcher';
 
@@ -32,6 +33,7 @@ export const Route = createFileRoute('/dashboard')({
       selectedPlace,
     };
   },
+  errorComponent: DashboardRouteError,
   component: DashboardLayoutRoute,
 });
 

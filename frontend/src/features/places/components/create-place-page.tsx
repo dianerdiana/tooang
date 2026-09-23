@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { isApplicationError } from '@/utils/api-error.util';
+import { getSafeMutationError } from '@/utils/dashboard-error';
 
 import { useCreatePlaceMutation } from '../queries/places.mutation';
 import { createPlaceFormSchema, defaultCreatePlaceValues, normalizeCreatePlaceInput } from '../schemas/places.schema';
@@ -80,10 +81,8 @@ function CreatePlacePage({ listSearch }: CreatePlacePageProps) {
           }
         }
         setFieldErrors(nextFieldErrors);
-        if (Object.keys(nextFieldErrors).length === 0 || error.message !== 'Validation failed') {
-          setSubmissionError(
-            error.httpStatus === 403 ? 'You no longer have permission to create places.' : error.message,
-          );
+        if (Object.keys(nextFieldErrors).length === 0) {
+          setSubmissionError(getSafeMutationError(error, 'Unable to create this place. Please try again.'));
         }
       }
     },

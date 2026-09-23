@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { isApplicationError } from '@/utils/api-error.util';
+import { getDashboardErrorPresentation, getDashboardErrorTone, getSafeMutationError } from '@/utils/dashboard-error';
 import { usePermissions } from '@/utils/hooks/use-permissions';
 
 import { PlatformRole } from '@/types/enums/user-role.enum';
@@ -68,19 +68,11 @@ const formatDateTime = (value: string) =>
   new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 
 const deactivationErrorMessage = (error: unknown) => {
-  if (!isApplicationError(error)) return 'Unable to deactivate this account. Please try again.';
-  if (error.httpStatus === 403 || error.httpStatus === 409) return error.message;
-  if (error.httpStatus === 404) return 'This active user no longer exists. Refresh the list and try again.';
-  if (error.isNetworkError) return 'Could not reach the server. Check your connection and try again.';
-  return error.message || 'Unable to deactivate this account. Please try again.';
+  return getSafeMutationError(error, 'Unable to deactivate this account. Please try again.');
 };
 
 const platformRoleErrorMessage = (error: unknown) => {
-  if (!isApplicationError(error)) return 'Unable to update this platform role. Please try again.';
-  if (error.httpStatus === 400 || error.httpStatus === 403 || error.httpStatus === 409) return error.message;
-  if (error.httpStatus === 404) return 'This active user no longer exists. Refresh the list and try again.';
-  if (error.isNetworkError) return 'Could not reach the server. Check your connection and try again.';
-  return error.message || 'Unable to update this platform role. Please try again.';
+  return getSafeMutationError(error, 'Unable to update this platform role. Please try again.');
 };
 
 function PlatformRoleBadge({ role }: { role: PlatformRole }) {
@@ -358,8 +350,8 @@ function UserManagementPage({ filters, onFiltersChange }: UserManagementPageProp
       await deactivateMutation.mutateAsync(user.userId);
       setMutationUserId(undefined);
       toast.success(`${user.fullName} was deactivated.`);
-    } catch {
-      // The normalized backend error is rendered beside the affected user.
+    } catch (error) {
+      toast.error(getSafeMutationError(error, 'Unable to deactivate this account. Please try again.'));
     }
   };
 
@@ -374,9 +366,8 @@ function UserManagementPage({ filters, onFiltersChange }: UserManagementPageProp
     }
   };
 
-  const errorDescription = isApplicationError(usersQuery.error)
-    ? usersQuery.error.message
-    : 'We could not load platform users. Please try again.';
+  const errorPresentation = getDashboardErrorPresentation(usersQuery.error);
+  const errorDescription = errorPresentation.description;
   const users = usersQuery.data?.users ?? [];
   const meta = usersQuery.data?.meta;
   const totalItems = meta?.totalItems ?? 0;
@@ -498,9 +489,10 @@ function UserManagementPage({ filters, onFiltersChange }: UserManagementPageProp
         <UsersLoading />
       ) : usersQuery.isError && !usersQuery.data ? (
         <ErrorState
-          title='Could not load users'
+          title={errorPresentation.title}
           description={errorDescription}
-          onRetry={() => void usersQuery.refetch()}
+          tone={getDashboardErrorTone(errorPresentation.kind)}
+          onRetry={errorPresentation.canRetry ? () => void usersQuery.refetch() : undefined}
           isRetrying={usersQuery.isFetching}
         />
       ) : users.length === 0 ? (

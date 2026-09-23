@@ -64,7 +64,7 @@ describe('user management collections', () => {
     expect(visible).toContain('Super admin');
   });
 
-  it('preserves backend invariant messages for forbidden and conflict responses', () => {
+  it('uses safe capability copy while preserving expected conflict messages', () => {
     const error = (httpStatus: number, message: string): ApplicationError => ({
       error: true,
       code: httpStatus === 403 ? 'FORBIDDEN' : 'CONFLICT',
@@ -74,7 +74,7 @@ describe('user management collections', () => {
     });
 
     expect(deactivationErrorMessage(error(403, 'ADMIN cannot deactivate this target'))).toBe(
-      'ADMIN cannot deactivate this target',
+      'Your capabilities changed and you can no longer access this content.',
     );
     expect(deactivationErrorMessage(error(409, 'The last active SUPER_ADMIN cannot be deactivated'))).toBe(
       'The last active SUPER_ADMIN cannot be deactivated',

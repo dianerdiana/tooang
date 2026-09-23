@@ -1,5 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
+import { DashboardRouteError } from '@/components/layouts/dashboard-route-error';
+
 import { dashboardRoutePermissions } from '@/configs/dashboard-navigation';
 
 import { GlobalOrdersPage } from '@/features/orders/components/global-orders-page';
@@ -12,6 +14,7 @@ export const Route = createFileRoute('/dashboard/platform/orders')({
   beforeLoad: ({ context }) =>
     requirePlatformDashboardRoute(context.auth.user, dashboardRoutePermissions.platform.orders),
   head: () => ({ meta: [{ title: 'Platform Orders | Tooang' }] }),
+  errorComponent: DashboardRouteError,
   component: PlatformOrdersRoute,
 });
 

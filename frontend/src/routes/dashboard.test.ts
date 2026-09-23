@@ -38,6 +38,10 @@ const runBeforeLoad = (
 };
 
 describe('/dashboard route guard', () => {
+  it('defines a dashboard-level error boundary', () => {
+    expect(Route.options.errorComponent).toBeTypeOf('function');
+  });
+
   it('guards direct unauthenticated access at the route boundary', () => {
     const result = runBeforeLoad({ isAuthenticated: false, user: null });
 

@@ -1,5 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
+import { DashboardRouteError } from '@/components/layouts/dashboard-route-error';
+
 import { dashboardRoutePermissions } from '@/configs/dashboard-navigation';
 
 import { ManagementPlacesPage } from '@/features/places/components/management-places-page';
@@ -12,6 +14,7 @@ export const Route = createFileRoute('/dashboard/platform/places')({
   beforeLoad: ({ context }) =>
     requirePlatformDashboardRoute(context.auth.user, dashboardRoutePermissions.platform.places),
   head: () => ({ meta: [{ title: 'Platform Places | Tooang' }] }),
+  errorComponent: DashboardRouteError,
   component: PlatformPlacesRoute,
 });
 

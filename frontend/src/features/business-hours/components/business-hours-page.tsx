@@ -16,8 +16,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { managementPlaceQueryOptions } from '@/features/places/queries/places.query';
 
-import { isApplicationError } from '@/utils/api-error.util';
 import { canAtPlace } from '@/utils/auth/has-permission';
+import { getDashboardErrorPresentation, getDashboardErrorTone, getSafeMutationError } from '@/utils/dashboard-error';
 import { useAppAbility } from '@/utils/hooks/use-app-ability';
 
 import { PERMISSION } from '@/types/permission.type';
@@ -38,12 +38,7 @@ const DAY_LABELS: Record<DayOfWeek, string> = {
 };
 
 const updateErrorMessage = (error: unknown) => {
-  if (!isApplicationError(error)) return 'Unable to save this day. Please try again.';
-  if (error.httpStatus === 403) return 'You no longer have permission to edit this schedule.';
-  if (error.httpStatus === 404) return 'This place is no longer available in your management scope.';
-  if (error.httpStatus === 409) return 'The schedule changed elsewhere. Review the latest values and retry.';
-  if (error.isNetworkError) return 'Could not reach the server. Your other days are unaffected.';
-  return error.message;
+  return getSafeMutationError(error, 'Unable to save this day. Please try again.');
 };
 
 function ReadOnlyHour({ hour }: { hour: BusinessHour }) {
@@ -222,6 +217,7 @@ function BusinessHourRow({ placeId, hour, canEdit }: { placeId: string; hour: Bu
 
 function BusinessHoursPanel({ placeId, timezone, canEdit }: { placeId: string; timezone: string; canEdit: boolean }) {
   const query = useQuery(businessHoursQueryOptions(placeId));
+  const errorPresentation = getDashboardErrorPresentation(query.error);
 
   return (
     <SectionCard
@@ -249,9 +245,10 @@ function BusinessHoursPanel({ placeId, timezone, canEdit }: { placeId: string; t
         <ErrorState
           compact
           className='m-5'
-          title='Could not load business hours'
-          description='The existing schedule could not be retrieved.'
-          onRetry={() => void query.refetch()}
+          title={errorPresentation.title}
+          description={errorPresentation.description}
+          tone={getDashboardErrorTone(errorPresentation.kind)}
+          onRetry={errorPresentation.canRetry ? () => void query.refetch() : undefined}
           isRetrying={query.isFetching}
         />
       ) : (

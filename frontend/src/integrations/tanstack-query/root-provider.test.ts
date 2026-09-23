@@ -6,7 +6,7 @@ const apiMock = vi.hoisted(() => ({
 
 vi.mock('@/configs/api-config', () => ({ api: apiMock }));
 
-import { defaultQueryFn } from './root-provider';
+import { defaultQueryFn, queryClient } from './root-provider';
 
 describe('defaultQueryFn', () => {
   beforeEach(() => {
@@ -46,5 +46,22 @@ describe('defaultQueryFn', () => {
       code: 'ERR_NETWORK',
       isNetworkError: true,
     });
+  });
+
+  it('refreshes active server state after a mutation conflict', async () => {
+    const conflict = {
+      error: true as const,
+      message: 'The resource changed',
+      code: 'CONFLICT',
+      httpStatus: 409,
+      isNetworkError: false,
+    };
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
+    const mutation = queryClient.getMutationCache().build(queryClient, {
+      mutationFn: async () => Promise.reject(conflict),
+    });
+
+    await expect(mutation.execute(undefined)).rejects.toBe(conflict);
+    expect(invalidate).toHaveBeenCalledWith({ refetchType: 'active' });
   });
 });

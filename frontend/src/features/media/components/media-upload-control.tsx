@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 
 import { ImageUpIcon, Loader2Icon, XIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +50,7 @@ export function MediaUploadControl({
     try {
       const result = await workflow.upload(file, target);
       onUploaded?.(result);
+      toast.success(`${label} uploaded.`);
     } catch {
       // The workflow exposes a safe error message for rendering.
     }

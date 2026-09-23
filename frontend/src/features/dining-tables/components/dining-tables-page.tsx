@@ -22,6 +22,7 @@ import { managementPlaceQueryOptions } from '@/features/places/queries/places.qu
 
 import { isApplicationError } from '@/utils/api-error.util';
 import { canAtPlace } from '@/utils/auth/has-permission';
+import { getDashboardErrorPresentation, getDashboardErrorTone, getSafeMutationError } from '@/utils/dashboard-error';
 import { useAppAbility } from '@/utils/hooks/use-app-ability';
 
 import { PERMISSION } from '@/types/permission.type';
@@ -55,12 +56,7 @@ const firstIssue = (error: unknown, fallback: string) => {
 };
 
 const mutationErrorMessage = (error: unknown, action: string) => {
-  if (!isApplicationError(error)) return `Unable to ${action}. Please try again.`;
-  if (error.httpStatus === 409) return error.message;
-  if (error.httpStatus === 403) return `You no longer have permission to ${action}.`;
-  if (error.httpStatus === 404) return 'This dining table is unavailable or outside your access.';
-  if (error.isNetworkError) return `Could not reach the server to ${action}. Please try again.`;
-  return error.message;
+  return getSafeMutationError(error, `Unable to ${action}. Please try again.`);
 };
 
 function DiningTablesTable({ tables, onOpen }: { tables: DiningTable[]; onOpen: (tableId: string) => void }) {
@@ -260,7 +256,9 @@ function DiningTableDetail({
       toast.success(`${table.name} deleted.`);
       onDeleted();
     } catch (error) {
-      setDeleteError(mutationErrorMessage(error, 'delete this dining table'));
+      const message = mutationErrorMessage(error, 'delete this dining table');
+      setDeleteError(message);
+      toast.error(message);
     }
   };
 
@@ -452,6 +450,7 @@ function DiningTableDetailContent({
 
 function DiningTablesPanel({ placeId, permissions }: { placeId: string; permissions: DiningTablePermissions }) {
   const query = useQuery(diningTablesQueryOptions(placeId));
+  const errorPresentation = getDashboardErrorPresentation(query.error);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const openTable = (tableId: string) => setSelectedTableId(tableId);
@@ -482,9 +481,10 @@ function DiningTablesPanel({ placeId, permissions }: { placeId: string; permissi
       ) : query.isError ? (
         <ErrorState
           compact
-          title='Could not load dining tables'
-          description='The dining-table list could not be retrieved.'
-          onRetry={() => void query.refetch()}
+          title={errorPresentation.title}
+          description={errorPresentation.description}
+          tone={getDashboardErrorTone(errorPresentation.kind)}
+          onRetry={errorPresentation.canRetry ? () => void query.refetch() : undefined}
           isRetrying={query.isFetching}
         />
       ) : (

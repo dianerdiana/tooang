@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
-import { isApplicationError } from '@/utils/api-error.util';
+import { getSafeMutationError } from '@/utils/dashboard-error';
 
 import { uploadToImageKit } from '../integrations/imagekit-upload';
 import { toCreateUploadIntent } from '../schemas/media.schema';
@@ -13,9 +13,12 @@ import type {
 } from '../types/media.type';
 
 export const mediaUploadErrorMessage = (error: unknown) => {
-  if (isApplicationError(error)) return error.message;
-  if (error instanceof Error) return error.message;
-  return 'Unable to upload this image. Please try again.';
+  if (error instanceof DOMException && error.name === 'AbortError') return 'Image upload was cancelled.';
+  if (error instanceof Error && error.message === 'Image upload was cancelled.') return error.message;
+  if (error instanceof Error && error.message === 'Image provider returned an invalid upload response.') {
+    return 'The image provider returned an invalid response. Please try again.';
+  }
+  return getSafeMutationError(error, 'Unable to upload this image. Please try again.');
 };
 
 export const executeMediaUpload = async ({

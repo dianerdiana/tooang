@@ -14,6 +14,8 @@ import { Label } from '@/components/ui/label';
 import { LoadingState } from '@/components/ui/loading-state';
 import { Pagination } from '@/components/ui/pagination';
 
+import { getDashboardErrorPresentation, getDashboardErrorTone } from '@/utils/dashboard-error';
+
 import { orderListQueryOptions } from '../queries/order-list.query';
 import {
   type GlobalOrderSearch,
@@ -81,6 +83,7 @@ function GlobalOrdersPage({ filters, onFiltersChange }: GlobalOrdersPageProps) {
     ...orderListQueryOptions({ kind: 'platform' }, params),
     placeholderData: keepPreviousData,
   });
+  const errorPresentation = getDashboardErrorPresentation(query.error);
   const activeFilterCount =
     Number(Boolean(filters.status)) + Number(Boolean(filters.fulfillmentType)) + Number(Boolean(filters.orderPlaceId));
   const hasFilters = activeFilterCount > 0;
@@ -149,9 +152,10 @@ function GlobalOrdersPage({ filters, onFiltersChange }: GlobalOrdersPageProps) {
             <LoadingState label='Loading global orders' />
           ) : query.isError && !query.data ? (
             <ErrorState
-              title='Could not load global orders'
-              description='The global order list is unavailable. Check your access or try again.'
-              onRetry={() => void query.refetch()}
+              title={errorPresentation.title}
+              description={errorPresentation.description}
+              tone={getDashboardErrorTone(errorPresentation.kind)}
+              onRetry={errorPresentation.canRetry ? () => void query.refetch() : undefined}
               isRetrying={query.isFetching}
             />
           ) : (query.data?.orders.length ?? 0) === 0 ? (

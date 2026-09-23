@@ -1,11 +1,12 @@
 import { useState } from 'react';
 
 import { Trash2Icon } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
-import { isApplicationError } from '@/utils/api-error.util';
+import { getSafeMutationError } from '@/utils/dashboard-error';
 
 import { useDetachMediaMutation, useRefreshMediaTarget } from '../queries/media-association.mutation';
 import type { MediaTargetIdentity } from '../types/media.type';
@@ -13,10 +14,7 @@ import type { MediaTargetIdentity } from '../types/media.type';
 import { MediaUploadControl } from './media-upload-control';
 
 const detachErrorMessage = (error: unknown) => {
-  if (!isApplicationError(error)) return 'Unable to remove this image. Please try again.';
-  if (error.httpStatus === 404) return 'This media target is unavailable or outside your access.';
-  if (error.httpStatus === 403) return 'You no longer have permission to remove this image.';
-  return error.message;
+  return getSafeMutationError(error, 'Unable to remove this image. Please try again.');
 };
 
 export function MediaManagementPanel({
@@ -41,8 +39,8 @@ export function MediaManagementPanel({
     try {
       const result = await detachMutation.mutateAsync();
       setVisibleUrlOverride(result.imageUrl);
-    } catch {
-      // The current image remains visible and the normalized error is rendered below.
+    } catch (error) {
+      toast.error(getSafeMutationError(error, 'Unable to remove this image. Please try again.'));
     }
   };
 

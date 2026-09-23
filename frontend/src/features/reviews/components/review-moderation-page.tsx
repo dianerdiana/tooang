@@ -20,7 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { menuItemsQueryOptions } from '@/features/menu-items/queries/menu-items.query';
 import { managementPlacesQueryOptions } from '@/features/places/queries/places.query';
 
-import { isApplicationError } from '@/utils/api-error.util';
+import { getDashboardErrorPresentation, getDashboardErrorTone, getSafeMutationError } from '@/utils/dashboard-error';
 
 import { useModerateReviewMutation } from '../queries/reviews.mutation';
 import { menuItemModerationReviewsQueryOptions, placeModerationReviewsQueryOptions } from '../queries/reviews.query';
@@ -52,11 +52,7 @@ const formatDateTime = (value: string) =>
   new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 
 const moderationErrorMessage = (error: unknown) => {
-  if (!isApplicationError(error)) return 'Unable to moderate this review. Please try again.';
-  if (error.httpStatus === 403) return error.message || 'You no longer have permission to moderate reviews.';
-  if (error.httpStatus === 404) return 'This active review no longer exists. Refresh the list and try again.';
-  if (error.isNetworkError) return 'Could not reach the server. Check your connection and try again.';
-  return error.message || 'Unable to moderate this review. Please try again.';
+  return getSafeMutationError(error, 'Unable to moderate this review. Please try again.');
 };
 
 function Rating({ value }: { value: number }) {
@@ -256,8 +252,8 @@ function ReviewModerationPage({ filters, onFiltersChange }: ReviewModerationPage
       await mutation.mutateAsync({ tab: filters.tab, reviewId: review.reviewId });
       setMutationReviewId(undefined);
       toast.success('Review removed from the platform.');
-    } catch {
-      // The normalized error is rendered beside the affected review.
+    } catch (error) {
+      toast.error(getSafeMutationError(error, 'Unable to remove this review. Please try again.'));
     }
   };
 
@@ -270,9 +266,8 @@ function ReviewModerationPage({ filters, onFiltersChange }: ReviewModerationPage
   const selectedItemMissing = Boolean(
     filters.menuItemId && !menuItemsQuery.data?.items.some((item) => item.menuItemId === filters.menuItemId),
   );
-  const listError = isApplicationError(reviewsQuery.error)
-    ? reviewsQuery.error.message
-    : 'The moderation review list is unavailable. Please try again.';
+  const listErrorPresentation = getDashboardErrorPresentation(reviewsQuery.error);
+  const listError = listErrorPresentation.description;
   const resultProps: ReviewResultsProps = {
     reviews,
     tab: filters.tab,
@@ -419,9 +414,10 @@ function ReviewModerationPage({ filters, onFiltersChange }: ReviewModerationPage
             <ReviewsLoading />
           ) : reviewsQuery.isError && !reviewsQuery.data ? (
             <ErrorState
-              title='Could not load reviews'
+              title={listErrorPresentation.title}
               description={listError}
-              onRetry={() => void reviewsQuery.refetch()}
+              tone={getDashboardErrorTone(listErrorPresentation.kind)}
+              onRetry={listErrorPresentation.canRetry ? () => void reviewsQuery.refetch() : undefined}
               isRetrying={reviewsQuery.isFetching}
             />
           ) : reviews.length === 0 ? (
