@@ -6,7 +6,14 @@ import { unwrapApiResponse, unwrapPaginatedApiResponse } from '@/utils/api-respo
 import type { ApiPaginatedResponse, ApiResponse } from '@/types/api-response.type';
 
 import { normalizeUserListParams } from '../schemas/users.schema';
-import type { UserDeactivationResult, UserListParams, UserListResult, UserSummary } from '../types/users.type';
+import { platformRoleUpdateSchema } from '../schemas/users.schema';
+import type {
+  PlatformRoleUpdateInput,
+  UserDeactivationResult,
+  UserListParams,
+  UserListResult,
+  UserSummary,
+} from '../types/users.type';
 
 export const usersService = {
   async list(params: UserListParams): Promise<UserListResult> {
@@ -16,6 +23,28 @@ export const usersService = {
       });
       const result = unwrapPaginatedApiResponse(response.data);
       return { users: result.items.users, meta: result.meta };
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
+  async get(userId: string): Promise<UserSummary> {
+    try {
+      const response = await api.get<ApiResponse<{ user: UserSummary }>>(`/users/${encodeURIComponent(userId)}`);
+      return unwrapApiResponse(response.data).user;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
+  async updatePlatformRole(userId: string, input: PlatformRoleUpdateInput): Promise<UserSummary> {
+    try {
+      const body = platformRoleUpdateSchema.parse(input);
+      const response = await api.put<PlatformRoleUpdateInput, ApiResponse<{ user: UserSummary }>>(
+        `/users/${encodeURIComponent(userId)}/platform-role`,
+        body,
+      );
+      return unwrapApiResponse(response.data).user;
     } catch (error) {
       throw toApiError(error);
     }

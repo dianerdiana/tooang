@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const apiMock = vi.hoisted(() => ({ get: vi.fn(), delete: vi.fn() }));
+const apiMock = vi.hoisted(() => ({ get: vi.fn(), delete: vi.fn(), put: vi.fn() }));
 
 vi.mock('@/configs/api-config', () => ({ api: apiMock }));
 
@@ -21,7 +21,32 @@ describe('usersService', () => {
   beforeEach(() => {
     apiMock.get.mockReset();
     apiMock.delete.mockReset();
+    apiMock.put.mockReset();
     apiMock.get.mockResolvedValue(listResponse);
+  });
+
+  it('gets a user and updates only a supported platform role with encoded identifiers', async () => {
+    const user = {
+      userId: 'usr/target',
+      fullName: 'Target User',
+      email: 'target@example.com',
+      platformRole: PlatformRole.ADMIN,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+    };
+    apiMock.get.mockResolvedValueOnce({ data: { error: false, message: 'User retrieved', data: { user } } });
+    apiMock.put.mockResolvedValueOnce({ data: { error: false, message: 'Role updated', data: { user } } });
+
+    await expect(usersService.get('usr/target')).resolves.toEqual(user);
+    await expect(usersService.updatePlatformRole('usr/target', { platformRole: PlatformRole.ADMIN })).resolves.toEqual(
+      user,
+    );
+    expect(apiMock.get).toHaveBeenCalledWith('/users/usr%2Ftarget');
+    expect(apiMock.put).toHaveBeenCalledWith('/users/usr%2Ftarget/platform-role', { platformRole: 'ADMIN' });
+    await expect(
+      usersService.updatePlatformRole('usr', { platformRole: 'OWNER' as PlatformRole }),
+    ).rejects.toMatchObject({ code: 'APPLICATION_ERROR' });
+    expect(apiMock.put).toHaveBeenCalledTimes(1);
   });
 
   it('sends only normalized documented list parameters', async () => {
