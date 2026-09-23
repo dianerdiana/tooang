@@ -79,4 +79,20 @@ describe('place management overview', () => {
     expect(markup).toContain('Unpublish');
     expect(markup).toContain('Disable ordering');
   });
+
+  it('gates place logo and cover lifecycle controls through media permissions', () => {
+    const queryClient = new QueryClient();
+    const managed = renderToStaticMarkup(
+      <QueryClientProvider client={queryClient}>
+        <PlaceOverview
+          place={{ ...place, logoUrl: 'https://ik/logo', coverUrl: 'https://ik/cover' }}
+          mediaPermissions={{ canUpload: true, canRemove: true }}
+        />
+      </QueryClientProvider>,
+    );
+    expect(managed).toContain('Replace logo');
+    expect(managed).toContain('Replace cover');
+    expect(managed).toContain('Remove logo');
+    expect(managed).toContain('Remove cover');
+  });
 });

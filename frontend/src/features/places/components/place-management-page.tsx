@@ -19,6 +19,8 @@ import { StatusBadge } from '@/components/ui/status-badge';
 
 import { BusinessHoursPanel } from '@/features/business-hours/components/business-hours-page';
 import { DiningTablesPanel } from '@/features/dining-tables/components/dining-tables-page';
+import { MediaManagementPanel } from '@/features/media/components/media-management-panel';
+import { MEDIA_TARGET } from '@/features/media/types/media.type';
 import { MenuCategoriesPanel } from '@/features/menu-categories/components/menu-categories-page';
 import { MembersPanel } from '@/features/place-members/components/place-members-page';
 
@@ -82,16 +84,27 @@ function DefinitionItem({ label, children }: { label: string; children: React.Re
   );
 }
 
-function PlaceMedia({ place }: { place: PlaceSummary }) {
+type PlaceMediaPermissions = { canUpload: boolean; canRemove: boolean };
+
+function PlaceMedia({ place, permissions }: { place: PlaceSummary; permissions?: PlaceMediaPermissions }) {
   return (
     <div className='grid gap-4 sm:grid-cols-2'>
       {[
-        { label: 'Logo', url: place.logoUrl, className: 'aspect-square max-w-48' },
-        { label: 'Cover', url: place.coverUrl, className: 'aspect-video' },
+        { label: 'Logo', url: place.logoUrl, target: MEDIA_TARGET.PLACE_LOGO, className: 'aspect-square max-w-48' },
+        { label: 'Cover', url: place.coverUrl, target: MEDIA_TARGET.PLACE_COVER, className: 'aspect-video' },
       ].map((media) => (
         <div key={media.label} className='space-y-2'>
           <p className='text-sm font-medium'>{media.label}</p>
-          {media.url ? (
+          {permissions && (permissions.canUpload || permissions.canRemove) ? (
+            <MediaManagementPanel
+              key={`${media.target}-${media.url ?? 'empty'}`}
+              target={{ target: media.target, placeId: place.id }}
+              label={media.label}
+              currentImageUrl={media.url}
+              canUpload={permissions.canUpload}
+              canRemove={permissions.canRemove}
+            />
+          ) : media.url ? (
             <img
               src={media.url}
               alt={`${place.name} ${media.label.toLowerCase()}`}
@@ -243,7 +256,15 @@ function PlaceAvailabilityControls({ place, canPublish, canManageOrdering }: Pla
   );
 }
 
-function PlaceOverview({ place, availability }: { place: PlaceSummary; availability?: React.ReactNode }) {
+function PlaceOverview({
+  place,
+  availability,
+  mediaPermissions,
+}: {
+  place: PlaceSummary;
+  availability?: React.ReactNode;
+  mediaPermissions?: PlaceMediaPermissions;
+}) {
   return (
     <div className='grid gap-5 xl:grid-cols-2'>
       <SectionCard title='Profile' description='Identity and customer-facing description.'>
@@ -279,7 +300,7 @@ function PlaceOverview({ place, availability }: { place: PlaceSummary; availabil
       </SectionCard>
 
       <SectionCard title='Media' description='Current active place imagery.' className='xl:col-span-2'>
-        <PlaceMedia place={place} />
+        <PlaceMedia place={place} permissions={mediaPermissions} />
       </SectionCard>
 
       <SectionCard title='Record information' className='xl:col-span-2'>
@@ -582,6 +603,10 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
   const place = query.data;
   const canEdit = canAtPlace(ability, place.id, PERMISSION.PLACE_UPDATE);
   const canPublish = canAtPlace(ability, place.id, PERMISSION.PLACE_PUBLISH);
+  const mediaPermissions = {
+    canUpload: canAtPlace(ability, place.id, PERMISSION.MEDIA_UPLOAD),
+    canRemove: canAtPlace(ability, place.id, PERMISSION.MEDIA_DELETE),
+  };
   const diningTablePermissions = {
     canCreate: canAtPlace(ability, place.id, PERMISSION.TABLE_CREATE),
     canUpdate: canAtPlace(ability, place.id, PERMISSION.TABLE_UPDATE),
@@ -642,6 +667,7 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
       ) : (
         <PlaceOverview
           place={place}
+          mediaPermissions={mediaPermissions}
           availability={<PlaceAvailabilityControls place={place} canPublish={canPublish} canManageOrdering={canEdit} />}
         />
       )}
