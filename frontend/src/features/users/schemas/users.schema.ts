@@ -47,3 +47,5 @@ export const normalizeUserListParams = (params: UserListParams): NormalizedUserL
     sortOrder: parsed.sortOrder,
   };
 };
+
+export const platformRoleUpdateSchema = z.object({ platformRole: z.enum(PlatformRole) }).strict();
