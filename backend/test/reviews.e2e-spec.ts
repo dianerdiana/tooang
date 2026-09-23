@@ -194,6 +194,27 @@ describeDatabase('Reviews API (PostgreSQL E2E)', () => {
     expect(restored.body).toMatchObject({ data: { review: { reviewId, rating: 3 } } });
 
     await request(server)
+      .get('/api/v1/place-reviews')
+      .auth(userToken, { type: 'bearer' })
+      .expect(403);
+    const moderationList = await request(server)
+      .get(`/api/v1/place-reviews?placeId=${placeId}`)
+      .auth(adminToken, { type: 'bearer' })
+      .expect(200);
+    expect(moderationList.body).toMatchObject({
+      data: {
+        reviews: [
+          {
+            reviewId,
+            reviewer: { fullName: 'Review Customer' },
+            place: { placeId, name: 'Review Cafe' },
+          },
+        ],
+      },
+      meta: { page: 1, limit: 20 },
+    });
+
+    await request(server)
       .post(`/api/v1/places/${placeId}/reviews`)
       .set('Authorization', `Bearer ${userToken}`)
       .send({ orderId: secondOrderId, rating: 5 })
@@ -215,6 +236,23 @@ describeDatabase('Reviews API (PostgreSQL E2E)', () => {
       .expect(201);
     const reviewId = (created.body as { data: { review: { reviewId: string } } }).data.review
       .reviewId;
+
+    const moderationList = await request(server)
+      .get(`/api/v1/menu-item-reviews?placeId=${placeId}&menuItemId=${menuItemId}`)
+      .auth(adminToken, { type: 'bearer' })
+      .expect(200);
+    expect(moderationList.body).toMatchObject({
+      data: {
+        reviews: [
+          {
+            reviewId,
+            place: { placeId, name: 'Review Cafe' },
+            menuItem: { menuItemId, name: 'Reviewed item' },
+          },
+        ],
+      },
+      meta: { totalItems: 1 },
+    });
 
     await request(server)
       .delete(`/api/v1/menu-item-reviews/${reviewId}`)
