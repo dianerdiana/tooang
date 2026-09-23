@@ -7,7 +7,7 @@ import { PlatformRole } from '@/types/enums/user-role.enum';
 
 import type { UserSummary } from '../types/users.type';
 
-import { deactivationErrorMessage, UserCards, UsersTable } from './user-management-page';
+import { deactivationErrorMessage, platformRoleErrorMessage, UserCards, UsersTable } from './user-management-page';
 
 const user = (platformRole: PlatformRole): UserSummary => ({
   userId: `usr_${platformRole.toLowerCase()}`,
@@ -24,6 +24,8 @@ const collectionProps = {
   failedUserId: undefined,
   mutationError: undefined,
   onDeactivate: () => undefined,
+  canManagePlatformRole: false,
+  onUpdateRole: () => undefined,
 };
 
 describe('user management collections', () => {
@@ -47,6 +49,21 @@ describe('user management collections', () => {
     expect(cards.match(/Deactivate/g)?.length).toBe(3);
   });
 
+  it('shows platform-role controls only when the specific permission visibility allows it', () => {
+    const hidden = renderToStaticMarkup(
+      <UsersTable {...collectionProps} canDeactivate={false} canManagePlatformRole={false} />,
+    );
+    const visible = renderToStaticMarkup(
+      <UsersTable {...collectionProps} canDeactivate={false} canManagePlatformRole />,
+    );
+
+    expect(hidden).not.toContain('Change platform role for');
+    expect(visible.match(/Change platform role for/g)?.length).toBe(3);
+    expect(visible).toContain('User');
+    expect(visible).toContain('Admin');
+    expect(visible).toContain('Super admin');
+  });
+
   it('preserves backend invariant messages for forbidden and conflict responses', () => {
     const error = (httpStatus: number, message: string): ApplicationError => ({
       error: true,
@@ -61,6 +78,9 @@ describe('user management collections', () => {
     );
     expect(deactivationErrorMessage(error(409, 'The last active SUPER_ADMIN cannot be deactivated'))).toBe(
       'The last active SUPER_ADMIN cannot be deactivated',
+    );
+    expect(platformRoleErrorMessage(error(409, 'The last active SUPER_ADMIN cannot be changed'))).toBe(
+      'The last active SUPER_ADMIN cannot be changed',
     );
   });
 });

@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpDownIcon, SearchIcon, UsersIcon, UserXIcon, XIcon } from 'lucide-react';
+import { ArrowUpDownIcon, SearchIcon, ShieldIcon, UsersIcon, UserXIcon, XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PageHeader } from '@/components/layouts/page-header';
@@ -22,7 +22,7 @@ import { usePermissions } from '@/utils/hooks/use-permissions';
 import { PlatformRole } from '@/types/enums/user-role.enum';
 import { PERMISSION } from '@/types/permission.type';
 
-import { useDeactivateUserMutation } from '../queries/users.mutation';
+import { useDeactivateUserMutation, useUpdatePlatformRoleMutation } from '../queries/users.mutation';
 import { usersQueryOptions } from '../queries/users.query';
 import {
   type NormalizedUserListParams,
@@ -41,10 +41,15 @@ type UserManagementPageProps = {
 type UserCollectionProps = {
   users: UserSummary[];
   canDeactivate: boolean;
+  canManagePlatformRole: boolean;
   pendingUserId?: string;
   failedUserId?: string;
   mutationError?: unknown;
+  pendingRoleUserId?: string;
+  failedRoleUserId?: string;
+  roleMutationError?: unknown;
   onDeactivate: (user: UserSummary) => void;
+  onUpdateRole: (user: UserSummary, platformRole: PlatformRole) => void;
 };
 
 const rolePresentation: Record<PlatformRole, { label: string; tone: StatusBadgeTone }> = {
@@ -68,6 +73,14 @@ const deactivationErrorMessage = (error: unknown) => {
   if (error.httpStatus === 404) return 'This active user no longer exists. Refresh the list and try again.';
   if (error.isNetworkError) return 'Could not reach the server. Check your connection and try again.';
   return error.message || 'Unable to deactivate this account. Please try again.';
+};
+
+const platformRoleErrorMessage = (error: unknown) => {
+  if (!isApplicationError(error)) return 'Unable to update this platform role. Please try again.';
+  if (error.httpStatus === 400 || error.httpStatus === 403 || error.httpStatus === 409) return error.message;
+  if (error.httpStatus === 404) return 'This active user no longer exists. Refresh the list and try again.';
+  if (error.isNetworkError) return 'Could not reach the server. Check your connection and try again.';
+  return error.message || 'Unable to update this platform role. Please try again.';
 };
 
 function PlatformRoleBadge({ role }: { role: PlatformRole }) {
@@ -111,13 +124,74 @@ function DeactivateUserAction({
   );
 }
 
+function PlatformRoleAction({
+  user,
+  isPending,
+  error,
+  onUpdateRole,
+}: {
+  user: UserSummary;
+  isPending: boolean;
+  error?: unknown;
+  onUpdateRole: (user: UserSummary, platformRole: PlatformRole) => void;
+}) {
+  const [requestedRole, setRequestedRole] = useState<PlatformRole>();
+  const requestedPresentation = requestedRole ? rolePresentation[requestedRole] : undefined;
+
+  return (
+    <div className='space-y-2'>
+      <Select
+        value={user.platformRole}
+        disabled={isPending}
+        onValueChange={(value) => {
+          const role = value as PlatformRole;
+          if (role !== user.platformRole) setRequestedRole(role);
+        }}
+      >
+        <SelectTrigger className='w-40' aria-label={`Change platform role for ${user.fullName}`}>
+          <ShieldIcon aria-hidden />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.values(PlatformRole).map((role) => (
+            <SelectItem key={role} value={role}>
+              {rolePresentation[role].label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <ConfirmDialog
+        open={requestedRole !== undefined}
+        onOpenChange={(open) => {
+          if (!open && !isPending) setRequestedRole(undefined);
+        }}
+        title={`Change ${user.fullName}'s platform role?`}
+        description={`Change ${user.email} from ${rolePresentation[user.platformRole].label} to ${requestedPresentation?.label ?? ''}. The backend will verify platform security invariants.`}
+        confirmLabel='Change platform role'
+        isPending={isPending}
+        onConfirm={() => requestedRole && onUpdateRole(user, requestedRole)}
+      />
+      {error !== undefined && (
+        <p role='alert' className='max-w-72 text-sm text-destructive'>
+          {platformRoleErrorMessage(error)}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function UserCards({
   users,
   canDeactivate,
+  canManagePlatformRole,
   pendingUserId,
   failedUserId,
   mutationError,
+  pendingRoleUserId,
+  failedRoleUserId,
+  roleMutationError,
   onDeactivate,
+  onUpdateRole,
 }: UserCollectionProps) {
   return (
     <div className='space-y-3 md:hidden' aria-label='Users'>
@@ -140,13 +214,25 @@ function UserCards({
               <time dateTime={user.updatedAt}>{formatDateTime(user.updatedAt)}</time>
             </dd>
           </dl>
-          {canDeactivate && (
-            <DeactivateUserAction
-              user={user}
-              isPending={pendingUserId === user.userId}
-              error={failedUserId === user.userId ? mutationError : undefined}
-              onDeactivate={onDeactivate}
-            />
+          {(canManagePlatformRole || canDeactivate) && (
+            <div className='space-y-3'>
+              {canManagePlatformRole && (
+                <PlatformRoleAction
+                  user={user}
+                  isPending={pendingRoleUserId === user.userId}
+                  error={failedRoleUserId === user.userId ? roleMutationError : undefined}
+                  onUpdateRole={onUpdateRole}
+                />
+              )}
+              {canDeactivate && (
+                <DeactivateUserAction
+                  user={user}
+                  isPending={pendingUserId === user.userId}
+                  error={failedUserId === user.userId ? mutationError : undefined}
+                  onDeactivate={onDeactivate}
+                />
+              )}
+            </div>
           )}
         </article>
       ))}
@@ -157,10 +243,15 @@ function UserCards({
 function UsersTable({
   users,
   canDeactivate,
+  canManagePlatformRole,
   pendingUserId,
   failedUserId,
   mutationError,
+  pendingRoleUserId,
+  failedRoleUserId,
+  roleMutationError,
   onDeactivate,
+  onUpdateRole,
 }: UserCollectionProps) {
   return (
     <div className='hidden overflow-hidden rounded-surface border bg-table shadow-xs md:block'>
@@ -171,7 +262,7 @@ function UsersTable({
             <TableHead>Role</TableHead>
             <TableHead>Created</TableHead>
             <TableHead>Updated</TableHead>
-            {canDeactivate && <TableHead>Actions</TableHead>}
+            {(canManagePlatformRole || canDeactivate) && <TableHead>Actions</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -191,14 +282,26 @@ function UsersTable({
               <TableCell>
                 <time dateTime={user.updatedAt}>{formatDateTime(user.updatedAt)}</time>
               </TableCell>
-              {canDeactivate && (
+              {(canManagePlatformRole || canDeactivate) && (
                 <TableCell>
-                  <DeactivateUserAction
-                    user={user}
-                    isPending={pendingUserId === user.userId}
-                    error={failedUserId === user.userId ? mutationError : undefined}
-                    onDeactivate={onDeactivate}
-                  />
+                  <div className='space-y-3'>
+                    {canManagePlatformRole && (
+                      <PlatformRoleAction
+                        user={user}
+                        isPending={pendingRoleUserId === user.userId}
+                        error={failedRoleUserId === user.userId ? roleMutationError : undefined}
+                        onUpdateRole={onUpdateRole}
+                      />
+                    )}
+                    {canDeactivate && (
+                      <DeactivateUserAction
+                        user={user}
+                        isPending={pendingUserId === user.userId}
+                        error={failedUserId === user.userId ? mutationError : undefined}
+                        onDeactivate={onDeactivate}
+                      />
+                    )}
+                  </div>
                 </TableCell>
               )}
             </TableRow>
@@ -222,10 +325,13 @@ function UsersLoading() {
 function UserManagementPage({ filters, onFiltersChange }: UserManagementPageProps) {
   const [search, setSearch] = useState(filters.search ?? '');
   const [mutationUserId, setMutationUserId] = useState<string>();
+  const [roleMutationUserId, setRoleMutationUserId] = useState<string>();
   const usersQuery = useQuery(usersQueryOptions(filters));
   const deactivateMutation = useDeactivateUserMutation();
+  const roleMutation = useUpdatePlatformRoleMutation();
   const { can } = usePermissions();
   const canDeactivate = can(PERMISSION.USER_DEACTIVATE);
+  const canManagePlatformRole = can(PERMISSION.PLATFORM_ROLE_UPDATE);
   const hasFilters = Boolean(filters.search || filters.platformRole);
 
   const updateFilters = (next: Partial<NormalizedUserListParams>) =>
@@ -257,6 +363,17 @@ function UserManagementPage({ filters, onFiltersChange }: UserManagementPageProp
     }
   };
 
+  const updatePlatformRole = async (user: UserSummary, platformRole: PlatformRole) => {
+    setRoleMutationUserId(user.userId);
+    try {
+      await roleMutation.mutateAsync({ userId: user.userId, input: { platformRole } });
+      setRoleMutationUserId(undefined);
+      toast.success(`${user.fullName} is now ${rolePresentation[platformRole].label.toLowerCase()}.`);
+    } catch {
+      // The normalized backend error is rendered beside the affected user.
+    }
+  };
+
   const errorDescription = isApplicationError(usersQuery.error)
     ? usersQuery.error.message
     : 'We could not load platform users. Please try again.';
@@ -268,10 +385,15 @@ function UserManagementPage({ filters, onFiltersChange }: UserManagementPageProp
   const collectionProps: UserCollectionProps = {
     users,
     canDeactivate,
+    canManagePlatformRole,
     pendingUserId: deactivateMutation.isPending ? mutationUserId : undefined,
     failedUserId: deactivateMutation.isError ? mutationUserId : undefined,
     mutationError: deactivateMutation.error,
+    pendingRoleUserId: roleMutation.isPending ? roleMutationUserId : undefined,
+    failedRoleUserId: roleMutation.isError ? roleMutationUserId : undefined,
+    roleMutationError: roleMutation.error,
     onDeactivate: (user) => void deactivate(user),
+    onUpdateRole: (user, role) => void updatePlatformRole(user, role),
   };
 
   return (
@@ -407,7 +529,7 @@ function UserManagementPage({ filters, onFiltersChange }: UserManagementPageProp
             pageSize={filters.limit}
             totalItems={totalItems}
             totalPages={totalPages}
-            disabled={usersQuery.isFetching || deactivateMutation.isPending}
+            disabled={usersQuery.isFetching || deactivateMutation.isPending || roleMutation.isPending}
             onPageChange={(page) => updateFilters({ page })}
             onPageSizeChange={(limit) => onFiltersChange({ ...filters, page: 1, limit })}
           />
@@ -424,6 +546,7 @@ function UserManagementPage({ filters, onFiltersChange }: UserManagementPageProp
 export {
   deactivationErrorMessage,
   PlatformRoleBadge,
+  platformRoleErrorMessage,
   UserCards,
   UserManagementPage,
   type UserManagementPageProps,
