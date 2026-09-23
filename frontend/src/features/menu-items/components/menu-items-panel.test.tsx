@@ -4,9 +4,11 @@ import { describe, expect, it } from 'vitest';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+import type { MenuItem } from '../types/menu-items.type';
+
 import { ItemDetail } from './menu-items-panel';
 
-const item = {
+const item: MenuItem = {
   menuItemId: 'item-1',
   placeId: 'place-1',
   categoryId: '123e4567-e89b-12d3-a456-426614174000',
@@ -32,14 +34,27 @@ const categories = [
   },
 ];
 
-const renderDetail = (permissions: { canCreate: boolean; canUpdate: boolean; canDelete: boolean }) =>
+const renderDetail = (
+  permissions: {
+    canCreate: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
+    canUploadMedia?: boolean;
+    canDeleteMedia?: boolean;
+  },
+  currentItem = item,
+) =>
   renderToStaticMarkup(
     <QueryClientProvider client={new QueryClient()}>
       <ItemDetail
         placeId='place-1'
-        item={item}
+        item={currentItem}
         categories={categories}
-        permissions={permissions}
+        permissions={{
+          ...permissions,
+          canUploadMedia: permissions.canUploadMedia ?? false,
+          canDeleteMedia: permissions.canDeleteMedia ?? false,
+        }}
         onDeleted={() => undefined}
       />
     </QueryClientProvider>,
@@ -64,5 +79,15 @@ describe('menu-item controls', () => {
     expect(readOnly).not.toContain('Delete menu item');
     expect(deleteOnly).toContain('Delete');
     expect(deleteOnly).not.toContain('Save changes');
+  });
+
+  it('keeps existing-item media lifecycle independent from menu field permissions', () => {
+    const markup = renderDetail(
+      { canCreate: false, canUpdate: false, canDelete: false, canUploadMedia: true, canDeleteMedia: true },
+      { ...item, imageUrl: 'https://ik/item.webp' },
+    );
+    expect(markup).not.toContain('Save changes');
+    expect(markup).toContain('Replace menu item image');
+    expect(markup).toContain('Remove menu item image');
   });
 });

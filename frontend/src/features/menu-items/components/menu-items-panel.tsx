@@ -19,6 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/ui/status-badge';
 
+import { MediaManagementPanel } from '@/features/media/components/media-management-panel';
+import { MEDIA_TARGET } from '@/features/media/types/media.type';
 import { allMenuCategoriesQueryOptions } from '@/features/menu-categories/queries/menu-categories.query';
 import type { MenuCategory } from '@/features/menu-categories/types/menu-categories.type';
 
@@ -47,7 +49,13 @@ import type {
   NormalizedMenuItemListParams,
 } from '../types/menu-items.type';
 
-export type MenuItemPermissions = { canCreate: boolean; canUpdate: boolean; canDelete: boolean };
+export type MenuItemPermissions = {
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  canUploadMedia: boolean;
+  canDeleteMedia: boolean;
+};
 type AvailabilityFilter = 'ALL' | 'AVAILABLE' | 'UNAVAILABLE';
 type TypeFilter = 'ALL' | MenuItemType;
 
@@ -418,6 +426,17 @@ export function ItemDetail({
         formError={formError}
         onChange={() => setFormError(undefined)}
       />
+      <div className='space-y-2 border-t pt-5'>
+        <h3 className='text-sm font-semibold'>Item image</h3>
+        <MediaManagementPanel
+          key={item.imageUrl ?? 'empty-image'}
+          target={{ target: MEDIA_TARGET.MENU_ITEM_IMAGE, placeId, menuItemId: item.menuItemId }}
+          label='Menu item image'
+          currentImageUrl={item.imageUrl}
+          canUpload={permissions.canUploadMedia}
+          canRemove={permissions.canDeleteMedia}
+        />
+      </div>
       <div className='space-y-1 border-t pt-4 text-xs text-muted-foreground'>
         <p>Menu item ID</p>
         <p className='break-all font-mono'>{item.menuItemId}</p>
