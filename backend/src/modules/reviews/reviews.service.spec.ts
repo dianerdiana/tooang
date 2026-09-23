@@ -41,6 +41,12 @@ function setup(overrides: Record<string, unknown> = {}) {
       .mockResolvedValue({ id: review.id }),
     moderatePlaceReview: jest.fn<() => Promise<unknown>>().mockResolvedValue({ count: 1 }),
     moderateMenuItemReview: jest.fn<() => Promise<unknown>>().mockResolvedValue({ count: 1 }),
+    listPlaceReviewsForModeration: jest
+      .fn<() => Promise<unknown>>()
+      .mockResolvedValue({ reviews: [], totalItems: 0 }),
+    listMenuItemReviewsForModeration: jest
+      .fn<() => Promise<unknown>>()
+      .mockResolvedValue({ reviews: [], totalItems: 0 }),
     ...overrides,
   };
   const prisma = { $transaction: jest.fn((callback: (tx: object) => unknown) => callback({})) };
@@ -53,6 +59,61 @@ function setup(overrides: Record<string, unknown> = {}) {
 }
 
 describe('ReviewsService', () => {
+  it('returns safe contextual place reviews for moderation', async () => {
+    const contextualReview = {
+      ...review,
+      place: { id: 'place-id', name: 'Review Cafe' },
+    };
+    const { service, repository } = setup({
+      listPlaceReviewsForModeration: jest
+        .fn<() => Promise<unknown>>()
+        .mockResolvedValue({ reviews: [contextualReview], totalItems: 21 }),
+    });
+
+    await expect(service.listPlaceReviewsForModeration({ page: 2, limit: 20 })).resolves.toEqual({
+      reviews: [
+        expect.objectContaining({
+          reviewId: review.id,
+          reviewer: review.user,
+          place: { placeId: 'place-id', name: 'Review Cafe' },
+        }),
+      ],
+      meta: { page: 2, limit: 20, totalItems: 21, totalPages: 2 },
+    });
+    expect(repository.listPlaceReviewsForModeration).toHaveBeenCalledWith(2, 20, undefined);
+  });
+
+  it('returns safe place and menu context for menu-item moderation', async () => {
+    const contextualReview = {
+      ...review,
+      menuItem: {
+        id: 'item-id',
+        name: 'Reviewed item',
+        place: { id: 'place-id', name: 'Review Cafe' },
+      },
+    };
+    const { service, repository } = setup({
+      listMenuItemReviewsForModeration: jest
+        .fn<() => Promise<unknown>>()
+        .mockResolvedValue({ reviews: [contextualReview], totalItems: 1 }),
+    });
+
+    const result = await service.listMenuItemReviewsForModeration({
+      page: 1,
+      limit: 20,
+      placeId: 'place-id',
+      menuItemId: 'item-id',
+    });
+    expect(result.reviews[0]).toMatchObject({
+      place: { placeId: 'place-id', name: 'Review Cafe' },
+      menuItem: { menuItemId: 'item-id', name: 'Reviewed item' },
+    });
+    expect(repository.listMenuItemReviewsForModeration).toHaveBeenCalledWith(1, 20, {
+      placeId: 'place-id',
+      menuItemId: 'item-id',
+    });
+  });
+
   it('creates a place review from an owned completed order', async () => {
     const { service, repository } = setup();
     const result = await service.createPlaceReview(actor, 'place-id', {

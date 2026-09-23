@@ -15,17 +15,31 @@ import { AuditService } from '@/modules/audit/audit.service';
 import { PrismaService } from '../../lib';
 
 import {
+  MENU_ITEM_REVIEW_MODERATION_SELECT,
   MENU_ITEM_REVIEW_SELECT,
+  PLACE_REVIEW_MODERATION_SELECT,
   PLACE_REVIEW_SELECT,
   ReviewsRepository,
 } from './reviews.repository';
-import type { CreateReviewInput, ReviewListInput, UpdateReviewInput } from './reviews.schema';
+import type {
+  CreateReviewInput,
+  MenuItemReviewModerationListInput,
+  PlaceReviewModerationListInput,
+  ReviewListInput,
+  UpdateReviewInput,
+} from './reviews.schema';
 
 type PlaceReviewRow = Prisma.PlaceReviewGetPayload<{ select: typeof PLACE_REVIEW_SELECT }>;
 type MenuItemReviewRow = Prisma.MenuItemReviewGetPayload<{
   select: typeof MENU_ITEM_REVIEW_SELECT;
 }>;
 type ReviewRow = PlaceReviewRow | MenuItemReviewRow;
+type PlaceModerationRow = Prisma.PlaceReviewGetPayload<{
+  select: typeof PLACE_REVIEW_MODERATION_SELECT;
+}>;
+type MenuItemModerationRow = Prisma.MenuItemReviewGetPayload<{
+  select: typeof MENU_ITEM_REVIEW_MODERATION_SELECT;
+}>;
 
 @Injectable()
 export class ReviewsService {
@@ -226,6 +240,29 @@ export class ReviewsService {
     return this.listResponse(result, input);
   }
 
+  async listPlaceReviewsForModeration(input: PlaceReviewModerationListInput) {
+    const result = await this.repository.listPlaceReviewsForModeration(
+      input.page,
+      input.limit,
+      input.placeId,
+    );
+    return {
+      reviews: result.reviews.map(placeModerationReviewResponse),
+      meta: paginationMeta(input, result.totalItems),
+    };
+  }
+
+  async listMenuItemReviewsForModeration(input: MenuItemReviewModerationListInput) {
+    const result = await this.repository.listMenuItemReviewsForModeration(input.page, input.limit, {
+      placeId: input.placeId,
+      menuItemId: input.menuItemId,
+    });
+    return {
+      reviews: result.reviews.map(menuItemModerationReviewResponse),
+      meta: paginationMeta(input, result.totalItems),
+    };
+  }
+
   moderatePlaceReview(actor: AuthenticatedActor, reviewId: string) {
     return this.moderate(actor, reviewId, 'PlaceReview');
   }
@@ -330,6 +367,40 @@ export function reviewResponse(review: ReviewRow) {
     rating: review.rating,
     comment: review.comment,
     reviewer: review.user,
+    createdAt: review.createdAt.toISOString(),
+    updatedAt: review.updatedAt.toISOString(),
+  };
+}
+
+function paginationMeta(input: { page: number; limit: number }, totalItems: number) {
+  return {
+    page: input.page,
+    limit: input.limit,
+    totalItems,
+    totalPages: Math.ceil(totalItems / input.limit),
+  };
+}
+
+export function placeModerationReviewResponse(review: PlaceModerationRow) {
+  return {
+    reviewId: review.id,
+    rating: review.rating,
+    comment: review.comment,
+    reviewer: review.user,
+    place: { placeId: review.place.id, name: review.place.name },
+    createdAt: review.createdAt.toISOString(),
+    updatedAt: review.updatedAt.toISOString(),
+  };
+}
+
+export function menuItemModerationReviewResponse(review: MenuItemModerationRow) {
+  return {
+    reviewId: review.id,
+    rating: review.rating,
+    comment: review.comment,
+    reviewer: review.user,
+    place: { placeId: review.menuItem.place.id, name: review.menuItem.place.name },
+    menuItem: { menuItemId: review.menuItem.id, name: review.menuItem.name },
     createdAt: review.createdAt.toISOString(),
     updatedAt: review.updatedAt.toISOString(),
   };
