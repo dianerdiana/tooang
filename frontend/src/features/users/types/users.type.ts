@@ -51,3 +51,7 @@ export type UserDeactivationResult = {
   userId: string;
   deletedAt: string;
 };
+
+export type PlatformRoleUpdateInput = {
+  platformRole: PlatformRole;
+};
