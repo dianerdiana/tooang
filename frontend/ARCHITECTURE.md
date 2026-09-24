@@ -1,383 +1,177 @@
-# Frontend Architecture
+# Arsitektur Frontend Tooang
 
-Dokumen ini menjelaskan arsitektur teknis aplikasi frontend secara lengkap dan praktis, agar tim bisa mengembangkan fitur baru dengan konsisten, scalable, dan aman.
+Dokumen ini menjelaskan implementasi frontend Tooang yang berjalan saat ini. Backend dalam repository yang sama adalah sumber kebenaran untuk kontrak HTTP, invariants domain, dan otorisasi resource.
 
-## 1. Tujuan Arsitektur
+## 1. Ringkasan
 
-- Menjaga pemisahan concern antara UI, domain, state, dan akses API.
-- Memastikan alur autentikasi, otorisasi, dan routing tetap konsisten.
-- Mempermudah onboarding developer baru.
-- Menjadi acuan implementasi fitur dan refactor jangka panjang.
+Frontend dibangun dengan React 19, TypeScript, Vite, TanStack Router, TanStack Query, TanStack Form, Zod, CASL, Axios, Tailwind CSS v4, Radix UI, dan Vitest.
 
-## 2. Ringkasan Teknologi
+Prinsip utamanya:
 
-### Core
+- kode domain dikelompokkan secara feature-oriented;
+- route menyusun halaman, layout, dan guard, sedangkan feature menangani UI dan use case domain;
+- TanStack Query menjadi sumber kebenaran server state;
+- semua request backend melewati service feature dan shared JWT transport;
+- permission yang dikirim backend membentuk kemampuan CASL dan visibilitas UI;
+- backend tetap menjadi boundary otorisasi final;
+- loading, empty, error, mutation feedback, dan recovery memakai komponen bersama.
 
-- React 19 + TypeScript
-- Vite
-- TanStack Router (file-based route)
-- TanStack Query
-- Axios (wrapper JWT service)
-
-### UI dan Styling
-
-- Tailwind CSS v4
-- Base UI, Radix UI, custom UI components
-- Lucide icons
-- Sonner untuk toast
-
-### Form dan Validation
-
-- TanStack Form
-- Zod
-
-### Authorization
-
-- CASL (`@casl/ability`, `@casl/react`)
-
-### Tooling
-
-- ESLint + Prettier
-- Vitest
-
-## 3. Prinsip Arsitektur
-
-- Feature-oriented: domain utama dipisah per modul (`features/auth`, `features/users`, dll).
-- Route-driven composition: layout dan akses halaman ditentukan dari route tree TanStack.
-- Single source of truth untuk data server: TanStack Query.
-- Boundary jelas untuk API: semua request lewat JWT service (`configs/auth/jwt-service.ts`).
-- Defense-in-depth untuk akses: route guard + permission metadata (CASL), dengan backend sebagai boundary otorisasi.
-
-## 4. Struktur Direktori dan Tanggung Jawab
+## 2. Struktur dan Aliran Dependensi
 
 ```text
 src/
-	components/          # Reusable UI dan shared view components
-	configs/             # Konfigurasi global (env, api, auth, acl, theme)
-	integrations/        # Integrasi library eksternal (tanstack-query, devtools)
-	features/             # Business features per domain
-	routes/              # File-based routes dan layout routes
-	types/               # Shared type definitions
-	utils/               # Utility, hooks, context, helpers
-	main.tsx             # Bootstrap app
-	router.ts            # Router context dan createRouter
-	routeTree.gen.ts     # Auto-generated route tree
-	styles.css           # Global styles + design tokens
+  components/       shared UI, form, layout, dan application states
+  configs/          environment, API, auth, dan dashboard navigation
+  features/         domain components, query, mutation, schema, service, type
+  integrations/     adapter TanStack Query dan integrasi eksternal
+  routes/           file-based routes, layout, guard, dan route composition
+  types/            tipe dan enum lintas feature
+  utils/            context, hook, auth helpers, serta normalisasi API/error
+  main.tsx           bootstrap provider dan router
+  router.ts          router context
+  routeTree.gen.ts   route tree yang digenerate; jangan diedit manual
+  styles.css         semantic design tokens dan global styles
 ```
 
-Penjelasan layer:
-
-- `configs/`: hanya untuk konfigurasi, tidak menyimpan business logic page-level.
-- `integrations/`: adapter ke library pihak ketiga, sehingga implementasi mudah diganti.
-- `features/`: tempat use case domain (query key, schema, service, ui domain).
-- `routes/`: orchestrator halaman, layout, dan proteksi akses.
-- `components/`: shared visual building blocks lintas modul.
-- `utils/`: utilitas generik, context global, hooks reusable.
-
-## 5. Arsitektur Runtime (Bootstrap)
-
-Alur startup dari `main.tsx`:
-
-1. Membuat root React.
-2. Mendaftarkan provider global:
-   - `AbilityProvider` (CASL)
-   - `ThemeProvider`
-   - `TanstackQueryProvider`
-   - `AuthContextProvider`
-3. Menjalankan `AppRouter`.
-4. `AppRouter` membaca auth state (`useAuth`) dan ability (`useAppAbility`).
-5. Saat state auth berubah, router di-invalidasi agar guard dan data route re-evaluate.
-6. Jika initial auth check belum selesai, tampilkan `FallbackSpinner` fullscreen.
-7. Setelah siap, render `RouterProvider` dengan `context`:
-   - `queryClient`
-   - `auth`
-   - `ability`
-
-Diagram runtime:
-
-```mermaid
-flowchart TD
-	A[main.tsx] --> B[AbilityProvider]
-	B --> C[ThemeProvider]
-	C --> D[TanstackQueryProvider]
-	D --> E[AuthContextProvider]
-	E --> F[AppRouter]
-	F --> G{isInitialLoading?}
-	G -- yes --> H[FallbackSpinner]
-	G -- no --> I[RouterProvider]
-	I --> J[Route Tree]
-	J --> K[Layouts and Pages]
-```
-
-## 6. Routing Architecture
-
-### 6.1 File-based Route
-
-- Route didefinisikan di `src/routes`.
-- `routeTree.gen.ts` digenerate otomatis oleh TanStack Router plugin.
-- Jangan edit `routeTree.gen.ts` secara manual.
-
-### 6.2 Route Saat Ini
-
-- `/login`: route publik untuk login; user yang sudah authenticated diarahkan ke redirect target yang aman atau `/`.
-- `/`: landing page authenticated dan titik akses logout pertama.
-- `/not-found`: fallback untuk route yang tidak tersedia.
-- `routeTree.gen.ts` selalu dihasilkan oleh plugin TanStack Router.
-
-### 6.3 Route Guard
-
-- `/` menolak sesi unauthenticated dan mengarahkan ke `/login?redirect=/`.
-- Redirect target wajib disanitasi lewat `getSafeRedirectTarget`.
-- Visibility frontend tidak menggantikan otorisasi resource dan tenant di backend.
-
-## 7. Authentication dan Authorization
-
-## 7.1 Authentication Flow
-
-Sumber utama ada di `utils/context/auth-context.tsx`:
-
-1. Saat app load, gunakan access token tersimpan atau coba rotasi refresh cookie melalui `POST /auth/refresh`.
-2. Panggil `GET /me` untuk mengambil profil, platform permissions, dan place memberships terbaru.
-3. Jika sukses:
-   - simpan user authoritative pada auth-session query cache
-4. Jika gagal:
-   - set auth-session cache ke `null`
-   - token dihapus
-
-Login:
-
-- Request ke `POST /auth/login`, simpan `accessToken`, lalu hydrate profil melalui `GET /me`.
-- Form login memakai Zod + TanStack Form dan submit melalui feature mutation hook; component tidak mengakses transport langsung.
-- Setelah login, navigasi memakai redirect target lokal yang sudah disanitasi, dengan fallback `/`.
-- Registrasi melalui `POST /auth/register` tidak membuat sesi login.
-- Simpan profil authoritative ke auth-session query cache; `AuthContext` hanya mengekspos state tersebut.
-
-Logout:
-
-- Panggil `POST /auth/logout`, lalu hapus token, set sesi ke `null`, dan bersihkan query cache lain walaupun request logout gagal.
-- UI kembali ke `/login`; kegagalan server ditampilkan sebagai feedback tanpa mempertahankan data privat lokal.
-
-### 7.2 JWT Service dan Interceptor
-
-`configs/auth/jwt-service.ts` mengelola:
-
-- Attach `Authorization` header otomatis saat token tersedia.
-- Login, register, dan refresh tidak menerima bearer header dan tidak memicu refresh recursive.
-- Kirim refresh cookie HttpOnly secara otomatis dengan `withCredentials`; frontend tidak membaca cookie tersebut.
-- Satu shared refresh promise menangani concurrent `401` melalui `POST /auth/refresh`.
-- Request diulang maksimal satu kali; kegagalan terminal membersihkan sesi lokal.
-
-Tujuan desain ini adalah mencegah infinite loop dan menjaga state auth tetap sinkron.
-
-### 7.3 Authorization dengan CASL
-
-- Ability awal deny-all berasal dari `configs/acl/initial-ability.ts`.
-- Permission platform dan permission membership per `placeId` disimpan dari `GET /me` sebagai metadata.
-- Rule CASL dari metadata user belum dibangun; ability tetap deny-all sampai authorization UI diimplementasikan.
-
-## 8. Data Fetching dan State Management
-
-### 8.1 Server State (TanStack Query)
-
-`integrations/tanstack-query/root-provider.tsx` menetapkan default:
-
-- `queryFn` global menggunakan `api.get`.
-- `staleTime`: 5 menit.
-- `gcTime`: 10 menit.
-- `refetchOnWindowFocus`: `false`.
-- `retry`: 2 kali.
-
-Standar query key:
-
-- Gunakan format array agar mendukung params, contoh: `[endpoint, params]`.
-- Endpoint disarankan konsisten dengan resource API (`/users`, `/auth`, dst).
-
-### 8.2 Client State
-
-- Authenticated user server state: auth-session TanStack Query cache.
-- `AuthContext` mengekspos session query state dan operasi login/register/logout tanpa menduplikasi user state;
-  UI menjalankan operasi login/logout melalui feature mutation hooks.
-- Theme state global: `ThemeProviderContext`.
-- UI state lokal (modal, tabs, form draft) disimpan di component/module masing-masing.
-
-Aturan:
-
-- Jangan menyimpan server response besar ke local component state jika bisa dibaca dari query cache.
-- Gunakan mutation + invalidation untuk menjaga konsistensi data setelah create/update/delete.
-
-## 9. API Boundary dan Error Handling
-
-API boundary berada di:
-
-- `configs/api-config.ts` (instance service)
-- `configs/auth/jwt-service.ts` (transport + auth concerns)
-- `utils/api-response.util.ts` (unwrap response)
-- `utils/api-error.util.ts` (normalisasi error)
-
-Prinsip:
-
-- Axios hanya boleh diimpor oleh JWT transport dan utility normalisasi error; component, route, dan feature
-  menggunakan instance `api`.
-- `ApiSuccessResponse` dan `ApiErrorResponse` merepresentasikan wire contract backend; `ApplicationError`
-  adalah error ternormalisasi yang dikonsumsi Query dan UI.
-- Error API dinormalisasi sebelum dipakai UI, termasuk status HTTP dan kegagalan network.
-- Data sesi authoritative selalu berasal dari `GET /me` dan dipetakan dari response transport ke model
-  `AuthenticatedUser` frontend.
-- Toast/error UI harus menampilkan pesan yang user-friendly, bukan raw stack trace.
-
-## 10. UI System dan Theming
-
-### 10.1 Design Tokens
-
-`styles.css` menyimpan token utama:
-
-- Semantic colors (`--background`, `--foreground`, `--primary`, dst)
-- Custom accent colors
-- Radius, chart tokens, sidebar tokens
-- Variant light/dark
-
-### 10.2 Theme Strategy
-
-- Theme dikontrol via class pada root element (`light`/`dark`).
-- Sebagian public layout secara eksplisit memaksa `light` untuk menjaga konsistensi visual landing/public flow.
-
-### 10.3 Component Strategy
-
-- `components/ui`: primitive reusable (button, tooltip, sidebar, toaster, dsb).
-- `components/forms`: reusable form abstraction.
-- `components/layouts`: shell-level components (brand, nav, user nav).
-- `components/themes`: toggle/theme controls.
-
-## 11. Feature Module Architecture
-
-Modul domain Tooang saat ini:
-
-- `auth`: contract, schema, dan session service tanpa halaman feature.
-- `dashboard`
-- `users`
-- `places`
-- `place-members`
-- `business-hours`
-- `dining-tables`
-- `menus`
-- `orders`
-- `reviews`
-- `media`
-
-Selain `auth`, modul tersebut masih berupa placeholder ter-track dan belum memiliki route, API adapter, atau implementasi feature.
-
-Rekomendasi struktur internal modul (target konsistensi):
+Aliran utama sebuah management feature adalah:
 
 ```text
-features/<feature>/
-	components/     				# UI khusus feature
-	<feature>.api.ts    		# adapter API feature
-	<feature>.key.ts				# queryKey khusus feature
-	<feature>.mutation.ts		# mutationOptions khusus feature
-	<feature>.query.ts			# queryOptions khusus feature
-	<feature>.schema.ts			# zod schemas + dto mapping
-	<feature>.type.ts				# type local feature
+TanStack route
+  -> feature page/component
+  -> query options atau mutation hook
+  -> feature service
+  -> shared api/JwtService
+  -> backend /api/v1
 ```
 
-Aturan dependensi:
+Component dan route tidak memanggil Axios atau backend secara langsung. Pengecualian yang disengaja adalah `features/media/integrations/imagekit-upload.ts`, yang mengunggah file ke URL provider ImageKit dari upload intent backend. Pembuatan dan penyelesaian upload intent tetap melalui service API Tooang.
 
-- Modul boleh menggunakan `components/ui` dan `utils` shared.
-- Modul tidak saling import langsung antar domain jika bisa dihindari.
-- Jika ada kebutuhan lintas modul, disarankan untuk pindahkan ke `components` atau `utils` shared.
+Feature yang telah diimplementasikan mencakup auth, places, place members, business hours, dining tables, menu categories, menu items, media, orders, reviews, dan users. Setiap feature menyimpan artefak domainnya sendiri di subfolder `components`, `queries`, `schemas`, `services`, dan `types` sesuai kebutuhan.
 
-## 12. Security dan Access Control
+## 3. Bootstrap dan Provider
 
-- Access token disimpan di storage key yang dikelola JWT service; refresh token hanya dikelola backend melalui HttpOnly cookie.
-- Router menunggu auth bootstrap selesai sebelum dirender.
-- CASL mengontrol visibilitas menu dan aksi UI berdasarkan metadata backend, bukan role mapping buatan frontend.
+`main.tsx` memasang provider dengan urutan berikut:
 
-Checklist keamanan frontend:
+```text
+StrictMode
+  -> ThemeProvider
+  -> TanstackQueryProvider
+  -> AuthContextProvider
+  -> AppAbilityProvider
+  -> AppRouter
+```
 
-- Validasi input form dengan Zod sebelum submit.
-- Sanitize query params untuk search/filter.
-- Hindari menampilkan data sensitif yang tidak diperlukan UI.
-- Jangan menaruh secret di `VITE_*` env (hanya public config).
+`AuthContextProvider` membutuhkan query client untuk auth-session cache. `AppAbilityProvider` kemudian membangun ability dari authenticated user. `AppRouter` menunggu bootstrap autentikasi selesai, memasukkan `queryClient`, auth state, dan ability ke router context, lalu meng-invalidasi router ketika user atau status autentikasi berubah agar guard dievaluasi ulang.
 
-## 13. Environment Configuration
+Root route memasang tooltip, route loading indicator, toaster, serta devtools pada development. Root `errorComponent` menampilkan application error generik, sedangkan `notFoundComponent` hanya dipakai untuk route yang benar-benar tidak ditemukan.
 
-Konfigurasi saat ini:
+## 4. Routing dan Dashboard
 
-- `VITE_BASE_SERVER_URL` wajib diisi dengan origin backend HTTP(S), misalnya `http://localhost:5000`.
-- Nilai tidak boleh mengandung path `/api` atau `/api/v1`, credentials, query string, atau fragment.
-- Konfigurasi tersebut digunakan untuk:
-  - `baseServerUrl`
-  - `baseApiUrl` (`${baseServerUrl}/api/v1`)
-  - `baseImageUrl`
+TanStack Router menggunakan file-based routing. Route aktif meliputi landing page, login, not-found, dan dashboard berikut:
 
-Praktik yang disarankan:
+- `/dashboard` untuk overview;
+- route place-scoped untuk orders, menu, dining tables, business hours, members, dan settings;
+- route platform-scoped untuk places, place creation/detail, global orders, review moderation, dan users.
 
-- Siapkan `.env.development` dan `.env.production`.
-- Startup berhenti dengan error konfigurasi jika `VITE_BASE_SERVER_URL` hilang atau bukan origin yang valid.
-- Feature mengirim endpoint relatif terhadap API root, misalnya `/me`, `/places`, atau `/auth/login`.
+`routes/dashboard.tsx` adalah layout route yang mempertahankan dashboard shell, navigation, place switcher, provider, dan authenticated session ketika child outlet berubah. Setiap leaf dashboard memasang `DashboardRouteError`; error render pada satu feature mengganti outlet tersebut tanpa menjatuhkan shell. Parent dashboard dan root juga memiliki fallback dengan retry dan navigasi recovery.
 
-## 14. Observability dan Developer Experience
+Direct access diperiksa dalam `beforeLoad`:
 
-- TanStack Devtools aktif di root document untuk debugging route/query.
-- Top loading bar memberi feedback saat perpindahan route/proses async.
-- Toaster terpusat untuk notifikasi global.
+- user tanpa sesi diarahkan ke `/login` dengan redirect lokal yang telah disanitasi;
+- user terautentikasi tanpa management capability diarahkan ke landing page;
+- route place/platform memeriksa permission metadata untuk scope yang sesuai;
+- route yang disembunyikan karena tidak berwenang memakai not-found policy agar keberadaan resource tidak bocor.
 
-Konvensi kualitas:
+## 5. Kontrak API `/api/v1`
 
-- Lint: `npm run lint`
-- Format: `npm run format`
-- Check format: `npm run check`
-- Test: `npm run test`
+`VITE_BASE_SERVER_URL` wajib berupa origin HTTP(S) tanpa path, credentials, query, atau fragment. `configs/env.ts` membentuk `${origin}/api/v1`; seluruh endpoint service harus relatif, misalnya `/me` atau `/places`. `JwtService` menolak URL absolut, protocol-relative, dan path yang kembali menambahkan `/api` agar prefix tidak terduplikasi atau boundary tidak dilewati.
 
-## 15. Build, Release, dan Runtime Target
+Service frontend mengikuti controller backend untuk auth, users, places dan management views, publishing/ordering, members, business hours, dining tables, menus, orders, reviews, dan media. Request/response ditentukan oleh type serta Zod schema feature, kemudian envelope backend dibuka melalui shared response utilities. Error transport dinormalisasi menjadi `ApplicationError` sebelum mencapai Query atau UI.
 
-- Development server: `vite dev --port 3000`
-- Production build: `vite build`
-- Preview artifact: `vite preview`
+Tidak ada endpoint atau field frontend yang boleh dianggap valid hanya karena dibutuhkan UI. Perubahan kontrak harus dimulai dari backend/controller/schema authoritative lalu diselaraskan ke service, mapper, schema, dan test frontend.
 
-Alur release minimal:
+## 6. Siklus Autentikasi
 
-1. Jalankan lint + test + build.
-2. Validasi route penting dan auth flow secara manual.
-3. Deploy static bundle ke hosting target.
-4. Pastikan `VITE_BASE_SERVER_URL` sesuai environment.
+Auth-session disimpan pada TanStack Query key `['auth', 'session']` dengan `staleTime` dan `gcTime` tak terbatas. `AuthContext` mengekspos state dan operasi autentikasi tanpa membuat salinan user state lain.
 
-## 16. Decision Log (Current)
+Bootstrap berjalan sebagai berikut:
 
-- Memakai TanStack Router untuk file-based routing yang typed.
-- Memakai TanStack Query untuk server-state sebagai default data layer.
-- Memakai CASL untuk authorization karena fleksibel terhadap permission granular.
-- Memakai custom JWT service untuk kontrol interceptor dan refresh behavior.
+1. Jika access token lokal tidak tersedia, client memanggil `POST /auth/refresh` menggunakan HttpOnly refresh cookie dan `withCredentials`.
+2. Client memanggil `GET /me` untuk memperoleh user, platform permissions, dan place memberships authoritative.
+3. Keberhasilan mengisi auth-session cache; kegagalan membersihkan access token dan menetapkan sesi lokal menjadi unauthenticated.
 
-## 17. Tech Debt dan Prioritas Peningkatan
+Login memanggil `POST /auth/login`, menyimpan access token, lalu selalu menghidrasi profil melalui `GET /me`. Registrasi tidak otomatis membuat sesi. Logout memanggil `POST /auth/logout` dan, berhasil maupun gagal, menghapus access token, menetapkan auth-session ke `null`, serta menghapus seluruh private query cache lain.
 
-Prioritas tinggi:
+Interceptor menangani `401` dengan satu shared refresh promise sehingga request concurrent tidak membuat beberapa refresh. Login, register, dan refresh dikecualikan dari siklus refresh. Request asli diberi penanda retry dan hanya diulang sekali; `401` berikutnya atau refresh gagal akan mengekspirasi sesi satu kali sehingga tidak terjadi infinite loop.
 
-- Tambahkan permission metadata saat route protected berikutnya dibuat.
-- Standardisasi struktur internal semua modul domain.
-- Tambahkan test untuk auth bootstrap, route guard, dan token refresh path.
+## 7. Otorisasi dan Pemisahan Role
 
-Prioritas menengah:
+`GET /me` memisahkan:
 
-- Tambahkan schema validation untuk env config.
-- Pisahkan API endpoint constants agar query key dan route service lebih konsisten.
-- Tambahkan error boundary tingkat layout untuk recoverability.
+- `platformRole` (`USER`, `ADMIN`, `SUPER_ADMIN`) dan `globalPermissions` untuk capability lintas platform;
+- `placeMemberships`, masing-masing dengan role (`OWNER` atau `CASHIER`), `permissions`, dan `effectivePermissions` untuk satu `placeId`.
 
-Prioritas jangka panjang:
+Role adalah metadata identitas atau payload operasi; role bukan sumber permission frontend. Tidak ada matriks role-to-permission lokal. `createAbilityForUser` membangun rule CASL hanya dari `globalPermissions` serta `effectivePermissions` membership, dengan condition `placeId` untuk permission place-scoped.
 
-- Pertimbangkan code splitting lebih agresif saat feature routes mulai bertambah.
-- Audit aksesibilitas komponen form dan navigasi.
-- Tambahkan monitoring frontend (error tracking + performance metrics).
+Dashboard entry, navigation, route access, dan action visibility membaca permission identifiers yang sama. Platform navigation memakai `globalPermissions`; place navigation dan action memakai permission membership untuk selected place. Backend tetap memvalidasi setiap operasi, termasuk invariants seperti pengelolaan OWNER terakhir.
 
-## 18. Ringkasan Implementasi Praktis
+## 8. Selected Place dan Isolasi Data
 
-Jika menambah fitur baru, ikuti urutan ini:
+Selected place direpresentasikan oleh search parameter `placeId` dan harus cocok dengan membership user. Nilai hilang memilih membership pertama; nilai stale atau tidak dapat diakses dikanonisasi ke membership yang valid. Place switcher mengganti route search dan seluruh route place-scoped menerima `selectedPlace` dari dashboard context.
 
-1. Tambah route dan layout placement yang tepat di `routes/`.
-2. Buat modul domain di `features/<feature>/`.
-3. Tambahkan service/query/mutation berbasis `api` + TanStack Query.
-4. Pasang validasi schema (Zod) untuk input/output penting.
-5. Integrasikan permission CASL untuk menu/aksi yang dibatasi.
-6. Tambah feedback UI (loading, empty, error, success).
-7. Uji lint/test/build sebelum merge.
+Query key place-scoped selalu menyertakan `placeId` sebelum filter atau resource id. Karena itu data place A tidak dipublikasikan di key place B ketika user berpindah context. Query list/detail dibentuk oleh factory per feature; mutation meng-invalidasi collection dan detail yang benar-benar terdampak, menghapus detail resource yang telah dihapus, dan meng-invalidasi auth-session ketika membership atau platform role dapat mengubah capability.
 
-Dokumen ini menjadi baseline arsitektur frontend dan harus diperbarui saat ada perubahan besar pada routing, state model, auth model, atau boundary API.
+## 9. Application States dan Error Recovery
+
+Shared state primitives meliputi `LoadingState`, `TableSkeleton`, `EmptyState`, `ErrorState`, `DataTable`, dan confirmation dialog. Management surfaces mengikuti aturan berikut:
+
+- skeleton struktural hanya untuk initial load; data lama tetap terlihat saat background refetch;
+- koleksi kosong dibedakan dari filtered no-results;
+- kegagalan refetch dengan stale data ditampilkan sebagai warning non-destruktif;
+- mutation mencegah duplicate submit, menunjukkan pending label, dan menjaga destructive confirmation tetap terbuka selama request;
+- operasi berhasil memakai success toast dan destructive failure memakai safe error toast;
+- `403` menawarkan navigation recovery, `404` menyatakan resource tidak tersedia, `409` meminta refresh state authoritative, dan network/5xx menawarkan retry.
+
+`getDashboardErrorPresentation` hanya menghasilkan copy yang dikontrol aplikasi. Raw stack trace, Axios object, provider error, atau internal JavaScript error tidak dirender. Error API yang diharapkan tetap terpisah dari unexpected render error yang ditangani route boundary.
+
+## 10. Design System
+
+`styles.css` mendefinisikan semantic tokens light/dark untuk canvas, surface, typography, brand, feedback, controls, tables, navigation, charts, radius, elevation, dan spacing. Tailwind theme memetakan token tersebut ke utility semantic seperti `bg-background`, `text-muted-foreground`, `border-border`, dan `text-destructive`.
+
+Shared components di `components/ui`, `components/forms`, dan `components/layouts` menjadi sumber konsistensi visual serta accessibility behavior. Feature menggunakan semantic tokens dan component variants, bukan palette warna domain atau nilai warna hard-coded.
+
+## 11. Testing dan Quality Gates
+
+Test Vitest berfokus pada behavior dan mencakup:
+
+- bootstrap auth, login/logout, refresh tunggal, kegagalan refresh, dan pencegahan loop;
+- permission-aware route, navigation, action visibility, serta perpindahan selected place;
+- query key scoping, invalidation/refetch, dan pembersihan private cache;
+- management operations berisiko tinggi beserta success, `403`, `404`, `409`, dan confirmation;
+- shared loading/error/empty states dan dashboard route recovery;
+- schema, service contract, mapper, dan API error normalization.
+
+Quality gates sebelum merge:
+
+```powershell
+npm.cmd run lint
+npm.cmd run check
+npm.cmd run type-check
+npm.cmd run test
+npm.cmd run build
+```
+
+## 12. Aturan Pengembangan
+
+Saat menambah feature:
+
+1. Tambahkan route tipis sebagai composition dan access boundary.
+2. Tempatkan UI serta use case domain di feature terkait.
+3. Definisikan query-key factory yang menyusun root, list, detail, place scope, dan filter secara prediktabel.
+4. Akses backend hanya melalui feature service dan shared API client.
+5. Cocokkan DTO, response, enum, field, dan endpoint dengan backend authoritative.
+6. Gunakan permission metadata backend untuk route, navigation, dan action; jangan membuat role-permission matrix.
+7. Gunakan shared design tokens dan application-state components.
+8. Tambahkan test behavior untuk success, denial, conflict, cache update, dan recovery yang relevan.
+
+Tech debt yang masih wajar dicatat adalah monitoring/error tracking produksi, audit aksesibilitas berkala, dan evaluasi chunking ketika ukuran aplikasi bertambah. Implementasi dashboard, permission metadata, auth lifecycle tests, serta route-level error recovery bukan lagi pekerjaan yang belum tersedia.
