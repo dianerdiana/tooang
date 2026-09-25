@@ -5,6 +5,7 @@ import { Prisma } from '@/generated/prisma/client';
 import { type AuditDbClient, type AuditRecordInput, AuditRepository } from './audit.repository';
 
 export const AUDIT_ACTIONS = [
+  'USER_CREATED',
   'PLATFORM_ROLE_UPDATED',
   'USER_DEACTIVATED',
   'ACCOUNT_DELETION_REQUESTED',
