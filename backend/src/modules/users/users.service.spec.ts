@@ -39,6 +39,56 @@ describe('UsersService', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
+  it('allows ADMIN to create USER with a hashed password and sanitized audit data', async () => {
+    const create = jest.fn(() => Promise.resolve(userRecord()));
+    const repository = { create } as unknown as UsersRepository;
+    const hashing = { hashPassword: jest.fn(() => Promise.resolve('stored-hash')) };
+    const passwordPolicy = { assertAllowed: jest.fn() };
+    const service = new UsersService(
+      repository,
+      audit as never,
+      transactionalPrisma as never,
+      hashing as never,
+      passwordPolicy as never,
+    );
+
+    await service.create(actor(PlatformRole.ADMIN), {
+      fullName: 'Target User',
+      email: 'target@example.com',
+      password: 'unique passphrase',
+      platformRole: PlatformRole.USER,
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ passwordHash: 'stored-hash', platformRole: PlatformRole.USER }),
+      transactionClient,
+    );
+    expect(audit.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'USER_CREATED',
+        afterData: { platformRole: PlatformRole.USER },
+      }),
+      transactionClient,
+    );
+    expect(JSON.stringify(audit.append.mock.calls[0]?.[0])).not.toContain('password');
+  });
+
+  it('prevents ADMIN from creating an elevated platform account', async () => {
+    const service = new UsersService(
+      {} as UsersRepository,
+      audit as never,
+      transactionalPrisma as never,
+    );
+    await expect(
+      service.create(actor(PlatformRole.ADMIN), {
+        fullName: 'Admin',
+        email: 'admin@example.com',
+        password: 'unique passphrase',
+        platformRole: PlatformRole.ADMIN,
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('returns platform and membership permissions for /me', async () => {
     const repository = {
       findMe: jest.fn(() =>

@@ -17,6 +17,8 @@ import { PrismaService } from '../../lib';
 import {
   MENU_ITEM_REVIEW_MODERATION_SELECT,
   MENU_ITEM_REVIEW_SELECT,
+  OWN_MENU_ITEM_REVIEW_SELECT,
+  OWN_PLACE_REVIEW_SELECT,
   PLACE_REVIEW_MODERATION_SELECT,
   PLACE_REVIEW_SELECT,
   ReviewsRepository,
@@ -39,6 +41,10 @@ type PlaceModerationRow = Prisma.PlaceReviewGetPayload<{
 }>;
 type MenuItemModerationRow = Prisma.MenuItemReviewGetPayload<{
   select: typeof MENU_ITEM_REVIEW_MODERATION_SELECT;
+}>;
+type OwnPlaceReviewRow = Prisma.PlaceReviewGetPayload<{ select: typeof OWN_PLACE_REVIEW_SELECT }>;
+type OwnMenuItemReviewRow = Prisma.MenuItemReviewGetPayload<{
+  select: typeof OWN_MENU_ITEM_REVIEW_SELECT;
 }>;
 
 @Injectable()
@@ -240,6 +246,22 @@ export class ReviewsService {
     return this.listResponse(result, input);
   }
 
+  async listOwnPlaceReviews(actor: AuthenticatedActor, input: ReviewListInput) {
+    const result = await this.repository.listOwnPlaceReviews(actor.id, input.page, input.limit);
+    return {
+      reviews: result.reviews.map(ownPlaceReviewResponse),
+      meta: paginationMeta(input, result.totalItems),
+    };
+  }
+
+  async listOwnMenuItemReviews(actor: AuthenticatedActor, input: ReviewListInput) {
+    const result = await this.repository.listOwnMenuItemReviews(actor.id, input.page, input.limit);
+    return {
+      reviews: result.reviews.map(ownMenuItemReviewResponse),
+      meta: paginationMeta(input, result.totalItems),
+    };
+  }
+
   async listPlaceReviewsForModeration(input: PlaceReviewModerationListInput) {
     const result = await this.repository.listPlaceReviewsForModeration(
       input.page,
@@ -401,6 +423,31 @@ export function menuItemModerationReviewResponse(review: MenuItemModerationRow) 
     reviewer: review.user,
     place: { placeId: review.menuItem.place.id, name: review.menuItem.place.name },
     menuItem: { menuItemId: review.menuItem.id, name: review.menuItem.name },
+    createdAt: review.createdAt.toISOString(),
+    updatedAt: review.updatedAt.toISOString(),
+  };
+}
+
+export function ownPlaceReviewResponse(review: OwnPlaceReviewRow) {
+  return {
+    reviewId: review.id,
+    rating: review.rating,
+    comment: review.comment,
+    place: { placeId: review.place.id, name: review.place.name },
+    order: { orderId: review.order.id, orderCode: review.order.orderCode },
+    createdAt: review.createdAt.toISOString(),
+    updatedAt: review.updatedAt.toISOString(),
+  };
+}
+
+export function ownMenuItemReviewResponse(review: OwnMenuItemReviewRow) {
+  return {
+    reviewId: review.id,
+    rating: review.rating,
+    comment: review.comment,
+    place: { placeId: review.menuItem.place.id, name: review.menuItem.place.name },
+    menuItem: { menuItemId: review.menuItem.id, name: review.menuItem.name },
+    order: { orderId: review.order.id, orderCode: review.order.orderCode },
     createdAt: review.createdAt.toISOString(),
     updatedAt: review.updatedAt.toISOString(),
   };

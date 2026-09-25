@@ -29,6 +29,19 @@ export const USER_LIFECYCLE_SELECT = {
 export class UsersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  create(
+    data: {
+      userId: string;
+      fullName: string;
+      email: string;
+      passwordHash: string;
+      platformRole: PlatformRole;
+    },
+    db: DbClient,
+  ) {
+    return db.user.create({ data, select: USER_RESPONSE_SELECT });
+  }
+
   findMe(id: string) {
     return this.prisma.user.findFirst({
       where: { id, deletedAt: null, deletionRequestedAt: null, anonymizedAt: null },

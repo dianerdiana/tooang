@@ -12,10 +12,24 @@ const fullName = z
   .refine((value) => unicodeLength(value) >= 1, 'Must contain at least 1 character')
   .refine((value) => unicodeLength(value) <= 100, 'Must contain at most 100 characters');
 
+const email = z.string().trim().toLowerCase().email().max(254);
+
+export const createUserSchema = z
+  .object({
+    fullName,
+    email,
+    password: z
+      .string()
+      .refine((value) => unicodeLength(value) >= 8, 'Must contain at least 8 characters')
+      .refine((value) => unicodeLength(value) <= 128, 'Must contain at most 128 characters'),
+    platformRole: z.enum(PlatformRole),
+  })
+  .strict();
+
 export const updateMeSchema = z
   .object({
     fullName: fullName.optional(),
-    email: z.string().trim().toLowerCase().email().max(254).optional(),
+    email: email.optional(),
   })
   .strict()
   .refine((value) => value.fullName !== undefined || value.email !== undefined, {
@@ -37,6 +51,7 @@ export const listUsersSchema = z
 export const platformRoleSchema = z.object({ platformRole: z.enum(PlatformRole) }).strict();
 
 export type UpdateMeInput = z.infer<typeof updateMeSchema>;
+export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UserIdParam = z.infer<typeof userIdParamSchema>;
 export type ListUsersInput = z.infer<typeof listUsersSchema>;
 export type PlatformRoleInput = z.infer<typeof platformRoleSchema>;

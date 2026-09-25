@@ -20,11 +20,17 @@ import {
 import { isTransactionWriteConflict } from '@/common/errors';
 
 import { AuditService } from '@/modules/audit/audit.service';
+import { PasswordPolicyService } from '@/modules/auth/password-policy.service';
 
-import { PrismaService } from '../../lib';
+import { BcryptHashingService, PrismaService } from '../../lib';
 
 import { UsersRepository } from './users.repository';
-import type { ListUsersInput, PlatformRoleInput, UpdateMeInput } from './users.schema';
+import type {
+  CreateUserInput,
+  ListUsersInput,
+  PlatformRoleInput,
+  UpdateMeInput,
+} from './users.schema';
 
 function safeUser(user: {
   userId: string;
@@ -50,7 +56,53 @@ export class UsersService {
     private readonly repository: UsersRepository,
     private readonly audit: AuditService,
     private readonly prisma: PrismaService,
+    private readonly hashing?: BcryptHashingService,
+    private readonly passwordPolicy?: PasswordPolicyService,
   ) {}
+
+  async create(actor: AuthenticatedActor, input: CreateUserInput) {
+    if (
+      actor.platformRole !== PlatformRole.SUPER_ADMIN &&
+      input.platformRole !== PlatformRole.USER
+    ) {
+      throw new ForbiddenException('ADMIN may create only USER accounts');
+    }
+    if (
+      input.platformRole !== PlatformRole.USER &&
+      !getPlatformPermissionScopes(actor.platformRole, PERMISSION.PLATFORM_ROLE_ASSIGN).includes(
+        PLATFORM_PERMISSION_SCOPE.GLOBAL,
+      )
+    ) {
+      throw new ForbiddenException('Insufficient permissions to assign this role');
+    }
+
+    if (!this.hashing || !this.passwordPolicy) throw new Error('User provisioning is unavailable');
+    this.passwordPolicy.assertAllowed(input.password);
+    const passwordHash = await this.hashing.hashPassword(input.password);
+    return this.inSerializableTransaction(async (tx) => {
+      const created = await this.repository.create(
+        {
+          userId: `usr_${randomUUID().replaceAll('-', '')}`,
+          fullName: input.fullName,
+          email: input.email,
+          passwordHash,
+          platformRole: input.platformRole,
+        },
+        tx,
+      );
+      await this.audit.append(
+        {
+          actor: { kind: 'USER', userId: actor.id },
+          action: 'USER_CREATED',
+          targetType: 'User',
+          targetId: created.userId,
+          afterData: { platformRole: created.platformRole },
+        },
+        tx,
+      );
+      return safeUser(created);
+    });
+  }
 
   async getMe(actor: AuthenticatedActor) {
     const user = await this.repository.findMe(actor.id);
@@ -279,3 +331,4 @@ export class UsersService {
     return isTransactionWriteConflict(error);
   }
 }
+import { randomUUID } from 'node:crypto';

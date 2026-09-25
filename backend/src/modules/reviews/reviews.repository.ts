@@ -52,6 +52,32 @@ export const MENU_ITEM_REVIEW_MODERATION_SELECT = {
   },
 } satisfies Prisma.MenuItemReviewSelect;
 
+export const OWN_PLACE_REVIEW_SELECT = {
+  id: true,
+  rating: true,
+  comment: true,
+  createdAt: true,
+  updatedAt: true,
+  place: { select: { id: true, name: true } },
+  order: { select: { id: true, orderCode: true } },
+} satisfies Prisma.PlaceReviewSelect;
+
+export const OWN_MENU_ITEM_REVIEW_SELECT = {
+  id: true,
+  rating: true,
+  comment: true,
+  createdAt: true,
+  updatedAt: true,
+  menuItem: {
+    select: {
+      id: true,
+      name: true,
+      place: { select: { id: true, name: true } },
+    },
+  },
+  order: { select: { id: true, orderCode: true } },
+} satisfies Prisma.MenuItemReviewSelect;
+
 type ReviewWrite = { rating: number; comment: string | null };
 type ReviewPatch = { rating?: number; comment?: string | null };
 
@@ -210,6 +236,36 @@ export class ReviewsRepository {
       data: { deletedAt },
       select: MENU_ITEM_REVIEW_SELECT,
     });
+  }
+
+  async listOwnPlaceReviews(userId: string, page: number, limit: number) {
+    const where: Prisma.PlaceReviewWhereInput = { userId, deletedAt: null };
+    const [reviews, totalItems] = await this.prisma.$transaction([
+      this.prisma.placeReview.findMany({
+        where,
+        select: OWN_PLACE_REVIEW_SELECT,
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.placeReview.count({ where }),
+    ]);
+    return { reviews, totalItems };
+  }
+
+  async listOwnMenuItemReviews(userId: string, page: number, limit: number) {
+    const where: Prisma.MenuItemReviewWhereInput = { userId, deletedAt: null };
+    const [reviews, totalItems] = await this.prisma.$transaction([
+      this.prisma.menuItemReview.findMany({
+        where,
+        select: OWN_MENU_ITEM_REVIEW_SELECT,
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.menuItemReview.count({ where }),
+    ]);
+    return { reviews, totalItems };
   }
 
   findPublicMenuItem(placeId: string, menuItemId: string) {

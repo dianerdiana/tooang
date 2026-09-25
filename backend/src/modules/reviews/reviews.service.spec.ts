@@ -47,6 +47,12 @@ function setup(overrides: Record<string, unknown> = {}) {
     listMenuItemReviewsForModeration: jest
       .fn<() => Promise<unknown>>()
       .mockResolvedValue({ reviews: [], totalItems: 0 }),
+    listOwnPlaceReviews: jest
+      .fn<() => Promise<unknown>>()
+      .mockResolvedValue({ reviews: [], totalItems: 0 }),
+    listOwnMenuItemReviews: jest
+      .fn<() => Promise<unknown>>()
+      .mockResolvedValue({ reviews: [], totalItems: 0 }),
     ...overrides,
   };
   const prisma = { $transaction: jest.fn((callback: (tx: object) => unknown) => callback({})) };
@@ -59,6 +65,13 @@ function setup(overrides: Record<string, unknown> = {}) {
 }
 
 describe('ReviewsService', () => {
+  it('lists only reviews scoped to the authenticated actor', async () => {
+    const { service, repository } = setup();
+    await service.listOwnPlaceReviews(actor, { page: 1, limit: 20 });
+    await service.listOwnMenuItemReviews(actor, { page: 2, limit: 10 });
+    expect(repository.listOwnPlaceReviews).toHaveBeenCalledWith(actor.id, 1, 20);
+    expect(repository.listOwnMenuItemReviews).toHaveBeenCalledWith(actor.id, 2, 10);
+  });
   it('returns safe contextual place reviews for moderation', async () => {
     const contextualReview = {
       ...review,

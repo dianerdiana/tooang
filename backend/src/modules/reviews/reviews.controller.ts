@@ -112,6 +112,34 @@ export class MenuItemReviewsController {
 export class MyReviewsController {
   constructor(private readonly service: ReviewsService) {}
 
+  @Get('place-reviews')
+  @RequirePermissions(PERMISSION.PROFILE_READ)
+  async listPlace(
+    @CurrentActor() actor: AuthenticatedActor,
+    @ZodQuery(reviewListSchema) query: ReviewListInput,
+  ) {
+    const result = await this.service.listOwnPlaceReviews(actor, query);
+    return HttpResponse.success({
+      message: 'Your place reviews retrieved',
+      data: { reviews: result.reviews },
+      meta: result.meta,
+    });
+  }
+
+  @Get('menu-item-reviews')
+  @RequirePermissions(PERMISSION.PROFILE_READ)
+  async listMenuItem(
+    @CurrentActor() actor: AuthenticatedActor,
+    @ZodQuery(reviewListSchema) query: ReviewListInput,
+  ) {
+    const result = await this.service.listOwnMenuItemReviews(actor, query);
+    return HttpResponse.success({
+      message: 'Your menu-item reviews retrieved',
+      data: { reviews: result.reviews },
+      meta: result.meta,
+    });
+  }
+
   @Patch('place-reviews/:reviewId')
   @RequirePermissions(PERMISSION.REVIEW_UPDATE)
   async updatePlace(

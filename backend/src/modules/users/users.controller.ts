@@ -7,6 +7,8 @@ import { HttpResponse } from '@/common/responses';
 import {
   type ListUsersInput,
   listUsersSchema,
+  type CreateUserInput,
+  createUserSchema,
   type PlatformRoleInput,
   platformRoleSchema,
   type UpdateMeInput,
@@ -49,6 +51,16 @@ export class MeController {
 @Controller('users')
 export class UsersController {
   constructor(private readonly service: UsersService) {}
+
+  @Post()
+  @RequirePermissions(PERMISSION.USER_CREATE)
+  async create(
+    @CurrentActor() actor: AuthenticatedActor,
+    @ZodBody(createUserSchema) input: CreateUserInput,
+  ) {
+    const user = await this.service.create(actor, input);
+    return HttpResponse.success({ message: 'User created', data: { user } });
+  }
 
   @Get()
   @RequirePermissions(PERMISSION.USER_READ)
