@@ -22,6 +22,6 @@ import { RefreshCookieService } from './refresh-cookie.service';
     AuthRateLimitRepository,
     RefreshCookieService,
   ],
-  exports: [AuthPrincipalService, AuthRateLimitGuard, AuthRateLimitService],
+  exports: [AuthPrincipalService, AuthRateLimitGuard, AuthRateLimitService, PasswordPolicyService],
 })
 export class AuthModule {}
