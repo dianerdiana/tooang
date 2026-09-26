@@ -408,13 +408,22 @@ function OrderDetailContent({ scope, orderId }: { scope: OrderDetailScope; order
     );
   }
 
-  const permissions: OrderTransitionPermissions = {
-    canConfirm: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_CONFIRM),
-    canPrepare: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_PREPARE),
-    canMarkReady: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_READY),
-    canComplete: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_COMPLETE),
-    canCancel: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_CANCEL),
-  };
+  const permissions: OrderTransitionPermissions =
+    scope.kind === 'own'
+      ? {
+          canConfirm: false,
+          canPrepare: false,
+          canMarkReady: false,
+          canComplete: false,
+          canCancel: query.data.status === ORDER_STATUS.PENDING,
+        }
+      : {
+          canConfirm: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_CONFIRM),
+          canPrepare: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_PREPARE),
+          canMarkReady: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_READY),
+          canComplete: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_COMPLETE),
+          canCancel: canAtPlace(ability, transitionPlaceId, PERMISSION.ORDER_CANCEL),
+        };
 
   const transition = async (input: OperationalOrderStatusInput) => {
     setNotice(undefined);
@@ -485,7 +494,7 @@ function OrderDetailDrawer({
     >
       {orderId && (
         <OrderDetailContent
-          key={`${scope.kind}:${scope.kind === 'place' ? scope.placeId : 'global'}:${orderId}`}
+          key={`${scope.kind}:${scope.kind === 'place' ? scope.placeId : scope.kind}:${orderId}`}
           scope={scope}
           orderId={orderId}
         />

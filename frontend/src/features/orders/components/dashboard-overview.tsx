@@ -239,6 +239,12 @@ function DashboardOverview({ user, selectedPlace }: DashboardOverviewProps) {
         View all orders
       </Link>
     </Button>
+  ) : scope?.kind === 'own' ? (
+    <Button asChild variant='outline' size='sm'>
+      <Link to='/dashboard/account/orders' search={{ page: 1, limit: 20 }}>
+        View all orders
+      </Link>
+    </Button>
   ) : selectedPlace ? (
     <Button asChild variant='outline' size='sm'>
       <Link to='/dashboard/orders' search={{ placeId: selectedPlace.placeId, page: 1, limit: 20 }}>
@@ -258,7 +264,7 @@ function DashboardOverview({ user, selectedPlace }: DashboardOverviewProps) {
               ? 'Current order activity across the Tooang platform.'
               : hasPlatformContext
                 ? 'Platform management context and operational availability for your account.'
-                : 'Management context and operational availability for your account.'
+                : 'Your recent orders and current order statuses.'
         }
         actions={
           scope && (
