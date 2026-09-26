@@ -47,6 +47,23 @@ describe('ordersService', () => {
     });
   });
 
+  it('uses only actor-scoped endpoints for personal order reads and cancellation', async () => {
+    await ordersService.list({ kind: 'own' }, { page: 1, limit: 20 });
+    const order = { orderId: 'order/1', status: 'PENDING' };
+    apiMock.get.mockResolvedValueOnce({ data: { error: false, message: 'Order retrieved', data: { order } } });
+    apiMock.patch.mockResolvedValueOnce({
+      data: { error: false, message: 'Order updated', data: { order: { ...order, status: 'CANCELLED' } } },
+    });
+    await ordersService.getOwn('order/1');
+    await ordersService.transitionOwn('order/1', 'Changed plans');
+    expect(apiMock.get).toHaveBeenNthCalledWith(1, '/me/orders', { params: { page: 1, limit: 20 } });
+    expect(apiMock.get).toHaveBeenNthCalledWith(2, '/me/orders/order%2F1');
+    expect(apiMock.patch).toHaveBeenCalledWith('/me/orders/order%2F1/status', {
+      status: 'CANCELLED',
+      cancellationReason: 'Changed plans',
+    });
+  });
+
   it('normalizes API failures for callers', async () => {
     apiMock.get.mockRejectedValue(new Error('Orders unavailable'));
 

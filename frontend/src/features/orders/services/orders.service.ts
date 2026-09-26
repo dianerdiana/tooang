@@ -42,7 +42,18 @@ export const ordersService = {
   },
 
   list(scope: OrderListScope, params: OrderListParams) {
-    return listOrders(scope.kind === 'place' ? `/places/${scope.placeId}/orders` : '/orders', params);
+    const endpoint =
+      scope.kind === 'place' ? `/places/${scope.placeId}/orders` : scope.kind === 'own' ? '/me/orders' : '/orders';
+    return listOrders(endpoint, params);
+  },
+
+  async getOwn(orderId: string): Promise<OrderDetail> {
+    try {
+      const response = await api.get<ApiResponse<{ order: OrderDetail }>>(`/me/orders/${encodeURIComponent(orderId)}`);
+      return unwrapApiResponse(response.data).order;
+    } catch (error) {
+      throw toApiError(error);
+    }
   },
 
   async getForPlace(placeId: string, orderId: string): Promise<OrderDetail> {
@@ -69,6 +80,19 @@ export const ordersService = {
     try {
       const response = await api.patch<OperationalOrderStatusInput, ApiResponse<{ order: OrderDetail }>>(
         `/places/${encodeURIComponent(placeId)}/orders/${encodeURIComponent(orderId)}/status`,
+        input,
+      );
+      return unwrapApiResponse(response.data).order;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
+  async transitionOwn(orderId: string, cancellationReason?: string | null): Promise<OrderDetail> {
+    try {
+      const input = { status: 'CANCELLED' as const, cancellationReason };
+      const response = await api.patch<typeof input, ApiResponse<{ order: OrderDetail }>>(
+        `/me/orders/${encodeURIComponent(orderId)}/status`,
         input,
       );
       return unwrapApiResponse(response.data).order;
