@@ -55,11 +55,9 @@ describe('/dashboard route guard', () => {
     }
   });
 
-  it('redirects an authenticated user without management capabilities', () => {
+  it('allows an authenticated user with self-service capabilities', () => {
     const result = runBeforeLoad({ isAuthenticated: true, user: user() });
-
-    expect(isRedirect(result)).toBe(true);
-    if (isRedirect(result)) expect(result.options).toMatchObject({ to: '/', replace: true });
+    expect(result).toBeNull();
   });
 
   it('allows a membership-capable user through the route boundary', () => {
