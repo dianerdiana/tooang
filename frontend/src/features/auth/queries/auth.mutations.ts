@@ -7,6 +7,11 @@ export const useLoginMutation = () => {
   return useMutation({ mutationFn: login });
 };
 
+export const useRegisterMutation = () => {
+  const { register } = useAuth();
+  return useMutation({ mutationFn: register });
+};
+
 export const useLogoutMutation = () => {
   const { logout } = useAuth();
   return useMutation({ mutationFn: logout });
