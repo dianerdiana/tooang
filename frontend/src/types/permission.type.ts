@@ -33,6 +33,7 @@ export const PERMISSION = {
   OWNER_REVOKE: 'owner.revoke',
   PLATFORM_ROLE_ASSIGN: 'platform_role.assign',
   PLATFORM_ROLE_UPDATE: 'platform_role.update',
+  USER_CREATE: 'user.create',
   USER_READ: 'user.read',
   USER_DEACTIVATE: 'user.deactivate',
   MEDIA_UPLOAD: 'media.upload',

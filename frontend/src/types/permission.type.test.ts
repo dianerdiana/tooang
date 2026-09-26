@@ -37,6 +37,7 @@ const BACKEND_PERMISSION_IDENTIFIERS = [
   'owner.revoke',
   'platform_role.assign',
   'platform_role.update',
+  'user.create',
   'user.read',
   'user.deactivate',
   'media.upload',
@@ -72,6 +73,7 @@ const MANAGEMENT_DASHBOARD_PERMISSIONS = [
   PERMISSION.OWNER_REVOKE,
   PERMISSION.PLATFORM_ROLE_ASSIGN,
   PERMISSION.PLATFORM_ROLE_UPDATE,
+  PERMISSION.USER_CREATE,
   PERMISSION.MEDIA_UPLOAD,
   PERMISSION.MEDIA_DELETE,
 ] as const;
