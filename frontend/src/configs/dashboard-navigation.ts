@@ -9,6 +9,7 @@ import {
   SoupIcon,
   StarIcon,
   Table2Icon,
+  UserRoundIcon,
   UsersIcon,
 } from 'lucide-react';
 
@@ -20,6 +21,11 @@ import { PERMISSION, type PermissionIdentifier } from '@/types/permission.type';
 import type { AuthenticatedUser, PlaceMembership } from '@/types/user-data.type';
 
 export const dashboardRoutePermissions = {
+  account: {
+    orders: [PERMISSION.ORDER_READ],
+    reviews: [PERMISSION.PROFILE_READ],
+    profile: [PERMISSION.PROFILE_READ],
+  },
   place: {
     orders: [PERMISSION.ORDER_READ],
     menu: [PERMISSION.MENU_CREATE, PERMISSION.MENU_UPDATE, PERMISSION.MENU_DELETE],
@@ -61,7 +67,7 @@ type NavigationDefinition = DashboardNavigationItem & {
 type NavigationGroupDefinition = {
   id: string;
   label: string;
-  scope: 'general' | 'place' | 'platform';
+  scope: 'general' | 'account' | 'place' | 'platform';
   items: readonly NavigationDefinition[];
 };
 
@@ -77,6 +83,34 @@ const dashboardNavigationDefinitions: readonly NavigationGroupDefinition[] = [
         to: '/dashboard',
         icon: LayoutDashboardIcon,
         exact: true,
+      },
+    ],
+  },
+  {
+    id: 'account',
+    label: 'My Account',
+    scope: 'account',
+    items: [
+      {
+        id: 'my-orders',
+        label: 'My orders',
+        to: '/dashboard/account/orders',
+        icon: ShoppingBagIcon,
+        permissions: dashboardRoutePermissions.account.orders,
+      },
+      {
+        id: 'my-reviews',
+        label: 'My reviews',
+        to: '/dashboard/account/reviews',
+        icon: StarIcon,
+        permissions: dashboardRoutePermissions.account.reviews,
+      },
+      {
+        id: 'my-profile',
+        label: 'Profile',
+        to: '/dashboard/account/profile',
+        icon: UserRoundIcon,
+        permissions: dashboardRoutePermissions.account.profile,
       },
     ],
   },
@@ -179,11 +213,13 @@ export const buildDashboardNavigation = ({
 
   return dashboardNavigationDefinitions.flatMap((group) => {
     const grantedPermissions =
-      group.scope === 'place'
-        ? selectedPlace?.effectivePermissions
-        : group.scope === 'platform'
-          ? user.globalPermissions
-          : null;
+      group.scope === 'account'
+        ? user.permissions
+        : group.scope === 'place'
+          ? selectedPlace?.effectivePermissions
+          : group.scope === 'platform'
+            ? user.globalPermissions
+            : null;
 
     const items = group.items
       .filter(
