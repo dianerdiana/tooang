@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const apiMock = vi.hoisted(() => ({ get: vi.fn(), delete: vi.fn() }));
+const apiMock = vi.hoisted(() => ({ get: vi.fn(), delete: vi.fn(), patch: vi.fn() }));
 vi.mock('@/configs/api-config', () => ({ api: apiMock }));
 
 import { reviewsService } from './reviews.service';
@@ -18,6 +18,7 @@ describe('reviewsService moderation', () => {
   beforeEach(() => {
     apiMock.get.mockReset();
     apiMock.delete.mockReset();
+    apiMock.patch.mockReset();
     apiMock.get.mockResolvedValue(listResponse);
   });
 
@@ -43,6 +44,19 @@ describe('reviewsService moderation', () => {
     await expect(reviewsService.moderateMenuItemReview('review-id')).resolves.toEqual(result);
     expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/place-reviews/review-id');
     expect(apiMock.delete).toHaveBeenNthCalledWith(2, '/menu-item-reviews/review-id');
+  });
+
+  it('uses actor-scoped list and mutation routes for personal reviews', async () => {
+    apiMock.patch.mockResolvedValueOnce({ data: { error: false, message: 'Updated', data: { review: {} } } });
+    apiMock.delete.mockResolvedValueOnce({ data: { error: false, message: 'Deleted', data: { review: {} } } });
+    await reviewsService.listOwnPlaceReviews({ page: 1, limit: 20 });
+    await reviewsService.listOwnMenuItemReviews({ page: 2, limit: 10 });
+    await reviewsService.updateOwnReview('place', 'review/1', { rating: 4, comment: 'Updated' });
+    await reviewsService.deleteOwnReview('menu-item', 'review/2');
+    expect(apiMock.get).toHaveBeenNthCalledWith(1, '/me/place-reviews', { params: { page: 1, limit: 20 } });
+    expect(apiMock.get).toHaveBeenNthCalledWith(2, '/me/menu-item-reviews', { params: { page: 2, limit: 10 } });
+    expect(apiMock.patch).toHaveBeenCalledWith('/me/place-reviews/review%2F1', { rating: 4, comment: 'Updated' });
+    expect(apiMock.delete).toHaveBeenCalledWith('/me/menu-item-reviews/review%2F2');
   });
 
   it('normalizes backend moderation errors', async () => {

@@ -39,3 +39,18 @@ export type ReviewModerationListResult<TReview> = {
 };
 
 export type ModeratedReview = { reviewId: string; deletedAt: string };
+
+export type OwnReviewTab = ReviewModerationTab;
+export type OwnReviewBase = {
+  reviewId: string;
+  rating: number;
+  comment: string | null;
+  place: { placeId: string; name: string };
+  order: { orderId: string; orderCode: string };
+  createdAt: string;
+  updatedAt: string;
+};
+export type OwnPlaceReview = OwnReviewBase;
+export type OwnMenuItemReview = OwnReviewBase & { menuItem: { menuItemId: string; name: string } };
+export type OwnReviewSearch = { tab: OwnReviewTab; page: number; limit: number };
+export type ReviewUpdateInput = { rating?: number; comment?: string | null };

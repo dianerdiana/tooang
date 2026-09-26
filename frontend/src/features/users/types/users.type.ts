@@ -55,3 +55,12 @@ export type UserDeactivationResult = {
 export type PlatformRoleUpdateInput = {
   platformRole: PlatformRole;
 };
+
+export type CreateUserInput = {
+  fullName: string;
+  email: string;
+  password: string;
+  platformRole: PlatformRole;
+};
+
+export type UpdateProfileInput = { fullName?: string; email?: string };

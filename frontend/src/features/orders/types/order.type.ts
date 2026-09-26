@@ -80,6 +80,6 @@ export type OperationalOrderStatusInput =
   | { status: Exclude<OperationalOrderTransitionTarget, typeof ORDER_STATUS.CANCELLED> }
   | { status: typeof ORDER_STATUS.CANCELLED; cancellationReason?: string | null };
 
-export type OrderListScope = { kind: 'place'; placeId: string } | { kind: 'platform' };
+export type OrderListScope = { kind: 'place'; placeId: string } | { kind: 'platform' } | { kind: 'own' };
 
 export type OrderDetailScope = OrderListScope;

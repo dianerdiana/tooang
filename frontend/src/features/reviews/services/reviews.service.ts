@@ -9,9 +9,12 @@ import { normalizeReviewModerationParams } from '../schemas/reviews.schema';
 import type {
   MenuItemModerationReview,
   ModeratedReview,
+  OwnMenuItemReview,
+  OwnPlaceReview,
   PlaceModerationReview,
   ReviewModerationListParams,
   ReviewModerationListResult,
+  ReviewUpdateInput,
 } from '../types/reviews.type';
 
 const list = async <TReview>(endpoint: string, params: ReviewModerationListParams) => {
@@ -36,6 +39,40 @@ const moderate = async (endpoint: string): Promise<ModeratedReview> => {
 };
 
 export const reviewsService = {
+  listOwnPlaceReviews(
+    params: Pick<ReviewModerationListParams, 'page' | 'limit'>,
+  ): Promise<ReviewModerationListResult<OwnPlaceReview>> {
+    return list('/me/place-reviews', params);
+  },
+
+  listOwnMenuItemReviews(
+    params: Pick<ReviewModerationListParams, 'page' | 'limit'>,
+  ): Promise<ReviewModerationListResult<OwnMenuItemReview>> {
+    return list('/me/menu-item-reviews', params);
+  },
+
+  async updateOwnReview(kind: 'place' | 'menu-item', reviewId: string, input: ReviewUpdateInput) {
+    try {
+      const response = await api.patch<ReviewUpdateInput, ApiResponse<{ review: unknown }>>(
+        `/me/${kind}-reviews/${encodeURIComponent(reviewId)}`,
+        input,
+      );
+      return unwrapApiResponse(response.data).review;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
+  async deleteOwnReview(kind: 'place' | 'menu-item', reviewId: string) {
+    try {
+      const response = await api.delete<ApiResponse<{ review: unknown }>>(
+        `/me/${kind}-reviews/${encodeURIComponent(reviewId)}`,
+      );
+      return unwrapApiResponse(response.data).review;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
   listPlaceReviews(params: ReviewModerationListParams): Promise<ReviewModerationListResult<PlaceModerationReview>> {
     return list('/place-reviews', params);
   },

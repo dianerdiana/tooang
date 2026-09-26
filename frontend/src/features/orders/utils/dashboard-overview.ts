@@ -14,7 +14,8 @@ export const resolveOverviewOrderScope = (
       : null;
   }
 
-  return user.globalPermissions.includes(PERMISSION.ORDER_READ) ? { kind: 'platform' } : null;
+  if (user.globalPermissions.includes(PERMISSION.ORDER_READ)) return { kind: 'platform' };
+  return user.permissions.includes(PERMISSION.ORDER_READ) ? { kind: 'own' } : null;
 };
 
 export const getOrderTotal = (meta: ApiPaginationMeta | undefined): number | undefined =>

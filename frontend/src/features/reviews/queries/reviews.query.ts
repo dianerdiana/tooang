@@ -11,6 +11,20 @@ export const moderationReviewKeys = {
     [...moderationReviewKeys.lists(), tab, normalizeReviewModerationParams(params)] as const,
 };
 
+export const ownReviewKeys = {
+  all: ['reviews', 'own'] as const,
+  list: (tab: string, params: { page: number; limit: number }) => [...ownReviewKeys.all, tab, params] as const,
+};
+
+export const ownReviewsQueryOptions = (tab: 'place' | 'menu-item', params: { page: number; limit: number }) =>
+  queryOptions({
+    queryKey: ownReviewKeys.list(tab, params),
+    queryFn: () =>
+      tab === 'place' ? reviewsService.listOwnPlaceReviews(params) : reviewsService.listOwnMenuItemReviews(params),
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+  });
+
 export const placeModerationReviewsQueryOptions = (params: ReviewModerationListParams) => {
   const normalized = normalizeReviewModerationParams(params);
   return queryOptions({

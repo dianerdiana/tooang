@@ -8,7 +8,9 @@ import type { ApiPaginatedResponse, ApiResponse } from '@/types/api-response.typ
 import { normalizeUserListParams } from '../schemas/users.schema';
 import { platformRoleUpdateSchema } from '../schemas/users.schema';
 import type {
+  CreateUserInput,
   PlatformRoleUpdateInput,
+  UpdateProfileInput,
   UserDeactivationResult,
   UserListParams,
   UserListResult,
@@ -16,6 +18,24 @@ import type {
 } from '../types/users.type';
 
 export const usersService = {
+  async updateMe(input: UpdateProfileInput): Promise<UserSummary> {
+    try {
+      const response = await api.patch<UpdateProfileInput, ApiResponse<{ user: UserSummary }>>('/me', input);
+      return unwrapApiResponse(response.data).user;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
+  async create(input: CreateUserInput): Promise<UserSummary> {
+    try {
+      const response = await api.post<CreateUserInput, ApiResponse<{ user: UserSummary }>>('/users', input);
+      return unwrapApiResponse(response.data).user;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
   async list(params: UserListParams): Promise<UserListResult> {
     try {
       const response = await api.get<ApiPaginatedResponse<{ users: UserSummary[] }>>('/users', {

@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpDownIcon, SearchIcon, ShieldIcon, UsersIcon, UserXIcon, XIcon } from 'lucide-react';
+import { ArrowUpDownIcon, SearchIcon, ShieldIcon, UserPlusIcon, UsersIcon, UserXIcon, XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PageHeader } from '@/components/layouts/page-header';
@@ -17,13 +17,19 @@ import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { getDashboardErrorPresentation, getDashboardErrorTone, getSafeMutationError } from '@/utils/dashboard-error';
+import { useAuth } from '@/utils/hooks/use-auth';
 import { usePermissions } from '@/utils/hooks/use-permissions';
 
 import { PlatformRole } from '@/types/enums/user-role.enum';
 import { PERMISSION } from '@/types/permission.type';
 
-import { useDeactivateUserMutation, useUpdatePlatformRoleMutation } from '../queries/users.mutation';
+import {
+  useCreateUserMutation,
+  useDeactivateUserMutation,
+  useUpdatePlatformRoleMutation,
+} from '../queries/users.mutation';
 import { usersQueryOptions } from '../queries/users.query';
+import { createUserSchema } from '../schemas/users.schema';
 import {
   type NormalizedUserListParams,
   USER_SORT_BY,
@@ -74,6 +80,138 @@ const deactivationErrorMessage = (error: unknown) => {
 const platformRoleErrorMessage = (error: unknown) => {
   return getSafeMutationError(error, 'Unable to update this platform role. Please try again.');
 };
+
+function CreateUserDialog({
+  open,
+  onOpenChange,
+  allowElevatedRoles,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  allowElevatedRoles: boolean;
+}) {
+  const mutation = useCreateUserMutation();
+  const [values, setValues] = useState({ fullName: '', email: '', password: '', platformRole: PlatformRole.USER });
+  const [error, setError] = useState<string>();
+  if (!open) return null;
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(undefined);
+    const parsed = createUserSchema.safeParse(values);
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? 'Check the account details.');
+      return;
+    }
+    try {
+      const user = await mutation.mutateAsync(parsed.data);
+      toast.success(`${user.fullName} was created.`);
+      onOpenChange(false);
+    } catch (mutationError) {
+      setError(getSafeMutationError(mutationError, 'Unable to create this account.'));
+    }
+  };
+
+  return (
+    <div
+      className='fixed inset-0 z-50 grid place-items-center bg-black/50 p-4'
+      role='dialog'
+      aria-modal='true'
+      aria-labelledby='create-user-title'
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !mutation.isPending) onOpenChange(false);
+      }}
+    >
+      <div className='w-full max-w-md rounded-surface border bg-surface p-6 shadow-xl'>
+        <div className='mb-5 flex items-start justify-between gap-4'>
+          <div>
+            <h2 id='create-user-title' className='text-lg font-semibold'>
+              Create user
+            </h2>
+            <p className='text-sm text-muted-foreground'>Set the account's initial sign-in credentials.</p>
+          </div>
+          <Button
+            type='button'
+            variant='ghost'
+            size='icon'
+            onClick={() => onOpenChange(false)}
+            disabled={mutation.isPending}
+            aria-label='Close'
+          >
+            <XIcon />
+          </Button>
+        </div>
+        <form className='grid gap-4' onSubmit={(event) => void submit(event)}>
+          <label className='grid gap-1.5 text-sm font-medium'>
+            Full name
+            <Input
+              value={values.fullName}
+              onChange={(event) => setValues({ ...values, fullName: event.target.value })}
+              autoComplete='off'
+              disabled={mutation.isPending}
+            />
+          </label>
+          <label className='grid gap-1.5 text-sm font-medium'>
+            Email
+            <Input
+              type='email'
+              value={values.email}
+              onChange={(event) => setValues({ ...values, email: event.target.value })}
+              autoComplete='off'
+              disabled={mutation.isPending}
+            />
+          </label>
+          <label className='grid gap-1.5 text-sm font-medium'>
+            Initial password
+            <Input
+              type='password'
+              value={values.password}
+              onChange={(event) => setValues({ ...values, password: event.target.value })}
+              autoComplete='new-password'
+              disabled={mutation.isPending}
+            />
+          </label>
+          <div className='grid gap-1.5 text-sm font-medium'>
+            <span>Platform role</span>
+            {allowElevatedRoles ? (
+              <Select
+                value={values.platformRole}
+                onValueChange={(platformRole) => setValues({ ...values, platformRole: platformRole as PlatformRole })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(PlatformRole).map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {rolePresentation[role].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input value='User' disabled />
+            )}
+          </div>
+          {error && (
+            <p role='alert' className='text-sm text-destructive'>
+              {error}
+            </p>
+          )}
+          <div className='flex justify-end gap-2'>
+            <Button type='button' variant='outline' onClick={() => onOpenChange(false)} disabled={mutation.isPending}>
+              Cancel
+            </Button>
+            <Button type='submit' disabled={mutation.isPending}>
+              <UserPlusIcon />
+              {mutation.isPending ? 'Creating…' : 'Create user'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 function PlatformRoleBadge({ role }: { role: PlatformRole }) {
   const presentation = rolePresentation[role];
@@ -315,6 +453,8 @@ function UsersLoading() {
 }
 
 function UserManagementPage({ filters, onFiltersChange }: UserManagementPageProps) {
+  const { user: currentUser } = useAuth();
+  const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState(filters.search ?? '');
   const [mutationUserId, setMutationUserId] = useState<string>();
   const [roleMutationUserId, setRoleMutationUserId] = useState<string>();
@@ -324,6 +464,7 @@ function UserManagementPage({ filters, onFiltersChange }: UserManagementPageProp
   const { can } = usePermissions();
   const canDeactivate = can(PERMISSION.USER_DEACTIVATE);
   const canManagePlatformRole = can(PERMISSION.PLATFORM_ROLE_UPDATE);
+  const canCreate = can(PERMISSION.USER_CREATE);
   const hasFilters = Boolean(filters.search || filters.platformRole);
 
   const updateFilters = (next: Partial<NormalizedUserListParams>) =>
@@ -389,7 +530,23 @@ function UserManagementPage({ filters, onFiltersChange }: UserManagementPageProp
 
   return (
     <>
-      <PageHeader title='Users' description='Browse active accounts across the Tooang platform.' />
+      <PageHeader
+        title='Users'
+        description='Browse active accounts across the Tooang platform.'
+        actions={
+          canCreate ? (
+            <Button type='button' onClick={() => setCreateOpen(true)}>
+              <UserPlusIcon />
+              Create user
+            </Button>
+          ) : undefined
+        }
+      />
+      <CreateUserDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        allowElevatedRoles={currentUser?.platformRole === PlatformRole.SUPER_ADMIN}
+      />
 
       <form
         onSubmit={submitSearch}

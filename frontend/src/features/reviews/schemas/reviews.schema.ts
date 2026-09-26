@@ -56,3 +56,17 @@ export const normalizeReviewModerationParams = (
     ...(parsed.menuItemId ? { menuItemId: parsed.menuItemId } : {}),
   };
 };
+
+export const parseOwnReviewSearch = (search: Record<string, unknown>) => {
+  const parsed = reviewModerationSearchSchema.parse(search) as ReviewModerationSearch;
+  return { tab: parsed.tab, page: parsed.page, limit: parsed.limit };
+};
+
+export const reviewUpdateSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  comment: z
+    .string()
+    .trim()
+    .max(2000)
+    .transform((value) => value || null),
+});

@@ -3,7 +3,7 @@ import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-q
 import { AUTH_SESSION_QUERY_KEY } from '@/features/auth/queries/auth-session.query';
 
 import { usersService } from '../services/users.service';
-import type { PlatformRoleUpdateInput } from '../types/users.type';
+import type { CreateUserInput, PlatformRoleUpdateInput, UpdateProfileInput } from '../types/users.type';
 
 import { usersKeys } from './users.key';
 
@@ -23,6 +23,26 @@ export const useDeactivateUserMutation = () => {
   return useMutation({
     mutationFn: (userId: string) => usersService.deactivate(userId),
     onSuccess: () => invalidateUsers(queryClient),
+  });
+};
+
+export const useCreateUserMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateUserInput) => usersService.create(input),
+    onSuccess: () => invalidateUsers(queryClient),
+  });
+};
+
+export const useUpdateProfileMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateProfileInput) => usersService.updateMe(input),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(AUTH_SESSION_QUERY_KEY, (current: object | undefined) =>
+        current ? { ...current, ...updated } : current,
+      );
+    },
   });
 };
 

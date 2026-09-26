@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const apiMock = vi.hoisted(() => ({ get: vi.fn(), delete: vi.fn(), put: vi.fn() }));
+const apiMock = vi.hoisted(() => ({ get: vi.fn(), delete: vi.fn(), put: vi.fn(), post: vi.fn(), patch: vi.fn() }));
 
 vi.mock('@/configs/api-config', () => ({ api: apiMock }));
 
@@ -22,6 +22,8 @@ describe('usersService', () => {
     apiMock.get.mockReset();
     apiMock.delete.mockReset();
     apiMock.put.mockReset();
+    apiMock.post.mockReset();
+    apiMock.patch.mockReset();
     apiMock.get.mockResolvedValue(listResponse);
   });
 
@@ -80,6 +82,29 @@ describe('usersService', () => {
 
     await expect(usersService.deactivate('usr_target')).resolves.toEqual(result);
     expect(apiMock.delete).toHaveBeenCalledWith('/users/usr_target');
+  });
+
+  it('creates manual accounts and updates the current profile through documented routes', async () => {
+    const user = {
+      userId: 'usr_new',
+      fullName: 'New User',
+      email: 'new@example.com',
+      platformRole: PlatformRole.USER,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    apiMock.post.mockResolvedValueOnce({ data: { error: false, message: 'User created', data: { user } } });
+    apiMock.patch.mockResolvedValueOnce({ data: { error: false, message: 'Profile updated', data: { user } } });
+    const creation = {
+      fullName: user.fullName,
+      email: user.email,
+      password: 'unique passphrase',
+      platformRole: PlatformRole.USER,
+    };
+    await expect(usersService.create(creation)).resolves.toEqual(user);
+    await expect(usersService.updateMe({ fullName: user.fullName, email: user.email })).resolves.toEqual(user);
+    expect(apiMock.post).toHaveBeenCalledWith('/users', creation);
+    expect(apiMock.patch).toHaveBeenCalledWith('/me', { fullName: user.fullName, email: user.email });
   });
 
   it('normalizes list and mutation failures', async () => {

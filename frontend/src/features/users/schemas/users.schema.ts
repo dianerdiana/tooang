@@ -49,3 +49,19 @@ export const normalizeUserListParams = (params: UserListParams): NormalizedUserL
 };
 
 export const platformRoleUpdateSchema = z.object({ platformRole: z.enum(PlatformRole) }).strict();
+
+export const createUserSchema = z
+  .object({
+    fullName: z.string().trim().min(1, 'Full name is required').max(100),
+    email: z.string().trim().toLowerCase().pipe(z.email('Enter a valid email address').max(254)),
+    password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+    platformRole: z.enum(PlatformRole),
+  })
+  .strict();
+
+export const updateProfileSchema = z
+  .object({
+    fullName: z.string().trim().min(1, 'Full name is required').max(100),
+    email: z.string().trim().toLowerCase().pipe(z.email('Enter a valid email address').max(254)),
+  })
+  .strict();
