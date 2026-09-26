@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as NotFoundRouteImport } from './routes/not-found'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as DashboardBusinessHoursRouteImport } from './routes/dashboard.business-hours'
 import { Route as DashboardDiningTablesRouteImport } from './routes/dashboard.dining-tables'
@@ -20,6 +21,9 @@ import { Route as DashboardMembersRouteImport } from './routes/dashboard.members
 import { Route as DashboardMenuRouteImport } from './routes/dashboard.menu'
 import { Route as DashboardOrdersRouteImport } from './routes/dashboard.orders'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settings'
+import { Route as DashboardAccountOrdersRouteImport } from './routes/dashboard.account.orders'
+import { Route as DashboardAccountProfileRouteImport } from './routes/dashboard.account.profile'
+import { Route as DashboardAccountReviewsRouteImport } from './routes/dashboard.account.reviews'
 import { Route as DashboardPlatformOrdersRouteImport } from './routes/dashboard.platform.orders'
 import { Route as DashboardPlatformPlacesRouteImport } from './routes/dashboard.platform.places'
 import { Route as DashboardPlatformReviewsRouteImport } from './routes/dashboard.platform.reviews'
@@ -45,6 +49,11 @@ const LoginRoute = LoginRouteImport.update({
 const NotFoundRoute = NotFoundRouteImport.update({
   id: '/not-found',
   path: '/not-found',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
@@ -80,6 +89,21 @@ const DashboardOrdersRoute = DashboardOrdersRouteImport.update({
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardAccountOrdersRoute = DashboardAccountOrdersRouteImport.update({
+  id: '/account/orders',
+  path: '/account/orders',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardAccountProfileRoute = DashboardAccountProfileRouteImport.update({
+  id: '/account/profile',
+  path: '/account/profile',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardAccountReviewsRoute = DashboardAccountReviewsRouteImport.update({
+  id: '/account/reviews',
+  path: '/account/reviews',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardPlatformOrdersRoute = DashboardPlatformOrdersRouteImport.update({
@@ -121,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/not-found': typeof NotFoundRoute
+  '/register': typeof RegisterRoute
   '/dashboard/business-hours': typeof DashboardBusinessHoursRoute
   '/dashboard/dining-tables': typeof DashboardDiningTablesRoute
   '/dashboard/members': typeof DashboardMembersRoute
@@ -128,6 +153,9 @@ export interface FileRoutesByFullPath {
   '/dashboard/orders': typeof DashboardOrdersRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/dashboard/account/orders': typeof DashboardAccountOrdersRoute
+  '/dashboard/account/profile': typeof DashboardAccountProfileRoute
+  '/dashboard/account/reviews': typeof DashboardAccountReviewsRoute
   '/dashboard/platform/orders': typeof DashboardPlatformOrdersRoute
   '/dashboard/platform/places': typeof DashboardPlatformPlacesRoute
   '/dashboard/platform/reviews': typeof DashboardPlatformReviewsRoute
@@ -139,6 +167,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/not-found': typeof NotFoundRoute
+  '/register': typeof RegisterRoute
   '/dashboard/business-hours': typeof DashboardBusinessHoursRoute
   '/dashboard/dining-tables': typeof DashboardDiningTablesRoute
   '/dashboard/members': typeof DashboardMembersRoute
@@ -146,6 +175,9 @@ export interface FileRoutesByTo {
   '/dashboard/orders': typeof DashboardOrdersRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/dashboard/account/orders': typeof DashboardAccountOrdersRoute
+  '/dashboard/account/profile': typeof DashboardAccountProfileRoute
+  '/dashboard/account/reviews': typeof DashboardAccountReviewsRoute
   '/dashboard/platform/orders': typeof DashboardPlatformOrdersRoute
   '/dashboard/platform/places': typeof DashboardPlatformPlacesRoute
   '/dashboard/platform/reviews': typeof DashboardPlatformReviewsRoute
@@ -159,6 +191,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/not-found': typeof NotFoundRoute
+  '/register': typeof RegisterRoute
   '/dashboard/business-hours': typeof DashboardBusinessHoursRoute
   '/dashboard/dining-tables': typeof DashboardDiningTablesRoute
   '/dashboard/members': typeof DashboardMembersRoute
@@ -166,6 +199,9 @@ export interface FileRoutesById {
   '/dashboard/orders': typeof DashboardOrdersRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/dashboard/account/orders': typeof DashboardAccountOrdersRoute
+  '/dashboard/account/profile': typeof DashboardAccountProfileRoute
+  '/dashboard/account/reviews': typeof DashboardAccountReviewsRoute
   '/dashboard/platform/orders': typeof DashboardPlatformOrdersRoute
   '/dashboard/platform/places': typeof DashboardPlatformPlacesRoute
   '/dashboard/platform/reviews': typeof DashboardPlatformReviewsRoute
@@ -180,6 +216,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/not-found'
+    | '/register'
     | '/dashboard/business-hours'
     | '/dashboard/dining-tables'
     | '/dashboard/members'
@@ -187,6 +224,9 @@ export interface FileRouteTypes {
     | '/dashboard/orders'
     | '/dashboard/settings'
     | '/dashboard/'
+    | '/dashboard/account/orders'
+    | '/dashboard/account/profile'
+    | '/dashboard/account/reviews'
     | '/dashboard/platform/orders'
     | '/dashboard/platform/places'
     | '/dashboard/platform/reviews'
@@ -198,6 +238,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/not-found'
+    | '/register'
     | '/dashboard/business-hours'
     | '/dashboard/dining-tables'
     | '/dashboard/members'
@@ -205,6 +246,9 @@ export interface FileRouteTypes {
     | '/dashboard/orders'
     | '/dashboard/settings'
     | '/dashboard'
+    | '/dashboard/account/orders'
+    | '/dashboard/account/profile'
+    | '/dashboard/account/reviews'
     | '/dashboard/platform/orders'
     | '/dashboard/platform/places'
     | '/dashboard/platform/reviews'
@@ -217,6 +261,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/not-found'
+    | '/register'
     | '/dashboard/business-hours'
     | '/dashboard/dining-tables'
     | '/dashboard/members'
@@ -224,6 +269,9 @@ export interface FileRouteTypes {
     | '/dashboard/orders'
     | '/dashboard/settings'
     | '/dashboard/'
+    | '/dashboard/account/orders'
+    | '/dashboard/account/profile'
+    | '/dashboard/account/reviews'
     | '/dashboard/platform/orders'
     | '/dashboard/platform/places'
     | '/dashboard/platform/reviews'
@@ -237,6 +285,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
   LoginRoute: typeof LoginRoute
   NotFoundRoute: typeof NotFoundRoute
+  RegisterRoute: typeof RegisterRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -267,6 +316,13 @@ declare module '@tanstack/react-router' {
       path: '/not-found'
       fullPath: '/not-found'
       preLoaderRoute: typeof NotFoundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard/': {
@@ -316,6 +372,27 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/dashboard/settings'
       preLoaderRoute: typeof DashboardSettingsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/account/orders': {
+      id: '/dashboard/account/orders'
+      path: '/account/orders'
+      fullPath: '/dashboard/account/orders'
+      preLoaderRoute: typeof DashboardAccountOrdersRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/account/profile': {
+      id: '/dashboard/account/profile'
+      path: '/account/profile'
+      fullPath: '/dashboard/account/profile'
+      preLoaderRoute: typeof DashboardAccountProfileRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/account/reviews': {
+      id: '/dashboard/account/reviews'
+      path: '/account/reviews'
+      fullPath: '/dashboard/account/reviews'
+      preLoaderRoute: typeof DashboardAccountReviewsRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/platform/orders': {
@@ -371,6 +448,9 @@ interface DashboardRouteChildren {
   DashboardOrdersRoute: typeof DashboardOrdersRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardAccountOrdersRoute: typeof DashboardAccountOrdersRoute
+  DashboardAccountProfileRoute: typeof DashboardAccountProfileRoute
+  DashboardAccountReviewsRoute: typeof DashboardAccountReviewsRoute
   DashboardPlatformOrdersRoute: typeof DashboardPlatformOrdersRoute
   DashboardPlatformPlacesRoute: typeof DashboardPlatformPlacesRoute
   DashboardPlatformReviewsRoute: typeof DashboardPlatformReviewsRoute
@@ -387,6 +467,9 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardOrdersRoute: DashboardOrdersRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
+  DashboardAccountOrdersRoute: DashboardAccountOrdersRoute,
+  DashboardAccountProfileRoute: DashboardAccountProfileRoute,
+  DashboardAccountReviewsRoute: DashboardAccountReviewsRoute,
   DashboardPlatformOrdersRoute: DashboardPlatformOrdersRoute,
   DashboardPlatformPlacesRoute: DashboardPlatformPlacesRoute,
   DashboardPlatformReviewsRoute: DashboardPlatformReviewsRoute,
@@ -404,6 +487,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   LoginRoute: LoginRoute,
   NotFoundRoute: NotFoundRoute,
+  RegisterRoute: RegisterRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

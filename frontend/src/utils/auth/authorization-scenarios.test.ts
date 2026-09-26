@@ -42,8 +42,10 @@ const labels = (user: AuthenticatedUser, selectedPlace: PlaceMembership | null, 
     ?.items.map((item) => item.label) ?? [];
 
 describe('backend-driven authorization scenarios', () => {
-  it('denies a plain USER management access', () => {
-    expect(canAccessDashboard(backendUser())).toBe(false);
+  it('allows a plain USER to access the self-service dashboard', () => {
+    const user = backendUser();
+    expect(canAccessDashboard(user)).toBe(true);
+    expect(labels(user, null, 'account')).toEqual(['My reviews', 'Profile']);
   });
 
   it('allows CASHIER operational UI without configuration actions', () => {

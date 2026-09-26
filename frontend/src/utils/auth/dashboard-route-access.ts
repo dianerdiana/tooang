@@ -37,3 +37,12 @@ export const requirePlatformDashboardRoute = (
     throw redirect({ to: '/not-found', replace: true });
   }
 };
+
+export const requireAccountDashboardRoute = (
+  user: AuthenticatedUser | null,
+  requiredPermissions: readonly PermissionIdentifier[],
+) => {
+  if (!user || !hasAnyPermission(user.permissions, requiredPermissions)) {
+    throw redirect({ to: '/not-found', replace: true });
+  }
+};

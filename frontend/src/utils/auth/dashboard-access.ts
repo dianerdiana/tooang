@@ -21,7 +21,8 @@ export type DashboardAccessRedirect =
 /** UI routing policy only; backend authorization remains authoritative. */
 export const canAccessDashboard = (user: AuthenticatedUser | null) =>
   user !== null &&
-  (user.globalPermissions.length > 0 ||
+  (user.permissions.includes('profile.read') ||
+    user.globalPermissions.length > 0 ||
     user.placeMemberships.some((membership) => membership.effectivePermissions.length > 0));
 
 export const getDashboardAccessRedirect = (

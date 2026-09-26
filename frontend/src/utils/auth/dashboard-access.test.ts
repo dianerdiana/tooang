@@ -69,19 +69,10 @@ describe('dashboard access', () => {
 
   it.each([
     { label: 'no user', value: null },
-    { label: 'plain USER with own-scope permissions', value: user() },
     {
-      label: 'membership without effective capabilities',
+      label: 'authenticated user without any capabilities',
       value: user({
-        placeMemberships: [
-          {
-            placeId: 'place_empty',
-            place: { name: 'Empty Place', isPublished: false, isOrderingEnabled: false },
-            role: PlaceMemberRole.CASHIER,
-            permissions: [PERMISSION.ORDER_CONFIRM],
-            effectivePermissions: [],
-          },
-        ],
+        permissions: [],
       }),
     },
   ])('denies $label', ({ value }) => {
@@ -104,11 +95,17 @@ describe('dashboard access', () => {
     });
   });
 
-  it('redirects an authenticated user without management capabilities to home', () => {
-    expect(getDashboardAccessRedirect({ isAuthenticated: true, user: user() }, '/dashboard')).toEqual({
+  it('redirects an authenticated user without any dashboard capabilities to home', () => {
+    expect(
+      getDashboardAccessRedirect({ isAuthenticated: true, user: user({ permissions: [] }) }, '/dashboard'),
+    ).toEqual({
       to: '/',
       replace: true,
     });
+  });
+
+  it('allows a plain USER with self-service capabilities', () => {
+    expect(getDashboardAccessRedirect({ isAuthenticated: true, user: user() }, '/dashboard')).toBeNull();
   });
 
   it('allows direct access when capability metadata is sufficient', () => {
