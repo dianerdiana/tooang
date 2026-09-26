@@ -9,12 +9,16 @@ export const orderDetailKeys = {
   placeOrder: (placeId: string, orderId: string) => [...orderDetailKeys.place(placeId), orderId] as const,
   platform: () => [...orderDetailKeys.all, 'platform'] as const,
   platformOrder: (orderId: string) => [...orderDetailKeys.platform(), orderId] as const,
+  own: () => [...orderDetailKeys.all, 'own'] as const,
+  ownOrder: (orderId: string) => [...orderDetailKeys.own(), orderId] as const,
 };
 
 export const orderDetailQueryKey = (scope: OrderDetailScope, orderId: string | null) =>
   scope.kind === 'place'
     ? orderDetailKeys.placeOrder(scope.placeId, orderId ?? 'disabled')
-    : orderDetailKeys.platformOrder(orderId ?? 'disabled');
+    : scope.kind === 'own'
+      ? orderDetailKeys.ownOrder(orderId ?? 'disabled')
+      : orderDetailKeys.platformOrder(orderId ?? 'disabled');
 
 export const orderDetailQueryOptions = (scope: OrderDetailScope, orderId: string | null) =>
   queryOptions({
@@ -23,7 +27,9 @@ export const orderDetailQueryOptions = (scope: OrderDetailScope, orderId: string
       if (!orderId) throw new Error('An order identifier is required');
       return scope.kind === 'place'
         ? ordersService.getForPlace(scope.placeId, orderId)
-        : ordersService.getGlobal(orderId);
+        : scope.kind === 'own'
+          ? ordersService.getOwn(orderId)
+          : ordersService.getGlobal(orderId);
     },
     enabled: orderId !== null,
     staleTime: 15_000,
