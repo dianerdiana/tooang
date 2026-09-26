@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { useForm } from '@tanstack/react-form';
-import { useRouter } from '@tanstack/react-router';
+import { Link, useRouter } from '@tanstack/react-router';
 import { Loader2Icon, LogInIcon } from 'lucide-react';
 
 import { FormControl, FormField, FormLabel, FormMessage } from '@/components/forms/form-field';
@@ -151,6 +151,12 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
               </Button>
             )}
           </form.Subscribe>
+          <p className='text-center text-sm text-muted-foreground'>
+            New to Tooang?{' '}
+            <Link to='/register' className='font-medium text-primary underline-offset-4 hover:underline'>
+              Create an account
+            </Link>
+          </p>
         </form>
       </CardContent>
     </Card>
