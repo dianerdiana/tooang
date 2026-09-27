@@ -1,6 +1,6 @@
 import { Prisma } from '@/generated/prisma/client';
 
-import { isTransactionWriteConflict } from './database-error';
+import { isTransactionWriteConflict } from '../database-error';
 
 describe('database error classification', () => {
   it('recognizes Prisma and driver-adapter transaction write conflicts', () => {

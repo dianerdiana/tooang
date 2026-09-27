@@ -22,7 +22,7 @@ import {
   PLATFORM_PERMISSIONS,
   PLATFORM_ROLE_GRANTS,
   resolveEffectivePermissions,
-} from './permissions';
+} from '../permissions';
 
 describe('SRS v1.3 permission contract', () => {
   it('defines a stable, unique, capability-based identifier list', () => {

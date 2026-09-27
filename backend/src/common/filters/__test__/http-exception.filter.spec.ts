@@ -4,7 +4,7 @@ import { jest } from '@jest/globals';
 
 import { Prisma } from '@/generated/prisma/client';
 
-import { HttpExceptionFilter } from './http-exception.filter';
+import { HttpExceptionFilter } from '../http-exception.filter';
 
 describe('HttpExceptionFilter', () => {
   const execute = (exception: unknown) => {

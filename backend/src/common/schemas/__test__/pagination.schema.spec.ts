@@ -1,4 +1,4 @@
-import { paginationSchema } from './pagination.schema';
+import { paginationSchema } from '../pagination.schema';
 
 describe('paginationSchema', () => {
   it('applies shared defaults and accepts the maximum page size', () => {

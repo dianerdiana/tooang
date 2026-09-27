@@ -9,10 +9,9 @@ import {
   type Permission,
   PlatformRole,
   type PlatformRoleType,
-} from '../auth';
-import { ANY_PERMISSIONS_KEY, PERMISSIONS_KEY } from '../decorators';
-
-import { PermissionsGuard } from './permissions.guard';
+} from '../../auth';
+import { ANY_PERMISSIONS_KEY, PERMISSIONS_KEY } from '../../decorators';
+import { PermissionsGuard } from '../permissions.guard';
 
 function contextFor(user?: AuthenticatedUser): ExecutionContext {
   return {

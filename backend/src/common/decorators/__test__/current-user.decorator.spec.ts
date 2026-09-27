@@ -1,8 +1,7 @@
 import { type ExecutionContext, UnauthorizedException } from '@nestjs/common';
 
-import { type AuthenticatedActor, PlatformRole } from '../auth';
-
-import { currentActorFrom } from './current-user.decorator';
+import { type AuthenticatedActor, PlatformRole } from '../../auth';
+import { currentActorFrom } from '../current-user.decorator';
 
 function contextFor(user?: AuthenticatedActor): ExecutionContext {
   return {
