@@ -32,6 +32,7 @@ describe('SRS v1.3 permission contract', () => {
       'account.deletion.request',
       'cart.manage',
       'order.checkout',
+      'order.create_manual',
       'order.read',
       'order.cancel',
       'order.confirm',
@@ -116,6 +117,7 @@ describe('SRS v1.3 permission contract', () => {
       'account.deletion.request',
       'cart.manage',
       'order.checkout',
+      'order.create_manual',
       'order.read',
       'order.cancel',
       'review.create',
@@ -185,6 +187,7 @@ describe('SRS v1.3 permission contract', () => {
       'account.deletion.request',
       'cart.manage',
       'order.checkout',
+      'order.create_manual',
       'order.read',
       'order.cancel',
       'review.create',
@@ -235,6 +238,7 @@ describe('SRS v1.3 permission contract', () => {
 
   it('defines the exact CASHIER membership allowlist at member scope', () => {
     expect(MEMBERSHIP_PERMISSIONS[PlaceMemberRole.CASHIER]).toEqual([
+      'order.create_manual',
       'order.read',
       'order.cancel',
       'order.confirm',
@@ -255,6 +259,7 @@ describe('SRS v1.3 permission contract', () => {
 
   it('defines OWNER management at owned scope without platform or OWNER administration', () => {
     expect(MEMBERSHIP_PERMISSIONS[PlaceMemberRole.OWNER]).toEqual([
+      'order.create_manual',
       'order.read',
       'order.cancel',
       'order.confirm',
