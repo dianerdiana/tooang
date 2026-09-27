@@ -17,8 +17,27 @@ const baseIntent = z.object({
 });
 
 export const createUploadIntentSchema = z.discriminatedUnion('target', [
-  baseIntent.extend({ target: z.literal(MEDIA_TARGET.PLACE_LOGO), menuItemId: z.never().optional() }).strict(),
-  baseIntent.extend({ target: z.literal(MEDIA_TARGET.PLACE_COVER), menuItemId: z.never().optional() }).strict(),
+  baseIntent
+    .extend({
+      target: z.literal(MEDIA_TARGET.PLACE_LOGO),
+      categoryId: z.never().optional(),
+      menuItemId: z.never().optional(),
+    })
+    .strict(),
+  baseIntent
+    .extend({
+      target: z.literal(MEDIA_TARGET.PLACE_COVER),
+      categoryId: z.never().optional(),
+      menuItemId: z.never().optional(),
+    })
+    .strict(),
+  baseIntent
+    .extend({
+      target: z.literal(MEDIA_TARGET.MENU_CATEGORY_THUMBNAIL),
+      categoryId: uuid,
+      menuItemId: z.never().optional(),
+    })
+    .strict(),
   baseIntent.extend({ target: z.literal(MEDIA_TARGET.MENU_ITEM_IMAGE), menuItemId: uuid }).strict(),
 ]);
 

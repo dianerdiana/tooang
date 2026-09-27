@@ -7,6 +7,7 @@ import { createUploadIntentSchema, toCreateUploadIntent, validateMediaFile } fro
 const file = (type: string, size: number) => ({ name: 'image.bin', type, size }) as File;
 const placeId = '550e8400-e29b-41d4-a716-446655440000';
 const menuItemId = '6ba7b810-9dad-41d1-80b4-00c04fd430c8';
+const categoryId = '8ba7b810-9dad-41d1-80b4-00c04fd430c8';
 
 describe('media schemas', () => {
   it.each(Object.values(MEDIA_MIME_TYPE))('accepts backend-supported MIME type %s', (type) => {
@@ -29,6 +30,13 @@ describe('media schemas', () => {
     expect(
       toCreateUploadIntent(file('image/avif', 42), { target: MEDIA_TARGET.MENU_ITEM_IMAGE, placeId, menuItemId }),
     ).toMatchObject({ target: 'MENU_ITEM_IMAGE', menuItemId });
+    expect(
+      toCreateUploadIntent(file('image/png', 42), {
+        target: MEDIA_TARGET.MENU_CATEGORY_THUMBNAIL,
+        placeId,
+        categoryId,
+      }),
+    ).toMatchObject({ target: 'MENU_CATEGORY_THUMBNAIL', categoryId });
     expect(() =>
       createUploadIntentSchema.parse({
         target: 'MENU_ITEM_IMAGE',

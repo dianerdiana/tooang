@@ -73,4 +73,15 @@ export const mediaService = {
       throw toApiError(error);
     }
   },
+
+  async detachCategoryThumbnail(placeId: string, categoryId: string): Promise<MediaAssociationResult> {
+    try {
+      const response = await api.delete<ApiResponse<{ media: MediaAssociationResult }>>(
+        `/places/${encodeURIComponent(placeId)}/menu-categories/${encodeURIComponent(categoryId)}/thumbnail`,
+      );
+      return unwrapApiResponse(response.data).media;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
 };

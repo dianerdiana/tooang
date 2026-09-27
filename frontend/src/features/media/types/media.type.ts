@@ -1,6 +1,7 @@
 export const MEDIA_TARGET = {
   PLACE_LOGO: 'PLACE_LOGO',
   PLACE_COVER: 'PLACE_COVER',
+  MENU_CATEGORY_THUMBNAIL: 'MENU_CATEGORY_THUMBNAIL',
   MENU_ITEM_IMAGE: 'MENU_ITEM_IMAGE',
 } as const;
 
@@ -19,6 +20,7 @@ export type MediaMimeType = (typeof MEDIA_MIME_TYPE)[keyof typeof MEDIA_MIME_TYP
 
 export type MediaTargetIdentity =
   | { target: 'PLACE_LOGO' | 'PLACE_COVER'; placeId: string }
+  | { target: 'MENU_CATEGORY_THUMBNAIL'; placeId: string; categoryId: string }
   | { target: 'MENU_ITEM_IMAGE'; placeId: string; menuItemId: string };
 
 export type CreateUploadIntentInput = MediaTargetIdentity & {

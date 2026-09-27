@@ -8,6 +8,15 @@ import { mediaService } from '../services/media.service';
 import { MEDIA_TARGET, type MediaTargetIdentity } from '../types/media.type';
 
 export const refreshMediaTargetData = async (client: QueryClient, target: MediaTargetIdentity) => {
+  if (target.target === MEDIA_TARGET.MENU_CATEGORY_THUMBNAIL) {
+    const { placeId, categoryId } = target;
+    await Promise.all([
+      client.invalidateQueries({ queryKey: menuCategoriesKeys.detail(placeId, categoryId) }),
+      client.invalidateQueries({ queryKey: menuCategoriesKeys.lists(placeId) }),
+      client.invalidateQueries({ queryKey: menuItemsKeys.lists(placeId) }),
+    ]);
+    return;
+  }
   if (target.target === MEDIA_TARGET.MENU_ITEM_IMAGE) {
     const { placeId, menuItemId } = target;
     await Promise.all([
@@ -35,6 +44,9 @@ export const useDetachMediaMutation = (target: MediaTargetIdentity) => {
     mutationFn: () => {
       if (target.target === MEDIA_TARGET.PLACE_LOGO) return mediaService.detachPlaceLogo(target.placeId);
       if (target.target === MEDIA_TARGET.PLACE_COVER) return mediaService.detachPlaceCover(target.placeId);
+      if (target.target === MEDIA_TARGET.MENU_CATEGORY_THUMBNAIL) {
+        return mediaService.detachCategoryThumbnail(target.placeId, target.categoryId);
+      }
       const menuTarget = target as Extract<MediaTargetIdentity, { target: 'MENU_ITEM_IMAGE' }>;
       return mediaService.detachMenuItemImage(menuTarget.placeId, menuTarget.menuItemId);
     },
