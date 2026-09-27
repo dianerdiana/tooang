@@ -68,7 +68,13 @@ enum MediaAssetStatus {
 enum MediaTargetType {
   PLACE_LOGO
   PLACE_COVER
+  MENU_CATEGORY_THUMBNAIL
   MENU_ITEM_IMAGE
+}
+
+enum OrderSource {
+  CUSTOMER
+  MANUAL
 }
 
 enum AuditActorType {
@@ -92,7 +98,8 @@ model User {
   placeReviews        PlaceReview[]
   menuItemReviews     MenuItemReview[]
   carts               Cart[]
-  orders              Order[]
+  customerOrders      Order[]             @relation("OrderCustomer")
+  createdOrders       Order[]             @relation("OrderCreator")
   idempotencyKeys     IdempotencyKey[]
   refreshSessions     RefreshSession[]
   auditLogs           AuditLog[]          @relation("AuditActor")
@@ -257,6 +264,7 @@ model MediaAsset {
   updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
   logoForPlace       Place?             @relation("PlaceLogo")
   coverForPlace      Place?             @relation("PlaceCover")
+  categoryThumbnail  MenuCategory?      @relation("CategoryThumbnail")
   menuItem           MenuItem?
   completedByIntent  MediaUploadIntent?
 
@@ -268,6 +276,7 @@ model MediaUploadIntent {
   id                String          @id @default(uuid())
   actorUserId       String          @map("actor_user_id")
   placeId           String          @map("place_id")
+  categoryId        String?         @map("category_id")
   menuItemId        String?         @map("menu_item_id")
   target            MediaTargetType
   providerTokenHash String          @unique @map("provider_token_hash") @db.VarChar(64)
@@ -282,6 +291,7 @@ model MediaUploadIntent {
   updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
   actor             User            @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
   place             Place           @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  category          MenuCategory?    @relation(fields: [categoryId, placeId], references: [id, placeId], onDelete: Cascade, map: "media_upload_intents_category_id_fkey")
   menuItem          MenuItem?       @relation(fields: [menuItemId, placeId], references: [id, placeId], onDelete: Cascade, map: "media_upload_intents_menu_item_id_fkey")
   completedAsset    MediaAsset?     @relation(fields: [completedAssetId], references: [id], onDelete: Restrict)
 
@@ -292,18 +302,21 @@ model MediaUploadIntent {
 }
 
 model MenuCategory {
-  id             String     @id @default(uuid())
-  placeId        String     @map("place_id")
-  name           String     @db.VarChar(100)
-  normalizedName String     @map("normalized_name") @db.VarChar(100)
-  description    String?
-  sortOrder      Int        @default(0) @map("sort_order")
-  isActive       Boolean    @default(true) @map("is_active")
-  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt      DateTime?  @map("deleted_at") @db.Timestamptz(3)
-  place          Place      @relation(fields: [placeId], references: [id], onDelete: Cascade)
-  menuItems      MenuItem[]
+  id                 String              @id @default(uuid())
+  placeId            String              @map("place_id")
+  name               String              @db.VarChar(100)
+  normalizedName     String              @map("normalized_name") @db.VarChar(100)
+  description        String?
+  thumbnailAssetId   String?             @unique @map("thumbnail_asset_id")
+  sortOrder          Int                 @default(0) @map("sort_order")
+  isActive           Boolean             @default(true) @map("is_active")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?           @map("deleted_at") @db.Timestamptz(3)
+  place              Place               @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  thumbnailAsset     MediaAsset?         @relation("CategoryThumbnail", fields: [thumbnailAssetId], references: [id], onDelete: SetNull)
+  menuItems          MenuItem[]
+  mediaUploadIntents MediaUploadIntent[]
 
   @@unique([placeId, normalizedName])
   @@unique([id, placeId])
@@ -415,10 +428,12 @@ model Order {
   id                     String           @id @default(uuid())
   orderCode              String           @unique @map("order_code")
   verificationToken      String           @unique @default(uuid()) @map("verification_token")
-  userId                 String           @map("user_id")
+  userId                 String?          @map("user_id")
+  createdByUserId        String?          @map("created_by_user_id")
   placeId                String           @map("place_id")
   diningTableId          String?          @map("dining_table_id")
   status                 OrderStatus      @default(PENDING)
+  source                 OrderSource      @default(CUSTOMER)
   statusUpdatedAt        DateTime         @default(now()) @map("status_updated_at") @db.Timestamptz(3)
   fulfillmentType        FulfillmentType  @default(DINE_IN) @map("fulfillment_type")
   customerName           String           @map("customer_name") @db.VarChar(100)
@@ -433,7 +448,8 @@ model Order {
   cancelledAt            DateTime?        @map("cancelled_at") @db.Timestamptz(3)
   createdAt              DateTime         @default(dbgenerated("(CURRENT_TIMESTAMP + '00:00:00'::interval)")) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
-  user                   User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user                   User?            @relation("OrderCustomer", fields: [userId], references: [id], onDelete: Restrict)
+  createdBy              User?            @relation("OrderCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
   place                  Place            @relation(fields: [placeId], references: [id], onDelete: Restrict)
   diningTable            DiningTable?     @relation(fields: [diningTableId], references: [id], onDelete: SetNull)
   items                  OrderItem[]
@@ -441,6 +457,7 @@ model Order {
   menuItemReviews        MenuItemReview[]
 
   @@index([userId, createdAt])
+  @@index([createdByUserId, createdAt])
   @@index([placeId, status, createdAt])
   @@index([status, expiresAt])
   @@index([createdAt])
