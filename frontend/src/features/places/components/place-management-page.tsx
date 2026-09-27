@@ -621,6 +621,8 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
     canCreate: canAtPlace(ability, place.id, PERMISSION.MENU_CREATE),
     canUpdate: canAtPlace(ability, place.id, PERMISSION.MENU_UPDATE),
     canDelete: canAtPlace(ability, place.id, PERMISSION.MENU_DELETE),
+    canUploadMedia: mediaPermissions.canUpload,
+    canDeleteMedia: mediaPermissions.canRemove,
   };
   const memberPermissions = {
     canRead: canAtPlace(ability, place.id, PERMISSION.PLACE_MEMBER_READ),
