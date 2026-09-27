@@ -15,6 +15,8 @@ import {
 const detail = (status: OrderDetail['status'] = 'CONFIRMED'): OrderDetail => ({
   orderId: 'order-1',
   orderCode: 'TNG-20260923-ABCDEFGH',
+  source: 'CUSTOMER',
+  createdBy: null,
   place: { placeId: 'place-1', name: 'Warung Tooang' },
   status,
   fulfillmentType: 'DINE_IN',

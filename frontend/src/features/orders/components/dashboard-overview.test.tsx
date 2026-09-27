@@ -29,6 +29,8 @@ const place: PlaceMembership = {
 const order: OrderSummary = {
   orderId: 'order-1',
   orderCode: 'TNG-20260922-ABCDEFGH',
+  source: 'CUSTOMER',
+  createdBy: null,
   place: { placeId: 'place-1', name: 'Warung Tooang' },
   status: 'READY',
   fulfillmentType: 'DINE_IN',

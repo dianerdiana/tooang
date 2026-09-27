@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { EyeIcon, RefreshCwIcon, ShoppingBagIcon } from 'lucide-react';
+import { EyeIcon, PlusIcon, RefreshCwIcon, ShoppingBagIcon } from 'lucide-react';
 
 import { PageHeader } from '@/components/layouts/page-header';
 import { SectionCard } from '@/components/layouts/section-card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
@@ -13,10 +14,14 @@ import { LoadingState } from '@/components/ui/loading-state';
 import { Pagination } from '@/components/ui/pagination';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
+import { canAtPlace } from '@/utils/auth/has-permission';
 import { getDashboardErrorPresentation, getDashboardErrorTone } from '@/utils/dashboard-error';
 import { formatCurrency } from '@/utils/format-currency';
 import { formatTimeAgo } from '@/utils/format-time-ago.util';
+import { useAppAbility } from '@/utils/hooks/use-app-ability';
 import { cn } from '@/utils/utils';
+
+import { PERMISSION } from '@/types/permission.type';
 
 import { orderListQueryOptions } from '../queries/order-list.query';
 import type { OrderQueueSearch } from '../schemas/order-list.schema';
@@ -28,6 +33,7 @@ import {
   type OrderSummary,
 } from '../types/order.type';
 
+import { ManualOrderDrawer } from './manual-order-drawer';
 import { OrderDetailDrawer } from './order-detail-drawer';
 import { OrderStatusBadge, orderStatusPresentation } from './order-status-badge';
 
@@ -95,6 +101,7 @@ function OrderQueueResults({
             <div className='flex items-start justify-between gap-3'>
               <div className='min-w-0'>
                 <p className='font-semibold tabular-nums'>{order.orderCode}</p>
+                {order.source === 'MANUAL' && <Badge variant='secondary'>Manual</Badge>}
                 <p className='truncate text-sm text-muted-foreground'>{order.customerName}</p>
               </div>
               <OrderStatusBadge status={order.status} />
@@ -140,6 +147,7 @@ function OrderQueueResults({
               <TableRow key={order.orderId} className={attentionClassName(order.status)}>
                 <TableCell>
                   <span className='block font-semibold tabular-nums'>{order.orderCode}</span>
+                  {order.source === 'MANUAL' && <Badge variant='secondary'>Manual</Badge>}
                   <span className='block max-w-52 truncate text-xs text-muted-foreground'>{order.customerName}</span>
                 </TableCell>
                 <TableCell>
@@ -166,7 +174,10 @@ function OrderQueueResults({
 }
 
 function OrderQueuePage({ placeId, placeName, filters, onFiltersChange }: OrderQueuePageProps) {
+  const ability = useAppAbility();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [manualOrderOpen, setManualOrderOpen] = useState(false);
+  const canCreateManual = canAtPlace(ability, placeId, PERMISSION.ORDER_CREATE_MANUAL);
   const params = useMemo(
     () => ({
       page: filters.page,
@@ -191,13 +202,20 @@ function OrderQueuePage({ placeId, placeName, filters, onFiltersChange }: OrderQ
         title='Orders'
         description={`Live operational order queue for ${placeName}.`}
         actions={
-          <Button type='button' variant='outline' onClick={() => void query.refetch()} disabled={query.isFetching}>
-            <RefreshCwIcon
-              className={query.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
-              aria-hidden
-            />
-            {query.isFetching ? 'Refreshing…' : 'Refresh'}
-          </Button>
+          <div className='flex flex-wrap gap-2'>
+            {canCreateManual && (
+              <Button type='button' onClick={() => setManualOrderOpen(true)}>
+                <PlusIcon aria-hidden /> Add manual order
+              </Button>
+            )}
+            <Button type='button' variant='outline' onClick={() => void query.refetch()} disabled={query.isFetching}>
+              <RefreshCwIcon
+                className={query.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined}
+                aria-hidden
+              />
+              {query.isFetching ? 'Refreshing…' : 'Refresh'}
+            </Button>
+          </div>
         }
       />
 
@@ -280,6 +298,9 @@ function OrderQueuePage({ placeId, placeName, filters, onFiltersChange }: OrderQ
         orderId={selectedOrderId}
         onClose={() => setSelectedOrderId(null)}
       />
+      {canCreateManual && (
+        <ManualOrderDrawer placeId={placeId} open={manualOrderOpen} onOpenChange={setManualOrderOpen} />
+      )}
     </>
   );
 }

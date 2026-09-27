@@ -10,6 +10,8 @@ import { OrderStatusBadge, orderStatusPresentation } from './order-status-badge'
 const order = (status: OrderStatus, suffix: string): OrderSummary => ({
   orderId: `order-${suffix}`,
   orderCode: `TNG-20260923-${suffix.padEnd(8, 'A')}`,
+  source: 'CUSTOMER',
+  createdBy: null,
   place: { placeId: 'place-1', name: 'Warung Tooang' },
   status,
   fulfillmentType: 'DINE_IN',
@@ -65,5 +67,12 @@ describe('operational order queue presentation', () => {
 
     expect(placeResult).not.toContain('Warung Tooang');
     expect(globalResult).toContain('Warung Tooang');
+  });
+
+  it('marks staff-created orders as manual', () => {
+    const manual = { ...order('CONFIRMED', 'MANUAL'), source: 'MANUAL' as const };
+    expect(renderToStaticMarkup(<OrderQueueResults orders={[manual]} onViewOrder={() => undefined} />)).toContain(
+      'Manual',
+    );
   });
 });
