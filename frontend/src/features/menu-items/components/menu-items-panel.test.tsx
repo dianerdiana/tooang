@@ -29,6 +29,7 @@ const categories = [
     name: 'Drinks',
     sortOrder: 0,
     isActive: true,
+    thumbnailUrl: null,
     createdAt: '',
     updatedAt: '',
   },

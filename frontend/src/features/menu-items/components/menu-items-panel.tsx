@@ -19,7 +19,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/ui/status-badge';
 
+import { MediaFilePicker } from '@/features/media/components/media-file-picker';
 import { MediaManagementPanel } from '@/features/media/components/media-management-panel';
+import { useMediaUpload } from '@/features/media/queries/media-upload.mutation';
 import { MEDIA_TARGET } from '@/features/media/types/media.type';
 import { allMenuCategoriesQueryOptions } from '@/features/menu-categories/queries/menu-categories.query';
 import type { MenuCategory } from '@/features/menu-categories/types/menu-categories.type';
@@ -285,18 +287,31 @@ function CreateItemDrawer({
   categories,
   open,
   onOpenChange,
+  canUploadMedia,
 }: {
   placeId: string;
   categories: MenuCategory[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canUploadMedia: boolean;
 }) {
   const mutation = useCreateMenuItemMutation(placeId);
+  const upload = useMediaUpload();
   const [formError, setFormError] = useState<string>();
+  const [imageFile, setImageFile] = useState<File>();
+  const [createdItem, setCreatedItem] = useState<{ menuItemId: string; name: string }>();
   const form = useMenuItemForm(menuItemToFormValues(), async (value) => {
     setFormError(undefined);
     try {
-      const item = await mutation.mutateAsync(toCreateMenuItemInput(value));
+      const item = createdItem ?? (await mutation.mutateAsync(toCreateMenuItemInput(value)));
+      setCreatedItem({ menuItemId: item.menuItemId, name: item.name });
+      if (imageFile) {
+        await upload.upload(imageFile, {
+          target: MEDIA_TARGET.MENU_ITEM_IMAGE,
+          placeId,
+          menuItemId: item.menuItemId,
+        });
+      }
       toast.success(`${item.name} created.`);
       onOpenChange(false);
     } catch (error) {
@@ -307,6 +322,9 @@ function CreateItemDrawer({
     if (!next) {
       setFormError(undefined);
       mutation.reset();
+      upload.reset();
+      setImageFile(undefined);
+      setCreatedItem(undefined);
       form.reset();
     }
     onOpenChange(next);
@@ -331,17 +349,36 @@ function CreateItemDrawer({
         <MenuItemFields
           form={form}
           categories={categories}
+          disabled={Boolean(createdItem) || mutation.isPending || upload.isPending}
           formError={formError}
           onChange={() => setFormError(undefined)}
         />
+        {canUploadMedia && (
+          <MediaFilePicker
+            label='Menu item image'
+            file={imageFile}
+            onChange={setImageFile}
+            disabled={Boolean(createdItem) || mutation.isPending || upload.isPending}
+          />
+        )}
+        {createdItem && upload.error && (
+          <p role='alert' className='text-sm text-destructive'>
+            The item was created, but its image failed to upload. Retry without creating a duplicate.
+          </p>
+        )}
         {mutation.isError && !formError && (
           <p role='alert' className='text-sm text-destructive'>
             {operationError(mutation.error, 'create this menu item')}
           </p>
         )}
         <div className='flex justify-end gap-2'>
-          <Button type='button' variant='outline' onClick={() => changeOpen(false)} disabled={mutation.isPending}>
-            Cancel
+          <Button
+            type='button'
+            variant='outline'
+            onClick={() => changeOpen(false)}
+            disabled={mutation.isPending || upload.isPending}
+          >
+            {createdItem ? 'Finish without image' : 'Cancel'}
           </Button>
           <form.Subscribe selector={(state) => [state.values, state.isSubmitting] as const}>
             {([values, isSubmitting]) => {
@@ -352,13 +389,19 @@ function CreateItemDrawer({
                 valid = false;
               }
               return (
-                <Button type='submit' disabled={!valid || isSubmitting || mutation.isPending}>
-                  {isSubmitting || mutation.isPending ? (
+                <Button type='submit' disabled={!valid || isSubmitting || mutation.isPending || upload.isPending}>
+                  {isSubmitting || mutation.isPending || upload.isPending ? (
                     <Loader2Icon className='animate-spin' aria-hidden />
                   ) : (
                     <PlusIcon aria-hidden />
                   )}
-                  {isSubmitting || mutation.isPending ? 'Creating…' : 'Create item'}
+                  {createdItem
+                    ? upload.isPending
+                      ? 'Uploading…'
+                      : 'Retry image'
+                    : isSubmitting || mutation.isPending
+                      ? 'Creating…'
+                      : 'Create item'}
                 </Button>
               );
             }}
@@ -697,7 +740,13 @@ export function MenuItemsPanel({ placeId, permissions }: { placeId: string; perm
         }}
       />
       {permissions.canCreate && creating && (
-        <CreateItemDrawer placeId={placeId} categories={categories} open={creating} onOpenChange={setCreating} />
+        <CreateItemDrawer
+          placeId={placeId}
+          categories={categories}
+          open={creating}
+          onOpenChange={setCreating}
+          canUploadMedia={permissions.canUploadMedia}
+        />
       )}
       <ResponsiveDrawer
         open={selectedId !== null}
