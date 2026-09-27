@@ -1,9 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto';
 
-import type { CheckoutInput } from './orders.schema';
+import type { CheckoutInput, CreateManualOrderInput } from './orders.schema';
 
 export const CHECKOUT_ENDPOINT = '/api/v1/me/orders';
 export const CHECKOUT_IDENTITY_VERSION = 'tooang.checkout.v1';
+export const MANUAL_ORDER_IDENTITY_VERSION = 'tooang.manual-order.v1';
 
 export function canonicalCheckoutInput(input: CheckoutInput): readonly unknown[] {
   return [
@@ -19,6 +20,23 @@ export function canonicalCheckoutInput(input: CheckoutInput): readonly unknown[]
 export function hashCheckoutInput(input: CheckoutInput): string {
   return createHash('sha256')
     .update(JSON.stringify(canonicalCheckoutInput(input)), 'utf8')
+    .digest('hex');
+}
+
+export function hashManualOrderInput(placeId: string, input: CreateManualOrderInput): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify([
+        MANUAL_ORDER_IDENTITY_VERSION,
+        placeId,
+        input.fulfillmentType,
+        input.customerName,
+        input.customerNote ?? null,
+        input.fulfillmentType === 'DINE_IN' ? input.tableId : null,
+        input.items.map((item) => [item.menuItemId, item.quantity, item.note ?? null]),
+      ]),
+      'utf8',
+    )
     .digest('hex');
 }
 

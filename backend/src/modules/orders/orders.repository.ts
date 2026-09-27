@@ -15,6 +15,7 @@ export type OrdersDbClient = PrismaService | Prisma.TransactionClient;
 export const ORDER_SUMMARY_SELECT = {
   id: true,
   orderCode: true,
+  source: true,
   status: true,
   fulfillmentType: true,
   customerName: true,
@@ -24,6 +25,7 @@ export const ORDER_SUMMARY_SELECT = {
   statusUpdatedAt: true,
   expiresAt: true,
   place: { select: { id: true, name: true } },
+  createdBy: { select: { userId: true, fullName: true } },
 } satisfies Prisma.OrderSelect;
 
 export const ORDER_DETAIL_SELECT = {
@@ -236,6 +238,80 @@ export class OrdersRepository {
     });
   }
 
+  async lockManualOrderState(
+    placeId: string,
+    menuItemIds: string[],
+    tableId: string | null,
+    db: OrdersDbClient,
+  ): Promise<void> {
+    await db.$queryRaw(Prisma.sql`
+      SELECT "id" FROM "places" WHERE "id" = ${placeId} FOR SHARE
+    `);
+    await db.$queryRaw(Prisma.sql`
+      SELECT mi."id"
+      FROM "menu_items" mi
+      JOIN "menu_categories" mc
+        ON mc."id" = mi."category_id" AND mc."place_id" = mi."place_id"
+      WHERE mi."place_id" = ${placeId}
+        AND mi."id" IN (${Prisma.join(menuItemIds)})
+      ORDER BY mi."id"
+      FOR SHARE OF mi, mc
+    `);
+    if (tableId) await this.lockDiningTable(tableId, placeId, db);
+  }
+
+  findManualOrderItems(placeId: string, menuItemIds: string[], db: OrdersDbClient) {
+    return db.menuItem.findMany({
+      where: { id: { in: menuItemIds }, placeId },
+      select: {
+        id: true,
+        placeId: true,
+        name: true,
+        type: true,
+        price: true,
+        isAvailable: true,
+        deletedAt: true,
+        category: { select: { placeId: true, isActive: true, deletedAt: true } },
+      },
+    });
+  }
+
+  getManualOrderOptions(placeId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const [categories, tables] = await Promise.all([
+        tx.menuCategory.findMany({
+          where: { placeId, deletedAt: null, isActive: true },
+          select: {
+            id: true,
+            name: true,
+            sortOrder: true,
+            thumbnailAsset: { select: { status: true, deliveryUrl: true } },
+            menuItems: {
+              where: { deletedAt: null, isAvailable: true },
+              orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                type: true,
+                price: true,
+                sortOrder: true,
+                imageAsset: { select: { status: true, deliveryUrl: true } },
+              },
+            },
+          },
+          orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+        }),
+        tx.diningTable.findMany({
+          where: { placeId, deletedAt: null, isActive: true },
+          select: { id: true, name: true },
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        }),
+      ]);
+      return { categories, tables };
+    });
+  }
+
   createOrder(data: Prisma.OrderCreateArgs['data'], db: OrdersDbClient) {
     return db.order.create({
       data,
@@ -248,6 +324,10 @@ export class OrdersRepository {
         expiresAt: true,
       },
     });
+  }
+
+  findOrderDetail(orderId: string, db: OrdersDbClient) {
+    return db.order.findUnique({ where: { id: orderId }, select: ORDER_DETAIL_SELECT });
   }
 
   clearCart(cartId: string, placeId: string, db: OrdersDbClient) {

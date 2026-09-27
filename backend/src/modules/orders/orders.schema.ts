@@ -48,6 +48,57 @@ export const checkoutSchema = z.discriminatedUnion('fulfillmentType', [
     .strict(),
 ]);
 
+const manualOrderItemSchema = z
+  .object({
+    menuItemId: uuid,
+    quantity: z.number().int().min(1).max(99),
+    note: customerNote.optional(),
+  })
+  .strict();
+
+const manualOrderBase = {
+  customerName,
+  customerNote: customerNote.optional(),
+  items: z
+    .array(manualOrderItemSchema)
+    .min(1)
+    .max(50)
+    .superRefine((items, context) => {
+      const seen = new Set<string>();
+      let totalQuantity = 0;
+      items.forEach((item, index) => {
+        totalQuantity += item.quantity;
+        if (seen.has(item.menuItemId)) {
+          context.addIssue({
+            code: 'custom',
+            path: [index, 'menuItemId'],
+            message: 'Menu items must be unique',
+          });
+        }
+        seen.add(item.menuItemId);
+      });
+      if (totalQuantity > 200) {
+        context.addIssue({ code: 'custom', message: 'Total quantity must not exceed 200' });
+      }
+    }),
+};
+
+export const createManualOrderSchema = z.discriminatedUnion('fulfillmentType', [
+  z
+    .object({
+      ...manualOrderBase,
+      fulfillmentType: z.literal('DINE_IN'),
+      tableId: uuid,
+    })
+    .strict(),
+  z
+    .object({
+      ...manualOrderBase,
+      fulfillmentType: z.literal('TAKEAWAY'),
+    })
+    .strict(),
+]);
+
 export const idempotencyKeySchema = z
   .string({ error: 'Idempotency-Key header is required' })
   .min(1)
@@ -112,6 +163,7 @@ export const operationalOrderStatusSchema = z.discriminatedUnion('status', [
 ]);
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
+export type CreateManualOrderInput = z.infer<typeof createManualOrderSchema>;
 export type IdempotencyKey = z.infer<typeof idempotencyKeySchema>;
 export type ListMyOrdersInput = z.infer<typeof listMyOrdersSchema>;
 export type ListPlaceOrdersInput = z.infer<typeof listPlaceOrdersSchema>;

@@ -1,5 +1,6 @@
 import {
   checkoutSchema,
+  createManualOrderSchema,
   idempotencyKeySchema,
   listMyOrdersSchema,
   myOrderStatusSchema,
@@ -9,6 +10,7 @@ import {
 
 const placeId = 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA';
 const tableId = 'BBBBBBBB-BBBB-4BBB-8BBB-BBBBBBBBBBBB';
+const menuItemId = 'CCCCCCCC-CCCC-4CCC-8CCC-CCCCCCCCCCCC';
 
 describe('checkout schemas', () => {
   it('normalizes DINE_IN customer and identifier fields', () => {
@@ -57,6 +59,47 @@ describe('checkout schemas', () => {
     for (const key of ['', 'contains space', 'x'.repeat(256)]) {
       expect(idempotencyKeySchema.safeParse(key).success).toBe(false);
     }
+  });
+});
+
+describe('manual order schemas', () => {
+  const line = { menuItemId, quantity: 1 };
+
+  it('requires a table only for dine-in and normalizes customer input', () => {
+    expect(
+      createManualOrderSchema.parse({
+        fulfillmentType: 'DINE_IN',
+        tableId,
+        customerName: '  Ayu   Lestari ',
+        items: [line],
+      }),
+    ).toMatchObject({ customerName: 'Ayu Lestari', tableId: tableId.toLowerCase() });
+    expect(
+      createManualOrderSchema.safeParse({
+        fulfillmentType: 'TAKEAWAY',
+        tableId,
+        customerName: 'Ayu',
+        items: [line],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects duplicate items, excessive totals, and client-owned prices', () => {
+    const base = { fulfillmentType: 'TAKEAWAY', customerName: 'Ayu' };
+    expect(createManualOrderSchema.safeParse({ ...base, items: [line, line] }).success).toBe(false);
+    expect(
+      createManualOrderSchema.safeParse({
+        ...base,
+        items: [
+          { ...line, quantity: 99 },
+          { menuItemId: tableId, quantity: 99 },
+          { menuItemId: placeId, quantity: 3 },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      createManualOrderSchema.safeParse({ ...base, items: [{ ...line, price: 1 }] }).success,
+    ).toBe(false);
   });
 });
 

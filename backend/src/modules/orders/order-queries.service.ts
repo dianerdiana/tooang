@@ -102,6 +102,7 @@ export function orderSummaryResponse(order: OrderSummaryRow) {
   return {
     orderId: order.id,
     orderCode: order.orderCode,
+    source: order.source,
     place: { placeId: order.place.id, name: order.place.name },
     status: order.status,
     fulfillmentType: order.fulfillmentType,
@@ -111,6 +112,9 @@ export function orderSummaryResponse(order: OrderSummaryRow) {
     createdAt: order.createdAt.toISOString(),
     statusUpdatedAt: order.statusUpdatedAt.toISOString(),
     expiresAt: order.expiresAt.toISOString(),
+    createdBy: order.createdBy
+      ? { userId: order.createdBy.userId, fullName: order.createdBy.fullName }
+      : null,
   };
 }
 

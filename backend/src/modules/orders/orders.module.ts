@@ -4,6 +4,7 @@ import { AuditModule } from '@/modules/audit/audit.module';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { PlacesModule } from '@/modules/places/places.module';
 
+import { ManualOrdersService } from './manual-orders.service';
 import {
   GlobalOrdersController,
   OrderVerificationsController,
@@ -30,6 +31,7 @@ import { OrdersService } from './orders.service';
   providers: [
     OrdersRepository,
     OrdersService,
+    ManualOrdersService,
     OrderCodeService,
     OrderQueriesService,
     OrderTransitionsService,

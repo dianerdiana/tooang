@@ -1,4 +1,16 @@
-import { Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
+
+import type { Response } from 'express';
 
 import { type AuthenticatedActor, PERMISSION } from '@/common/auth';
 import {
@@ -7,6 +19,7 @@ import {
   RequireAnyPermission,
   RequirePermissions,
   ZodBody,
+  ZodHeader,
   ZodParam,
   ZodQuery,
 } from '@/common/decorators';
@@ -15,10 +28,15 @@ import { HttpResponse } from '@/common/responses';
 import { AuthRateLimit } from '@/modules/auth/auth-rate-limit';
 import { AuthRateLimitGuard } from '@/modules/auth/auth-rate-limit.guard';
 
+import { ManualOrdersService } from './manual-orders.service';
 import { OrderQueriesService } from './order-queries.service';
 import { OrderTransitionsService } from './order-transitions.service';
 import { OrderVerificationService } from './order-verification.service';
 import {
+  type CreateManualOrderInput,
+  createManualOrderSchema,
+  type IdempotencyKey,
+  idempotencyKeySchema,
   type ListGlobalOrdersInput,
   listGlobalOrdersSchema,
   type ListPlaceOrdersInput,
@@ -38,7 +56,36 @@ export class PlaceOrdersController {
   constructor(
     private readonly queries: OrderQueriesService,
     private readonly transitions: OrderTransitionsService,
+    private readonly manualOrders: ManualOrdersService,
   ) {}
+
+  @Post('manual')
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermissions(PERMISSION.ORDER_CREATE_MANUAL)
+  async createManual(
+    @CurrentActor() actor: AuthenticatedActor,
+    @ZodParam(placeOrderParamSchema.pick({ placeId: true })) params: { placeId: string },
+    @ZodHeader('idempotency-key', idempotencyKeySchema) idempotencyKey: IdempotencyKey,
+    @ZodBody(createManualOrderSchema) input: CreateManualOrderInput,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.manualOrders.create(actor, params.placeId, idempotencyKey, input);
+    response.status(result.status);
+    return result.body;
+  }
+
+  @Get('manual-options')
+  @RequirePermissions(PERMISSION.ORDER_CREATE_MANUAL)
+  async manualOptions(
+    @CurrentActor() actor: AuthenticatedActor,
+    @ZodParam(placeOrderParamSchema.pick({ placeId: true })) params: { placeId: string },
+  ) {
+    const options = await this.manualOrders.options(actor, params.placeId);
+    return HttpResponse.success({
+      message: 'Manual order options retrieved',
+      data: { options },
+    });
+  }
 
   @Get()
   @RequirePermissions(PERMISSION.ORDER_READ)
