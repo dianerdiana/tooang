@@ -149,6 +149,7 @@ export class MenusService {
         categoryId: string;
         name: string;
         sortOrder: number;
+        thumbnailUrl: string | null;
         items: ReturnType<MenusService['publicItemResponse']>[];
       }
     >();
@@ -157,6 +158,10 @@ export class MenusService {
         categoryId: item.category.id,
         name: item.category.name,
         sortOrder: item.category.sortOrder,
+        thumbnailUrl:
+          item.category.thumbnailAsset?.status === 'ACTIVE'
+            ? item.category.thumbnailAsset.deliveryUrl
+            : null,
         items: [],
       };
       group.items.push(this.publicItemResponse(item));
@@ -358,6 +363,7 @@ export class MenusService {
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
+    thumbnailAsset: { status: string; deliveryUrl: string } | null;
   }) {
     return {
       categoryId: category.id,
@@ -365,6 +371,8 @@ export class MenusService {
       name: category.name,
       sortOrder: category.sortOrder,
       isActive: category.isActive,
+      thumbnailUrl:
+        category.thumbnailAsset?.status === 'ACTIVE' ? category.thumbnailAsset.deliveryUrl : null,
       createdAt: category.createdAt.toISOString(),
       updatedAt: category.updatedAt.toISOString(),
     };
@@ -383,6 +391,13 @@ export class MenusService {
     createdAt: Date;
     updatedAt: Date;
     imageAsset: { status: string; deliveryUrl: string } | null;
+    category: {
+      id: string;
+      name: string;
+      sortOrder: number;
+      isActive: boolean;
+      thumbnailAsset: { status: string; deliveryUrl: string } | null;
+    };
   }) {
     return {
       menuItemId: item.id,

@@ -14,6 +14,7 @@ const CATEGORY_SELECT = {
   isActive: true,
   createdAt: true,
   updatedAt: true,
+  thumbnailAsset: { select: { status: true, deliveryUrl: true } },
 } satisfies Prisma.MenuCategorySelect;
 
 const ITEM_SELECT = {
@@ -28,7 +29,15 @@ const ITEM_SELECT = {
   sortOrder: true,
   createdAt: true,
   updatedAt: true,
-  category: { select: { id: true, name: true, sortOrder: true, isActive: true } },
+  category: {
+    select: {
+      id: true,
+      name: true,
+      sortOrder: true,
+      isActive: true,
+      thumbnailAsset: { select: { status: true, deliveryUrl: true } },
+    },
+  },
   imageAsset: { select: { status: true, deliveryUrl: true } },
 } satisfies Prisma.MenuItemSelect;
 
