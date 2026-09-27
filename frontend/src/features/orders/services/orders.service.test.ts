@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const apiMock = vi.hoisted(() => ({
   get: vi.fn(),
+  post: vi.fn(),
   patch: vi.fn(),
 }));
 
@@ -21,6 +22,7 @@ const response = {
 describe('ordersService', () => {
   beforeEach(() => {
     apiMock.get.mockReset();
+    apiMock.post.mockReset();
     apiMock.patch.mockReset();
     apiMock.get.mockResolvedValue(response);
   });
@@ -111,6 +113,29 @@ describe('ordersService', () => {
     expect(apiMock.patch).toHaveBeenCalledWith('/places/place-1/orders/order-1/status', {
       status: 'CANCELLED',
       cancellationReason: 'Kitchen closed',
+    });
+  });
+
+  it('loads manual options and creates with a caller-stable idempotency key', async () => {
+    const options = { categories: [], tables: [] };
+    apiMock.get.mockResolvedValueOnce({
+      data: { error: false, message: 'Options retrieved', data: { options } },
+    });
+    await expect(ordersService.getManualOrderOptions('place/1')).resolves.toEqual(options);
+    expect(apiMock.get).toHaveBeenCalledWith('/places/place%2F1/orders/manual-options');
+
+    const order = { orderId: 'manual-1', status: 'CONFIRMED', source: 'MANUAL' };
+    apiMock.post.mockResolvedValueOnce({
+      data: { error: false, message: 'Manual order created', data: { order } },
+    });
+    const input = {
+      fulfillmentType: 'TAKEAWAY' as const,
+      customerName: 'Ayu',
+      items: [{ menuItemId: 'item-1', quantity: 2 }],
+    };
+    await expect(ordersService.createManual('place/1', input, 'stable-key')).resolves.toEqual(order);
+    expect(apiMock.post).toHaveBeenCalledWith('/places/place%2F1/orders/manual', input, {
+      headers: { 'Idempotency-Key': 'stable-key' },
     });
   });
 });

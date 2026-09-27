@@ -19,9 +19,13 @@ export const FULFILLMENT_TYPE = {
 
 export type FulfillmentType = (typeof FULFILLMENT_TYPE)[keyof typeof FULFILLMENT_TYPE];
 
+export const ORDER_SOURCE = { CUSTOMER: 'CUSTOMER', MANUAL: 'MANUAL' } as const;
+export type OrderSource = (typeof ORDER_SOURCE)[keyof typeof ORDER_SOURCE];
+
 export type OrderSummary = {
   orderId: string;
   orderCode: string;
+  source: OrderSource;
   place: {
     placeId: string;
     name: string;
@@ -34,6 +38,7 @@ export type OrderSummary = {
   createdAt: string;
   statusUpdatedAt: string;
   expiresAt: string;
+  createdBy: { userId: string; fullName: string } | null;
 };
 
 export type OrderListParams = {
@@ -83,3 +88,39 @@ export type OperationalOrderStatusInput =
 export type OrderListScope = { kind: 'place'; placeId: string } | { kind: 'platform' } | { kind: 'own' };
 
 export type OrderDetailScope = OrderListScope;
+
+export type ManualOrderLineInput = {
+  menuItemId: string;
+  quantity: number;
+  note?: string | null;
+};
+
+type ManualOrderBaseInput = {
+  customerName: string;
+  customerNote?: string | null;
+  items: ManualOrderLineInput[];
+};
+
+export type CreateManualOrderInput =
+  | (ManualOrderBaseInput & { fulfillmentType: 'DINE_IN'; tableId: string })
+  | (ManualOrderBaseInput & { fulfillmentType: 'TAKEAWAY' });
+
+export type ManualOrderOptionItem = {
+  menuItemId: string;
+  categoryId: string;
+  name: string;
+  description: string | null;
+  type: 'FOOD' | 'DRINK';
+  price: number;
+  imageUrl: string | null;
+};
+
+export type ManualOrderOptions = {
+  categories: Array<{
+    categoryId: string;
+    name: string;
+    thumbnailUrl: string | null;
+    items: ManualOrderOptionItem[];
+  }>;
+  tables: Array<{ tableId: string; name: string }>;
+};

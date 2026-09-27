@@ -6,6 +6,8 @@ import { unwrapApiResponse, unwrapPaginatedApiResponse } from '@/utils/api-respo
 import type { ApiPaginatedResponse, ApiResponse } from '@/types/api-response.type';
 
 import type {
+  CreateManualOrderInput,
+  ManualOrderOptions,
   OperationalOrderStatusInput,
   OrderDetail,
   OrderListParams,
@@ -94,6 +96,30 @@ export const ordersService = {
       const response = await api.patch<typeof input, ApiResponse<{ order: OrderDetail }>>(
         `/me/orders/${encodeURIComponent(orderId)}/status`,
         input,
+      );
+      return unwrapApiResponse(response.data).order;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
+  async getManualOrderOptions(placeId: string): Promise<ManualOrderOptions> {
+    try {
+      const response = await api.get<ApiResponse<{ options: ManualOrderOptions }>>(
+        `/places/${encodeURIComponent(placeId)}/orders/manual-options`,
+      );
+      return unwrapApiResponse(response.data).options;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
+  async createManual(placeId: string, input: CreateManualOrderInput, idempotencyKey: string): Promise<OrderDetail> {
+    try {
+      const response = await api.post<CreateManualOrderInput, ApiResponse<{ order: OrderDetail }>>(
+        `/places/${encodeURIComponent(placeId)}/orders/manual`,
+        input,
+        { headers: { 'Idempotency-Key': idempotencyKey } },
       );
       return unwrapApiResponse(response.data).order;
     } catch (error) {
