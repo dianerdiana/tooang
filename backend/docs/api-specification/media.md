@@ -2,7 +2,7 @@
 
 ## Upload intents
 
-`POST /api/v1/media/upload-intents` requires `media.upload`. The strict body contains `target` (`PLACE_LOGO|PLACE_COVER|MENU_ITEM_IMAGE`), `placeId`, allowlisted JPEG/PNG/WebP/AVIF `mimeType`, integer `sizeBytes` from 1 through 5,242,880, and `menuItemId` only for menu-item images. Success is `201` with `data.upload`: upload URL, public key, short-lived token/signature/expiry, generated filename/folder, and fixed provider checks. Private credentials are excluded.
+`POST /api/v1/media/upload-intents` requires `media.upload`. The strict body contains `target` (`PLACE_LOGO|PLACE_COVER|MENU_CATEGORY_THUMBNAIL|MENU_ITEM_IMAGE`), `placeId`, allowlisted JPEG/PNG/WebP/AVIF `mimeType`, integer `sizeBytes` from 1 through 5,242,880, `categoryId` only for category thumbnails, and `menuItemId` only for menu-item images. Success is `201` with `data.upload`: upload URL, public key, short-lived token/signature/expiry, generated filename/folder, and fixed provider checks. Private credentials are excluded.
 
 `POST /api/v1/media/upload-intents/:intentId/complete` accepts only `{ "fileId": string }` (trimmed, 1–255). Success is `201 data.media`. The backend fetches and verifies provider type, exact MIME/size/name/path/account and delivery endpoint, then rechecks the actor and target inside a serializable database transaction.
 
@@ -16,6 +16,7 @@ All return `200 data.media` and require `media.delete`:
 
 - `DELETE /api/v1/places/:placeId/media/logo`
 - `DELETE /api/v1/places/:placeId/media/cover`
+- `DELETE /api/v1/places/:placeId/menu-categories/:categoryId/thumbnail`
 - `DELETE /api/v1/places/:placeId/menu-items/:menuItemId/image`
 
 Empty associations are idempotent. Detach plus transition to `PENDING_DELETE` is atomic; ImageKit calls occur after commit. Provider success or 404 converges on `DELETED`; failures become observable `DELETE_FAILED` with bounded categories.

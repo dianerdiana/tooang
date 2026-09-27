@@ -741,7 +741,16 @@ Place
 
 The backend shall not use `UserRole`, `Role`, `PlaceOwner`, or a separate CASHIER-assignment table for the version 1.3 baseline. Platform authorization is resolved from `User.platformRole`; place-scoped authorization is resolved from `PlaceMember`.
 
-## 18. Related documents
+## 18. Dashboard media and manual-order addendum
+
+- SRS-MNU-015: A menu category may reference one active optional thumbnail asset, and management/public category responses shall expose only its delivery URL.
+- SRS-MED-019: Dashboard users with media permission may select an optional category or menu-item image during creation; a failed upload shall not duplicate or roll back the successfully created menu record and shall remain retryable.
+- SRS-ORD-024: An authorized CASHIER, OWNER, ADMIN, or SUPER_ADMIN may create a place-scoped manual order without a customer account; customer identity consists only of a normalized customer name.
+- SRS-ORD-025: Manual order prices, item identity, table name, and totals shall be server snapshots derived from active place resources in a serializable transaction.
+- SRS-ORD-026: Manual orders shall start in `CONFIRMED`, record source and authenticated creator, disable public verification, and remain independent from publish, online-ordering, and business-hour state.
+- SRS-AUD-007: Successful manual-order creation shall emit a bounded `MANUAL_ORDER_CREATED` audit event without sensitive customer notes or verification data.
+
+## 19. Related documents
 
 - Product requirements: [`product-requirements-document.md`](product-requirements-document.md)
 - Application rules: [`application-rules.md`](application-rules.md)

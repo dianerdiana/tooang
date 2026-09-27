@@ -405,3 +405,11 @@ Production release remains blocked on evidence:
 | Unit tests                               | PASS    | 52 suites and 309 tests passed                                                                      |
 | PostgreSQL E2E/integration               | NOT RUN | 9 suites/35 tests were discovered but skipped because no isolated `TEST_DATABASE_URL` was available |
 | Load/backup/production checks            | NOT RUN | Requires F-04, F-05, and F-07                                                                       |
+
+## Post-v1.3 feature addendum (2026-09-27)
+
+| Requirement | Status | Implementation evidence |
+| --- | --- | --- |
+| SRS-MNU-015 / SRS-MED-019 | IMPLEMENTED | Prisma category-thumbnail relation, category-aware media intents/cleanup, menu API delivery URLs, and dashboard create/detail media controls |
+| SRS-ORD-024 / SRS-ORD-025 | IMPLEMENTED | `order.create_manual`, scoped manual-options/create endpoints, serializable server-side snapshots, validation, and idempotency |
+| SRS-ORD-026 / SRS-AUD-007 | IMPLEMENTED | Nullable customer relation, `OrderSource`, creator relation, initial `CONFIRMED` state, disabled verification, and `MANUAL_ORDER_CREATED` audit event |

@@ -19,6 +19,8 @@ The product uses role-based access control (RBAC). An OWNER manages only places 
 
 Customers need a simple way to inspect current menus and prepare an order before interacting with a cashier. Food-place owners need to publish and maintain their own information, menus, and incoming orders without gaining access to another owner's data. Platform administrators need centralized control over users, roles, places, and moderation.
 
+Category cards may carry optional thumbnail imagery, and menu/category images may be selected during dashboard creation and managed afterward. Authorized CASHIER/OWNER staff may also record walk-in orders using only a customer name, fulfillment details, and selected menu items; these orders are confirmed immediately and remain independent of online-ordering availability.
+
 Existing paper menus, social-media posts, and chat-based ordering commonly create these problems:
 
 - Menu information is difficult to search, categorize, and keep current.

@@ -30,6 +30,16 @@ Idempotency is scoped to the authenticated user and checkout endpoint:
 
 Other checkout failures include `404` for an unavailable place/table, and `409` codes including `CART_EMPTY`, `PLACE_UNAVAILABLE`, `ORDERING_DISABLED`, `PLACE_CLOSED`, `CART_ITEM_INVALID`, and `ORDER_TOTAL_OUT_OF_RANGE`. Invalid cart-item details contain only a safe item ID and bounded reason.
 
+## Manual orders
+
+`GET /api/v1/places/:placeId/orders/manual-options` and `POST /api/v1/places/:placeId/orders/manual` require place-scoped or global `order.create_manual`. CASHIER and OWNER memberships receive the place-scoped grant; ADMIN and SUPER_ADMIN receive the global grant. Options contain only active categories, available menu items with server prices, and active dining tables.
+
+Create requires `Idempotency-Key` and a strict body containing `customerName`, optional `customerNote`, one through 50 unique item lines (`menuItemId`, quantity 1â€“99, optional note), and either `TAKEAWAY` or `DINE_IN` with an active `tableId`. Total quantity is at most 200. Customer account, email, phone, and client-supplied prices/totals are not accepted.
+
+The server locks and revalidates the place, category, menu-item, and table records, snapshots current names/types/prices, calculates `Decimal(15,2)` totals, and creates the order in one serializable transaction. The place must be active, but publish state, online-ordering state, and business hours do not block staff entry. Manual orders have `source=MANUAL`, no customer `userId`, the authenticated staff actor in `createdByUserId`, initial `CONFIRMED` status/`confirmedAt`, and disabled public verification. They therefore do not expire as pending, appear in customer-owned order lists, or qualify for customer reviews.
+
+Success is `201 data.order`; retries with the same actor, endpoint, key, and normalized payload replay the stored response. Operational responses expose `source` and the safe staff identity snapshot. `MANUAL_ORDER_CREATED` is recorded in the audit log.
+
 ## Authenticated queries
 
 | Route                                                   | Scope                                                            |
