@@ -8,6 +8,7 @@ const BACKEND_PERMISSION_IDENTIFIERS = [
   'account.deletion.request',
   'cart.manage',
   'order.checkout',
+  'order.create_manual',
   'order.read',
   'order.cancel',
   'order.confirm',

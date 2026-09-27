@@ -4,6 +4,7 @@ export const PERMISSION = {
   ACCOUNT_DELETION_REQUEST: 'account.deletion.request',
   CART_MANAGE: 'cart.manage',
   ORDER_CHECKOUT: 'order.checkout',
+  ORDER_CREATE_MANUAL: 'order.create_manual',
   ORDER_READ: 'order.read',
   ORDER_CANCEL: 'order.cancel',
   ORDER_CONFIRM: 'order.confirm',
