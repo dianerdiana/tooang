@@ -3,7 +3,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { MEDIA_TARGET } from '../../types/media.type';
-
 import { MediaUploadControl } from '../media-upload-control';
 
 describe('MediaUploadControl', () => {

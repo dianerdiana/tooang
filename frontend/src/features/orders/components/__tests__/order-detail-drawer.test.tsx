@@ -3,7 +3,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import type { OrderDetail } from '../../types/order.type';
-
 import {
   getCancellationReasonState,
   OrderActions,

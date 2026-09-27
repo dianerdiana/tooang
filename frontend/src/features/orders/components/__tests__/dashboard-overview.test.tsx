@@ -9,7 +9,6 @@ import { PERMISSION } from '@/types/permission.type';
 import type { AuthenticatedUser, PlaceMembership } from '@/types/user-data.type';
 
 import type { OrderSummary } from '../../types/order.type';
-
 import {
   DashboardOverview,
   OrderStatusBadge,

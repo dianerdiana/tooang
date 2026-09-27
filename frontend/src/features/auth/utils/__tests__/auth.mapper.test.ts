@@ -4,7 +4,6 @@ import { PlaceMemberRole, PlatformRole } from '@/types/enums/user-role.enum';
 import { PERMISSION } from '@/types/permission.type';
 
 import type { MeUserResponse } from '../../types/auth.response';
-
 import { toAuthenticatedUser } from '../auth.mapper';
 
 describe('toAuthenticatedUser', () => {

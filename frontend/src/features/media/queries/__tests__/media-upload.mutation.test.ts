@@ -7,7 +7,6 @@ vi.mock('../services/media.service', () => ({
 vi.mock('../integrations/imagekit-upload', () => ({ uploadToImageKit: mocks.upload }));
 
 import { MEDIA_TARGET, type MediaUploadAuthorization } from '../../types/media.type';
-
 import { executeMediaUpload } from '../media-upload.mutation';
 
 const placeId = '550e8400-e29b-41d4-a716-446655440000';

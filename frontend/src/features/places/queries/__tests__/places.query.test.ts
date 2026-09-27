@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { normalizePlaceListParams, parsePlacesSearch } from '../../schemas/places.schema';
-
 import { placesKeys } from '../places.key';
 
 describe('management place list state', () => {
