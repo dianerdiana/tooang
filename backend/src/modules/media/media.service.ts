@@ -61,11 +61,19 @@ export class MediaService {
 
     const intent = await this.prisma.$transaction(
       async (tx) => {
-        await this.assertTarget(actor, input.placeId, input.target, input.menuItemId ?? null, tx);
+        await this.assertTarget(
+          actor,
+          input.placeId,
+          input.target,
+          input.categoryId ?? null,
+          input.menuItemId ?? null,
+          tx,
+        );
         return this.repository.createIntent(
           {
             actorUserId: actor.id,
             placeId: input.placeId,
+            ...(input.categoryId ? { categoryId: input.categoryId } : {}),
             ...(input.menuItemId ? { menuItemId: input.menuItemId } : {}),
             target: input.target,
             providerTokenHash: createHash('sha256').update(token).digest('hex'),
@@ -153,6 +161,7 @@ export class MediaService {
             actor,
             intent.placeId,
             intent.target,
+            intent.categoryId,
             intent.menuItemId,
             tx,
           );
@@ -169,6 +178,7 @@ export class MediaService {
           const oldAssetId = await this.repository.switchAssociation(
             intent.target,
             intent.placeId,
+            intent.categoryId,
             intent.menuItemId,
             asset.id,
             tx,
@@ -212,25 +222,56 @@ export class MediaService {
     placeId: string,
     target: 'PLACE_LOGO' | 'PLACE_COVER',
   ) {
-    return this.removeAssociation(actor, placeId, target, null);
+    return this.removeAssociation(actor, placeId, target, null, null);
   }
 
   removeMenuItemMedia(actor: AuthenticatedActor, placeId: string, menuItemId: string) {
-    return this.removeAssociation(actor, placeId, MediaTargetType.MENU_ITEM_IMAGE, menuItemId);
+    return this.removeAssociation(
+      actor,
+      placeId,
+      MediaTargetType.MENU_ITEM_IMAGE,
+      null,
+      menuItemId,
+    );
+  }
+
+  removeCategoryMedia(actor: AuthenticatedActor, placeId: string, categoryId: string) {
+    return this.removeAssociation(
+      actor,
+      placeId,
+      MediaTargetType.MENU_CATEGORY_THUMBNAIL,
+      categoryId,
+      null,
+    );
   }
 
   private async removeAssociation(
     actor: AuthenticatedActor,
     placeId: string,
     target: MediaTargetType,
+    categoryId: string | null,
     menuItemId: string | null,
   ) {
     this.assertProviderEnabled();
     try {
       const assetId = await this.prisma.$transaction(
         async (tx) => {
-          const access = await this.assertTarget(actor, placeId, target, menuItemId, tx, true);
-          const detached = await this.repository.detachAssociation(target, placeId, menuItemId, tx);
+          const access = await this.assertTarget(
+            actor,
+            placeId,
+            target,
+            categoryId,
+            menuItemId,
+            tx,
+            true,
+          );
+          const detached = await this.repository.detachAssociation(
+            target,
+            placeId,
+            categoryId,
+            menuItemId,
+            tx,
+          );
           if (detached === undefined) throw new NotFoundException('Media target not found');
           if (!detached) return null;
           await this.repository.queueAsset(detached, new Date(), tx);
@@ -253,6 +294,7 @@ export class MediaService {
     actor: AuthenticatedActor,
     placeId: string,
     target: MediaTargetType,
+    categoryId: string | null,
     menuItemId: string | null,
     tx: Prisma.TransactionClient,
     deleting = false,
@@ -262,11 +304,20 @@ export class MediaService {
     }
     const permission = deleting ? PERMISSION.MEDIA_DELETE : PERMISSION.MEDIA_UPLOAD;
     const access = await this.access.assertPermission(actor, placeId, permission, tx);
-    if (target === MediaTargetType.MENU_ITEM_IMAGE) {
+    if (target === MediaTargetType.MENU_CATEGORY_THUMBNAIL) {
+      if (
+        !categoryId ||
+        menuItemId ||
+        !(await this.repository.findActiveCategory(placeId, categoryId, tx))
+      ) {
+        throw new NotFoundException('Media target not found');
+      }
+    } else if (target === MediaTargetType.MENU_ITEM_IMAGE) {
       if (!menuItemId || !(await this.repository.findActiveMenuItem(placeId, menuItemId, tx))) {
         throw new NotFoundException('Media target not found');
       }
-    } else if (menuItemId) {
+      if (categoryId) throw new NotFoundException('Media target not found');
+    } else if (categoryId || menuItemId) {
       throw new NotFoundException('Media target not found');
     }
     return access;
@@ -301,6 +352,9 @@ export class MediaService {
     const base = `${this.imageKit.uploadFolder}/places/${input.placeId}`;
     if (input.target === MediaTargetType.PLACE_LOGO) return `${base}/logo`;
     if (input.target === MediaTargetType.PLACE_COVER) return `${base}/cover`;
+    if (input.target === MediaTargetType.MENU_CATEGORY_THUMBNAIL) {
+      return `${base}/menu-categories/${input.categoryId}`;
+    }
     return `${base}/menu-items/${input.menuItemId}`;
   }
 

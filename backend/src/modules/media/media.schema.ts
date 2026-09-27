@@ -19,13 +19,32 @@ const baseIntent = z.object({
 
 export const createUploadIntentSchema = z.discriminatedUnion('target', [
   baseIntent
-    .extend({ target: z.literal(MediaTargetType.PLACE_LOGO), menuItemId: z.never().optional() })
+    .extend({
+      target: z.literal(MediaTargetType.PLACE_LOGO),
+      categoryId: z.never().optional(),
+      menuItemId: z.never().optional(),
+    })
     .strict(),
   baseIntent
-    .extend({ target: z.literal(MediaTargetType.PLACE_COVER), menuItemId: z.never().optional() })
+    .extend({
+      target: z.literal(MediaTargetType.PLACE_COVER),
+      categoryId: z.never().optional(),
+      menuItemId: z.never().optional(),
+    })
     .strict(),
   baseIntent
-    .extend({ target: z.literal(MediaTargetType.MENU_ITEM_IMAGE), menuItemId: z.string().uuid() })
+    .extend({
+      target: z.literal(MediaTargetType.MENU_CATEGORY_THUMBNAIL),
+      categoryId: z.string().uuid(),
+      menuItemId: z.never().optional(),
+    })
+    .strict(),
+  baseIntent
+    .extend({
+      target: z.literal(MediaTargetType.MENU_ITEM_IMAGE),
+      categoryId: z.never().optional(),
+      menuItemId: z.string().uuid(),
+    })
     .strict(),
 ]);
 
@@ -37,9 +56,13 @@ export const placeMediaParamSchema = z.object({ placeId: z.string().uuid() }).st
 export const menuItemMediaParamSchema = z
   .object({ placeId: z.string().uuid(), menuItemId: z.string().uuid() })
   .strict();
+export const categoryMediaParamSchema = z
+  .object({ placeId: z.string().uuid(), categoryId: z.string().uuid() })
+  .strict();
 
 export type CreateUploadIntentInput = z.infer<typeof createUploadIntentSchema>;
 export type CompleteUploadIntentInput = z.infer<typeof completeUploadIntentSchema>;
 export type IntentParam = z.infer<typeof intentParamSchema>;
 export type PlaceMediaParam = z.infer<typeof placeMediaParamSchema>;
 export type MenuItemMediaParam = z.infer<typeof menuItemMediaParamSchema>;
+export type CategoryMediaParam = z.infer<typeof categoryMediaParamSchema>;

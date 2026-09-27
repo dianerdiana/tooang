@@ -2,6 +2,7 @@ import { createUploadIntentSchema, MAX_MEDIA_SIZE_BYTES } from './media.schema';
 
 const placeId = '11111111-1111-4111-8111-111111111111';
 const menuItemId = '22222222-2222-4222-8222-222222222222';
+const categoryId = '33333333-3333-4333-8333-333333333333';
 
 describe('media schemas', () => {
   it.each(['image/jpeg', 'image/png', 'image/webp', 'image/avif'])(
@@ -57,6 +58,36 @@ describe('media schemas', () => {
         menuItemId,
         mimeType: 'image/png',
         sizeBytes: 1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('requires a category only for category-thumbnail intents', () => {
+    expect(
+      createUploadIntentSchema.safeParse({
+        target: 'MENU_CATEGORY_THUMBNAIL',
+        placeId,
+        categoryId,
+        mimeType: 'image/webp',
+        sizeBytes: 42,
+      }).success,
+    ).toBe(true);
+    expect(
+      createUploadIntentSchema.safeParse({
+        target: 'MENU_CATEGORY_THUMBNAIL',
+        placeId,
+        mimeType: 'image/webp',
+        sizeBytes: 42,
+      }).success,
+    ).toBe(false);
+    expect(
+      createUploadIntentSchema.safeParse({
+        target: 'MENU_ITEM_IMAGE',
+        placeId,
+        menuItemId,
+        categoryId,
+        mimeType: 'image/webp',
+        sizeBytes: 42,
       }).success,
     ).toBe(false);
   });

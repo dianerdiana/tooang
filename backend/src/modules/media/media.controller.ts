@@ -7,6 +7,8 @@ import { CurrentActor, RequirePermissions, ZodBody, ZodParam } from '@/common/de
 import { HttpResponse } from '@/common/responses';
 
 import {
+  type CategoryMediaParam,
+  categoryMediaParamSchema,
   type CompleteUploadIntentInput,
   completeUploadIntentSchema,
   type CreateUploadIntentInput,
@@ -86,5 +88,18 @@ export class MediaAssociationsController {
   ) {
     const media = await this.service.removeMenuItemMedia(actor, params.placeId, params.menuItemId);
     return HttpResponse.success({ message: 'Menu item image removed', data: { media } });
+  }
+
+  @Delete('places/:placeId/menu-categories/:categoryId/thumbnail')
+  @RequirePermissions(PERMISSION.MEDIA_DELETE)
+  async removeCategoryThumbnail(
+    @CurrentActor() actor: AuthenticatedActor,
+    @ZodParam(categoryMediaParamSchema) params: CategoryMediaParam,
+  ) {
+    const media = await this.service.removeCategoryMedia(actor, params.placeId, params.categoryId);
+    return HttpResponse.success({
+      message: 'Menu category thumbnail removed',
+      data: { media },
+    });
   }
 }

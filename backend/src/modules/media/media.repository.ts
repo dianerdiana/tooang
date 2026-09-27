@@ -25,6 +25,7 @@ const INTENT_SELECT = {
   id: true,
   actorUserId: true,
   placeId: true,
+  categoryId: true,
   menuItemId: true,
   target: true,
   expectedFileName: true,
@@ -55,10 +56,18 @@ export class MediaRepository {
     });
   }
 
+  findActiveCategory(placeId: string, categoryId: string, db: MediaDbClient = this.prisma) {
+    return db.menuCategory.findFirst({
+      where: { id: categoryId, placeId, deletedAt: null },
+      select: { id: true, thumbnailAssetId: true },
+    });
+  }
+
   createIntent(
     data: {
       actorUserId: string;
       placeId: string;
+      categoryId?: string;
       menuItemId?: string;
       target: MediaTargetType;
       providerTokenHash: string;
@@ -96,6 +105,7 @@ export class MediaRepository {
   async switchAssociation(
     target: MediaTargetType,
     placeId: string,
+    categoryId: string | null,
     menuItemId: string | null,
     newAssetId: string,
     db: MediaDbClient,
@@ -112,6 +122,16 @@ export class MediaRepository {
         data: target === 'PLACE_LOGO' ? { logoAssetId: newAssetId } : { coverAssetId: newAssetId },
       });
       return oldId;
+    }
+    if (target === 'MENU_CATEGORY_THUMBNAIL') {
+      if (!categoryId) return null;
+      const category = await this.findActiveCategory(placeId, categoryId, db);
+      if (!category) return null;
+      await db.menuCategory.update({
+        where: { id: categoryId, placeId, deletedAt: null },
+        data: { thumbnailAssetId: newAssetId },
+      });
+      return category.thumbnailAssetId;
     }
     if (!menuItemId) return null;
     const item = await this.findActiveMenuItem(placeId, menuItemId, db);
@@ -141,6 +161,7 @@ export class MediaRepository {
   async detachAssociation(
     target: MediaTargetType,
     placeId: string,
+    categoryId: string | null,
     menuItemId: string | null,
     db: MediaDbClient,
   ): Promise<string | null | undefined> {
@@ -158,6 +179,18 @@ export class MediaRepository {
         });
       }
       return oldId;
+    }
+    if (target === 'MENU_CATEGORY_THUMBNAIL') {
+      if (!categoryId) return undefined;
+      const category = await this.findActiveCategory(placeId, categoryId, db);
+      if (!category) return undefined;
+      if (category.thumbnailAssetId) {
+        await db.menuCategory.update({
+          where: { id: categoryId, placeId, deletedAt: null },
+          data: { thumbnailAssetId: null },
+        });
+      }
+      return category.thumbnailAssetId;
     }
     if (!menuItemId) return undefined;
     const item = await this.findActiveMenuItem(placeId, menuItemId, db);
