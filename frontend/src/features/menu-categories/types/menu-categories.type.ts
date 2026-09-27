@@ -6,6 +6,7 @@ export type MenuCategory = {
   name: string;
   sortOrder: number;
   isActive: boolean;
+  thumbnailUrl: string | null;
   createdAt: string;
   updatedAt: string;
 };

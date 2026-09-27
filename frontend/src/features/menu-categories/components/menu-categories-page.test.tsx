@@ -12,6 +12,7 @@ const category = {
   name: 'Drinks',
   sortOrder: 4,
   isActive: false,
+  thumbnailUrl: null,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -19,7 +20,12 @@ const category = {
 const renderDetail = (permissions: { canCreate: boolean; canUpdate: boolean; canDelete: boolean }) =>
   renderToStaticMarkup(
     <QueryClientProvider client={new QueryClient()}>
-      <CategoryDetail placeId='place-1' category={category} permissions={permissions} onDeleted={() => undefined} />
+      <CategoryDetail
+        placeId='place-1'
+        category={category}
+        permissions={{ ...permissions, canUploadMedia: false, canDeleteMedia: false }}
+        onDeleted={() => undefined}
+      />
     </QueryClientProvider>,
   );
 

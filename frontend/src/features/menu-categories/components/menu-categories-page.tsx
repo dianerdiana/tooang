@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { EyeIcon, Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { EyeIcon, ImageIcon, Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { FormControl, FormField, FormLabel, FormMessage } from '@/components/forms/form-field';
@@ -19,6 +19,10 @@ import { ResponsiveDrawer } from '@/components/ui/responsive-drawer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/ui/status-badge';
 
+import { MediaFilePicker } from '@/features/media/components/media-file-picker';
+import { MediaManagementPanel } from '@/features/media/components/media-management-panel';
+import { useMediaUpload } from '@/features/media/queries/media-upload.mutation';
+import { MEDIA_TARGET } from '@/features/media/types/media.type';
 import { MenuItemsIcon, MenuItemsPanel } from '@/features/menu-items/components/menu-items-panel';
 import { managementPlaceQueryOptions } from '@/features/places/queries/places.query';
 
@@ -49,7 +53,13 @@ import type {
   NormalizedMenuCategoryListParams,
 } from '../types/menu-categories.type';
 
-type MenuCategoryPermissions = { canCreate: boolean; canUpdate: boolean; canDelete: boolean };
+type MenuCategoryPermissions = {
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  canUploadMedia: boolean;
+  canDeleteMedia: boolean;
+};
 type StatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 
 const useMenuCategoryForm = (
@@ -187,17 +197,30 @@ function CreateCategoryDrawer({
   placeId,
   open,
   onOpenChange,
+  canUploadMedia,
 }: {
   placeId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canUploadMedia: boolean;
 }) {
   const mutation = useCreateMenuCategoryMutation(placeId);
+  const upload = useMediaUpload();
   const [fieldError, setFieldError] = useState<string>();
+  const [imageFile, setImageFile] = useState<File>();
+  const [createdCategory, setCreatedCategory] = useState<{ categoryId: string; name: string }>();
   const form = useMenuCategoryForm(menuCategoryToFormValues(), async (value) => {
     setFieldError(undefined);
     try {
-      const category = await mutation.mutateAsync(toCreateMenuCategoryInput(value));
+      const category = createdCategory ?? (await mutation.mutateAsync(toCreateMenuCategoryInput(value)));
+      setCreatedCategory({ categoryId: category.categoryId, name: category.name });
+      if (imageFile) {
+        await upload.upload(imageFile, {
+          target: MEDIA_TARGET.MENU_CATEGORY_THUMBNAIL,
+          placeId,
+          categoryId: category.categoryId,
+        });
+      }
       toast.success(`${category.name} created.`);
       onOpenChange(false);
     } catch (error) {
@@ -209,6 +232,9 @@ function CreateCategoryDrawer({
     if (!nextOpen) {
       setFieldError(undefined);
       mutation.reset();
+      upload.reset();
+      setImageFile(undefined);
+      setCreatedCategory(undefined);
       form.reset();
     }
     onOpenChange(nextOpen);
@@ -231,15 +257,38 @@ function CreateCategoryDrawer({
           void form.handleSubmit();
         }}
       >
-        <CategoryFields form={form} fieldError={fieldError} onChange={() => setFieldError(undefined)} />
+        <CategoryFields
+          form={form}
+          fieldError={fieldError}
+          disabled={Boolean(createdCategory) || mutation.isPending || upload.isPending}
+          onChange={() => setFieldError(undefined)}
+        />
+        {canUploadMedia && (
+          <MediaFilePicker
+            label='Category thumbnail'
+            file={imageFile}
+            onChange={setImageFile}
+            disabled={Boolean(createdCategory) || mutation.isPending || upload.isPending}
+          />
+        )}
+        {createdCategory && upload.error && (
+          <p role='alert' className='text-sm text-destructive'>
+            The category was created, but its thumbnail failed to upload. Retry without creating a duplicate.
+          </p>
+        )}
         {mutation.isError && !fieldError && (
           <p role='alert' className='text-sm text-destructive'>
             {operationError(mutation.error, 'create this category')}
           </p>
         )}
         <div className='flex justify-end gap-2'>
-          <Button type='button' variant='outline' onClick={() => changeOpen(false)} disabled={mutation.isPending}>
-            Cancel
+          <Button
+            type='button'
+            variant='outline'
+            onClick={() => changeOpen(false)}
+            disabled={mutation.isPending || upload.isPending}
+          >
+            {createdCategory ? 'Finish without image' : 'Cancel'}
           </Button>
           <form.Subscribe selector={(state) => [state.values, state.isSubmitting] as const}>
             {([values, isSubmitting]) => {
@@ -252,13 +301,19 @@ function CreateCategoryDrawer({
                 }
               })();
               return (
-                <Button type='submit' disabled={!valid || isSubmitting || mutation.isPending}>
-                  {isSubmitting || mutation.isPending ? (
+                <Button type='submit' disabled={!valid || isSubmitting || mutation.isPending || upload.isPending}>
+                  {isSubmitting || mutation.isPending || upload.isPending ? (
                     <Loader2Icon className='animate-spin' aria-hidden />
                   ) : (
                     <PlusIcon aria-hidden />
                   )}
-                  {isSubmitting || mutation.isPending ? 'Creating…' : 'Create category'}
+                  {createdCategory
+                    ? upload.isPending
+                      ? 'Uploading…'
+                      : 'Retry thumbnail'
+                    : isSubmitting || mutation.isPending
+                      ? 'Creating…'
+                      : 'Create category'}
                 </Button>
               );
             }}
@@ -323,6 +378,21 @@ function CategoryDetail({
         disabled={!permissions.canUpdate || updateMutation.isPending}
         onChange={() => setFieldError(undefined)}
       />
+      <div className='space-y-2 border-t pt-5'>
+        <h3 className='text-sm font-semibold'>Category thumbnail</h3>
+        <MediaManagementPanel
+          key={category.thumbnailUrl ?? 'empty-thumbnail'}
+          target={{
+            target: MEDIA_TARGET.MENU_CATEGORY_THUMBNAIL,
+            placeId,
+            categoryId: category.categoryId,
+          }}
+          label='Category thumbnail'
+          currentImageUrl={category.thumbnailUrl}
+          canUpload={permissions.canUploadMedia}
+          canRemove={permissions.canDeleteMedia}
+        />
+      </div>
       <div className='space-y-1 border-t pt-4 text-xs text-muted-foreground'>
         <p>Category ID</p>
         <p className='break-all font-mono'>{category.categoryId}</p>
@@ -455,6 +525,18 @@ function MenuCategoriesPanel({ placeId, permissions }: { placeId: string; permis
   const columns = useMemo<ColumnDef<MenuCategory>[]>(
     () => [
       {
+        id: 'thumbnail',
+        header: 'Thumbnail',
+        cell: ({ row }) =>
+          row.original.thumbnailUrl ? (
+            <img src={row.original.thumbnailUrl} alt='' className='size-12 rounded-md object-cover' />
+          ) : (
+            <span className='flex size-12 items-center justify-center rounded-md bg-muted text-muted-foreground'>
+              <ImageIcon aria-hidden />
+            </span>
+          ),
+      },
+      {
         accessorKey: 'name',
         header: 'Category',
         cell: ({ row }) => <span className='font-medium'>{row.original.name}</span>,
@@ -556,7 +638,12 @@ function MenuCategoriesPanel({ placeId, permissions }: { placeId: string; permis
         }}
       />
       {permissions.canCreate && creating && (
-        <CreateCategoryDrawer placeId={placeId} open={creating} onOpenChange={setCreating} />
+        <CreateCategoryDrawer
+          placeId={placeId}
+          open={creating}
+          onOpenChange={setCreating}
+          canUploadMedia={permissions.canUploadMedia}
+        />
       )}
       <CategoryDetailDrawer
         placeId={placeId}
