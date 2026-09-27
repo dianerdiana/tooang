@@ -5,10 +5,10 @@ import { CurrentActor, RequirePermissions, ZodBody, ZodParam, ZodQuery } from '@
 import { HttpResponse } from '@/common/responses';
 
 import {
-  type ListUsersInput,
-  listUsersSchema,
   type CreateUserInput,
   createUserSchema,
+  type ListUsersInput,
+  listUsersSchema,
   type PlatformRoleInput,
   platformRoleSchema,
   type UpdateMeInput,
