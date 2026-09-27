@@ -80,7 +80,7 @@ function DefinitionItem({ label, children }: { label: string; children: React.Re
   return (
     <div className='space-y-1'>
       <dt className='text-xs font-medium tracking-wide text-muted-foreground uppercase'>{label}</dt>
-      <dd className='break-words text-sm'>{children}</dd>
+      <dd className='wrap-break-word text-sm'>{children}</dd>
     </div>
   );
 }
