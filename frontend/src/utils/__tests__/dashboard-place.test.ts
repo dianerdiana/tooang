@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { PlaceMemberRole } from '@/types/enums/user-role.enum';
 import type { PlaceMembership } from '@/types/user-data.type';
 
-import { parseDashboardSearch, resolveDashboardPlace, sortPlaceMemberships } from './dashboard-place';
+import { parseDashboardSearch, resolveDashboardPlace, sortPlaceMemberships } from '../dashboard-place';
 
 const membership = (placeId: string, name: string): PlaceMembership => ({
   placeId,

@@ -8,8 +8,8 @@ import { PlaceMemberRole, PlatformRole } from '@/types/enums/user-role.enum';
 import { PERMISSION, type PermissionIdentifier } from '@/types/permission.type';
 import type { AuthenticatedUser, PlaceMembership } from '@/types/user-data.type';
 
-import { canAccessDashboard } from './dashboard-access';
-import { canAtPlace, canPlatform } from './has-permission';
+import { canAccessDashboard } from '../dashboard-access';
+import { canAtPlace, canPlatform } from '../has-permission';
 
 const membership = (
   placeId: string,

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ApplicationError } from '@/types/api-response.type';
 
-import { getDashboardErrorPresentation, getSafeMutationError } from './dashboard-error';
+import { getDashboardErrorPresentation, getSafeMutationError } from '../dashboard-error';
 
 const applicationError = (overrides: Partial<ApplicationError>): ApplicationError => ({
   error: true,

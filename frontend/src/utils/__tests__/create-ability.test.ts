@@ -4,8 +4,8 @@ import { PlaceMemberRole, PlatformRole } from '@/types/enums/user-role.enum';
 import { PERMISSION, PERMISSIONS } from '@/types/permission.type';
 import type { AuthenticatedUser } from '@/types/user-data.type';
 
-import { canAtPlace, cannotAtPlace, cannotPlatform, canPlatform } from './auth/has-permission';
-import { createAbilityForUser, createAbilityRules } from './create-ability';
+import { canAtPlace, cannotAtPlace, cannotPlatform, canPlatform } from '../auth/has-permission';
+import { createAbilityForUser, createAbilityRules } from '../create-ability';
 
 const authenticatedUser = (overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser => ({
   userId: 'usr_admin_owner',

@@ -4,7 +4,7 @@ import { PlaceMemberRole, PlatformRole } from '@/types/enums/user-role.enum';
 import { PERMISSION } from '@/types/permission.type';
 import type { AuthenticatedUser } from '@/types/user-data.type';
 
-import { canAccessDashboard, getDashboardAccessRedirect } from './dashboard-access';
+import { canAccessDashboard, getDashboardAccessRedirect } from '../dashboard-access';
 
 const user = (overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser => ({
   userId: 'usr_1',

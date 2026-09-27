@@ -6,7 +6,7 @@ const apiMock = vi.hoisted(() => ({
 
 vi.mock('@/configs/api-config', () => ({ api: apiMock }));
 
-import { defaultQueryFn, queryClient } from './root-provider';
+import { defaultQueryFn, queryClient } from '../root-provider';
 
 describe('defaultQueryFn', () => {
   beforeEach(() => {

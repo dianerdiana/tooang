@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { PERMISSION, PERMISSIONS } from './permission.type';
+import { PERMISSION, PERMISSIONS } from '../permission.type';
 
 const BACKEND_PERMISSION_IDENTIFIERS = [
   'profile.read',

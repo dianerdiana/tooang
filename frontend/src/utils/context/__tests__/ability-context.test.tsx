@@ -8,11 +8,10 @@ import { PlaceMemberRole, PlatformRole } from '@/types/enums/user-role.enum';
 import { PERMISSION } from '@/types/permission.type';
 import type { AuthenticatedUser } from '@/types/user-data.type';
 
-import { createAbilityForUser } from '../create-ability';
-import { usePermissions } from '../hooks/use-permissions';
-
-import { AppAbilityProvider, Can } from './ability-context';
-import { AuthContext, type AuthContextType } from './auth-context';
+import { createAbilityForUser } from '../../create-ability';
+import { usePermissions } from '../../hooks/use-permissions';
+import { AppAbilityProvider, Can } from '../ability-context';
+import { AuthContext, type AuthContextType } from '../auth-context';
 
 const user: AuthenticatedUser = {
   userId: 'usr_1',

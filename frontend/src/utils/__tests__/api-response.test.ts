@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { ApiSuccessResponse } from '@/types/api-response.type';
 
-import { toApiError } from './api-error.util';
-import { unwrapApiResponse, unwrapPaginatedApiResponse } from './api-response.util';
+import { toApiError } from '../api-error.util';
+import { unwrapApiResponse, unwrapPaginatedApiResponse } from '../api-response.util';
 
 describe('unwrapApiResponse', () => {
   it('represents a backend success envelope without data', () => {

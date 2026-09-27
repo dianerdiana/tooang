@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getSafeRedirectTarget } from './route-guard';
+import { getSafeRedirectTarget } from '../route-guard';
 
 describe('getSafeRedirectTarget', () => {
   it.each([undefined, '', 'https://example.com', '//example.com', '/orders\nheader'])('falls back for %s', (target) => {

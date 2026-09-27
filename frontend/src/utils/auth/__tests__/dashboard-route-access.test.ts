@@ -11,7 +11,7 @@ import {
   canAccessPlatformDashboardRoute,
   requirePlaceDashboardRoute,
   requirePlatformDashboardRoute,
-} from './dashboard-route-access';
+} from '../dashboard-route-access';
 
 const selectedPlace: PlaceMembership = {
   placeId: 'place_one',

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { toApiError } from './api-error.util';
+import { toApiError } from '../api-error.util';
 
 describe('toApiError', () => {
   it.each([
