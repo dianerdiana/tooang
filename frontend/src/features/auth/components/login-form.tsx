@@ -11,13 +11,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 
 import { isApplicationError } from '@/utils/api-error.util';
+import { getProtectedActionReturnTarget } from '@/utils/auth/protected-action-intent';
 
 import { useLoginMutation } from '../queries/auth.mutations';
 import { loginSchema } from '../schemas/auth.schema';
 import { getLoginErrorMessage } from '../utils/auth-error';
 
 type LoginFormProps = {
-  redirectTo: string;
+  intentId?: string;
+  redirectTo?: string;
 };
 
 const firstErrorMessage = (errors: unknown[]) => {
@@ -29,7 +31,7 @@ const firstErrorMessage = (errors: unknown[]) => {
   return undefined;
 };
 
-export function LoginForm({ redirectTo }: LoginFormProps) {
+export function LoginForm({ intentId, redirectTo }: LoginFormProps) {
   const router = useRouter();
   const loginMutation = useLoginMutation();
   const [submissionError, setSubmissionError] = useState<string>();
@@ -43,7 +45,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
       setSubmissionError(undefined);
       try {
         await loginMutation.mutateAsync(loginSchema.parse(value));
-        await router.navigate({ href: redirectTo, replace: true });
+        await router.navigate({ href: getProtectedActionReturnTarget(intentId, redirectTo), replace: true });
       } catch (error) {
         const normalizedError = loginMutation.error ?? error;
         if (isApplicationError(normalizedError)) {
