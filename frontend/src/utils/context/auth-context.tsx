@@ -9,6 +9,8 @@ import type { LoginDto, RegisterDto } from '@/features/auth/schemas/auth.schema'
 import { authService } from '@/features/auth/services/auth.service';
 import type { RegisterResponse } from '@/features/auth/types/auth.response';
 
+import { clearProtectedActionIntent } from '@/utils/auth/protected-action-intent';
+
 import type { AuthenticatedUser } from '@/types/user-data.type';
 
 export type AuthContextType = {
@@ -48,6 +50,7 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       await authService.logout();
     } finally {
+      clearProtectedActionIntent();
       clearLocalSession();
     }
   }, [clearLocalSession]);
@@ -57,10 +60,14 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
   }, [clearLocalSession, sessionQuery.isError]);
 
   useEffect(() => {
-    const unsubscribe = api.onSessionExpired(clearLocalSession);
+    const clearTerminalSession = () => {
+      clearProtectedActionIntent();
+      clearLocalSession();
+    };
+    const unsubscribe = api.onSessionExpired(clearTerminalSession);
     const handleStorage = (event: StorageEvent) => {
       if (event.key === api.getStorageTokenKeyName() && event.newValue === null) {
-        clearLocalSession();
+        clearTerminalSession();
       }
     };
 
