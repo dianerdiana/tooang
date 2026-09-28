@@ -14,6 +14,9 @@
   --foreground: oklch(0.245 0.025 50);
   --surface: oklch(0.995 0.004 85);
   --surface-foreground: var(--foreground);
+  --surface-raised: oklch(1 0 0);
+  --surface-subtle: oklch(0.96 0.012 82);
+  --surface-disabled: oklch(0.925 0.012 78);
   --card: var(--surface);
   --card-foreground: var(--surface-foreground);
   --popover: oklch(1 0 0);
@@ -32,6 +35,10 @@
   /* Neutral and feedback states */
   --muted: oklch(0.945 0.014 78);
   --muted-foreground: oklch(0.52 0.025 57);
+  --disabled-foreground: oklch(0.58 0.018 60);
+  --info: oklch(0.57 0.14 240);
+  --info-subtle: oklch(0.94 0.035 235);
+  --info-foreground: oklch(0.29 0.08 240);
   --destructive: oklch(0.58 0.21 28);
   --destructive-foreground: oklch(0.99 0.004 85);
   --success: oklch(0.56 0.14 145);
@@ -42,7 +49,8 @@
   /* Controls and boundaries */
   --border: oklch(0.875 0.018 75);
   --input: oklch(0.84 0.022 72);
-  --ring: oklch(0.67 0.16 52);
+  --focus-ring: oklch(0.57 0.14 240);
+  --ring: var(--focus-ring);
   --form: oklch(1 0 0);
   --form-foreground: var(--foreground);
 
@@ -71,6 +79,10 @@
   --page-gutter: clamp(1rem, 2.5vw, 2rem);
   --section-gap: clamp(1.5rem, 3vw, 2.5rem);
   --card-padding: clamp(1rem, 2vw, 1.5rem);
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
 
   /* Data visualization */
   --chart-1: oklch(0.63 0.17 50);
@@ -87,6 +99,9 @@
   --foreground: oklch(0.94 0.012 82);
   --surface: oklch(0.2 0.02 55);
   --surface-foreground: var(--foreground);
+  --surface-raised: oklch(0.235 0.022 55);
+  --surface-subtle: oklch(0.185 0.018 53);
+  --surface-disabled: oklch(0.255 0.016 55);
   --card: var(--surface);
   --card-foreground: var(--surface-foreground);
   --popover: oklch(0.22 0.022 55);
@@ -103,6 +118,10 @@
 
   --muted: oklch(0.25 0.02 55);
   --muted-foreground: oklch(0.7 0.025 72);
+  --disabled-foreground: oklch(0.61 0.02 68);
+  --info: oklch(0.72 0.12 235);
+  --info-subtle: oklch(0.25 0.045 235);
+  --info-foreground: oklch(0.87 0.045 230);
   --destructive: oklch(0.66 0.18 28);
   --destructive-foreground: oklch(0.99 0.004 85);
   --success: oklch(0.68 0.13 145);
@@ -112,7 +131,8 @@
 
   --border: oklch(0.31 0.025 57);
   --input: oklch(0.36 0.03 58);
-  --ring: oklch(0.72 0.16 55);
+  --focus-ring: oklch(0.72 0.12 235);
+  --ring: var(--focus-ring);
   --form: oklch(0.21 0.02 55);
   --form-foreground: var(--foreground);
 
@@ -149,6 +169,9 @@
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-foreground: var(--surface-foreground);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-disabled: var(--surface-disabled);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -161,6 +184,10 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-disabled-foreground: var(--disabled-foreground);
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-foreground: var(--info-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -214,6 +241,10 @@
   --spacing-page: var(--page-gutter);
   --spacing-section: var(--section-gap);
   --spacing-card: var(--card-padding);
+  --spacing-safe-top: var(--safe-area-top);
+  --spacing-safe-right: var(--safe-area-right);
+  --spacing-safe-bottom: var(--safe-area-bottom);
+  --spacing-safe-left: var(--safe-area-left);
 
   --text-page-title: clamp(1.75rem, 2.5vw, 2.25rem);
   --text-page-title--line-height: 1.15;
@@ -221,6 +252,32 @@
   --text-section-title: clamp(1.25rem, 2vw, 1.5rem);
   --text-section-title--line-height: 1.25;
   --text-section-title--letter-spacing: -0.015em;
+}
+
+@layer utilities {
+  .safe-area-x {
+    padding-right: max(var(--page-gutter), var(--safe-area-right));
+    padding-left: max(var(--page-gutter), var(--safe-area-left));
+  }
+
+  .pb-safe {
+    padding-bottom: max(1rem, var(--safe-area-bottom));
+  }
+
+  .pt-safe {
+    padding-top: max(1rem, var(--safe-area-top));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 html,

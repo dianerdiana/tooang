@@ -58,7 +58,7 @@ function SheetContent({ className, children, side = 'right', showCloseButton = t
       >
         {children}
         {showCloseButton && (
-          <SheetPrimitive.Close className='absolute top-4 right-4 rounded-sm text-muted-foreground opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none'>
+          <SheetPrimitive.Close className='absolute top-2 right-2 inline-flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none'>
             <X className='size-4' />
             <span className='sr-only'>Close</span>
           </SheetPrimitive.Close>
@@ -73,7 +73,16 @@ function SheetHeader({ className, ...props }: React.ComponentProps<'div'>) {
 }
 
 function SheetFooter({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div data-slot='sheet-footer' className={cn('mt-auto flex flex-col gap-2 p-card', className)} {...props} />;
+  return (
+    <div
+      data-slot='sheet-footer'
+      className={cn(
+        'mt-auto flex flex-col gap-2 px-card pt-card pb-[max(var(--card-padding),var(--safe-area-bottom))]',
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 function SheetTitle({ className, ...props }: React.ComponentProps<typeof SheetPrimitive.Title>) {

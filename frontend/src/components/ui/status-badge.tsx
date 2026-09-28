@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 
 import { cn } from '@/utils/utils';
 
-type StatusBadgeTone = 'neutral' | 'primary' | 'success' | 'warning' | 'destructive';
+type StatusBadgeTone = 'neutral' | 'primary' | 'info' | 'success' | 'warning' | 'destructive';
 
 type StatusBadgeProps = Omit<React.ComponentProps<typeof Badge>, 'variant'> & {
   tone?: StatusBadgeTone;
@@ -14,6 +14,7 @@ type StatusBadgeProps = Omit<React.ComponentProps<typeof Badge>, 'variant'> & {
 const toneClasses: Record<StatusBadgeTone, string> = {
   neutral: 'border-border bg-muted text-muted-foreground',
   primary: 'border-primary/20 bg-primary-subtle text-foreground',
+  info: 'border-info/25 bg-info-subtle text-info-foreground',
   success: 'border-success/25 bg-success/15 text-success dark:text-success',
   warning: 'border-warning/30 bg-warning/20 text-warning-foreground',
   destructive: 'border-destructive/25 bg-destructive/10 text-destructive',
@@ -22,6 +23,7 @@ const toneClasses: Record<StatusBadgeTone, string> = {
 const dotClasses: Record<StatusBadgeTone, string> = {
   neutral: 'bg-muted-foreground',
   primary: 'bg-primary',
+  info: 'bg-info',
   success: 'bg-success',
   warning: 'bg-warning',
   destructive: 'bg-destructive',
