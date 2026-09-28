@@ -38,7 +38,7 @@ import { Route as DashboardPlatformReviewsRouteImport } from './routes/dashboard
 import { Route as DashboardPlatformUsersRouteImport } from './routes/dashboard.platform.users'
 import { Route as CustomerPlacesSlugCartRouteImport } from './routes/_customer.places.$slug.cart'
 import { Route as CustomerPlacesSlugCheckoutRouteImport } from './routes/_customer.places.$slug.checkout'
-import { Route as PublicPlacesSlugMenuRouteImport } from './routes/_public.places.$slug.menu'
+import { Route as PublicPlacesSlugMenuRouteImport } from './routes/_public.places.$slug_.menu'
 import { Route as DashboardPlatformPlacesPlaceIdRouteImport } from './routes/dashboard.platform.places_.$placeId'
 import { Route as DashboardPlatformPlacesNewRouteImport } from './routes/dashboard.platform.places_.new'
 
@@ -188,9 +188,9 @@ const CustomerPlacesSlugCheckoutRoute =
     getParentRoute: () => CustomerRoute,
   } as any)
 const PublicPlacesSlugMenuRoute = PublicPlacesSlugMenuRouteImport.update({
-  id: '/menu',
-  path: '/menu',
-  getParentRoute: () => PublicPlacesSlugRoute,
+  id: '/places/$slug_/menu',
+  path: '/places/$slug/menu',
+  getParentRoute: () => PublicRoute,
 } as any)
 const DashboardPlatformPlacesPlaceIdRoute =
   DashboardPlatformPlacesPlaceIdRouteImport.update({
@@ -222,7 +222,7 @@ export interface FileRoutesByFullPath {
   '/account/profile': typeof CustomerAccountProfileRoute
   '/account/reviews': typeof CustomerAccountReviewsRoute
   '/orders/$orderId': typeof CustomerOrdersOrderIdRoute
-  '/places/$slug': typeof PublicPlacesSlugRouteWithChildren
+  '/places/$slug': typeof PublicPlacesSlugRoute
   '/verify/$token': typeof PublicVerifyTokenRoute
   '/dashboard/account/orders': typeof DashboardAccountOrdersRoute
   '/dashboard/account/profile': typeof DashboardAccountProfileRoute
@@ -253,7 +253,7 @@ export interface FileRoutesByTo {
   '/account/profile': typeof CustomerAccountProfileRoute
   '/account/reviews': typeof CustomerAccountReviewsRoute
   '/orders/$orderId': typeof CustomerOrdersOrderIdRoute
-  '/places/$slug': typeof PublicPlacesSlugRouteWithChildren
+  '/places/$slug': typeof PublicPlacesSlugRoute
   '/verify/$token': typeof PublicVerifyTokenRoute
   '/dashboard/account/orders': typeof DashboardAccountOrdersRoute
   '/dashboard/account/profile': typeof DashboardAccountProfileRoute
@@ -288,7 +288,7 @@ export interface FileRoutesById {
   '/_customer/account/profile': typeof CustomerAccountProfileRoute
   '/_customer/account/reviews': typeof CustomerAccountReviewsRoute
   '/_customer/orders/$orderId': typeof CustomerOrdersOrderIdRoute
-  '/_public/places/$slug': typeof PublicPlacesSlugRouteWithChildren
+  '/_public/places/$slug': typeof PublicPlacesSlugRoute
   '/_public/verify/$token': typeof PublicVerifyTokenRoute
   '/dashboard/account/orders': typeof DashboardAccountOrdersRoute
   '/dashboard/account/profile': typeof DashboardAccountProfileRoute
@@ -299,7 +299,7 @@ export interface FileRoutesById {
   '/dashboard/platform/users': typeof DashboardPlatformUsersRoute
   '/_customer/places/$slug/cart': typeof CustomerPlacesSlugCartRoute
   '/_customer/places/$slug/checkout': typeof CustomerPlacesSlugCheckoutRoute
-  '/_public/places/$slug/menu': typeof PublicPlacesSlugMenuRoute
+  '/_public/places/$slug_/menu': typeof PublicPlacesSlugMenuRoute
   '/dashboard/platform/places_/$placeId': typeof DashboardPlatformPlacesPlaceIdRoute
   '/dashboard/platform/places_/new': typeof DashboardPlatformPlacesNewRoute
 }
@@ -398,7 +398,7 @@ export interface FileRouteTypes {
     | '/dashboard/platform/users'
     | '/_customer/places/$slug/cart'
     | '/_customer/places/$slug/checkout'
-    | '/_public/places/$slug/menu'
+    | '/_public/places/$slug_/menu'
     | '/dashboard/platform/places_/$placeId'
     | '/dashboard/platform/places_/new'
   fileRoutesById: FileRoutesById
@@ -617,12 +617,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomerPlacesSlugCheckoutRouteImport
       parentRoute: typeof CustomerRoute
     }
-    '/_public/places/$slug/menu': {
-      id: '/_public/places/$slug/menu'
-      path: '/menu'
+    '/_public/places/$slug_/menu': {
+      id: '/_public/places/$slug_/menu'
+      path: '/places/$slug/menu'
       fullPath: '/places/$slug/menu'
       preLoaderRoute: typeof PublicPlacesSlugMenuRouteImport
-      parentRoute: typeof PublicPlacesSlugRoute
+      parentRoute: typeof PublicRoute
     }
     '/dashboard/platform/places_/$placeId': {
       id: '/dashboard/platform/places_/$placeId'
@@ -673,27 +673,18 @@ const CustomerRouteWithChildren = CustomerRoute._addFileChildren(
   CustomerRouteChildren,
 )
 
-interface PublicPlacesSlugRouteChildren {
-  PublicPlacesSlugMenuRoute: typeof PublicPlacesSlugMenuRoute
-}
-
-const PublicPlacesSlugRouteChildren: PublicPlacesSlugRouteChildren = {
-  PublicPlacesSlugMenuRoute: PublicPlacesSlugMenuRoute,
-}
-
-const PublicPlacesSlugRouteWithChildren =
-  PublicPlacesSlugRoute._addFileChildren(PublicPlacesSlugRouteChildren)
-
 interface PublicRouteChildren {
   PublicIndexRoute: typeof PublicIndexRoute
-  PublicPlacesSlugRoute: typeof PublicPlacesSlugRouteWithChildren
+  PublicPlacesSlugRoute: typeof PublicPlacesSlugRoute
   PublicVerifyTokenRoute: typeof PublicVerifyTokenRoute
+  PublicPlacesSlugMenuRoute: typeof PublicPlacesSlugMenuRoute
 }
 
 const PublicRouteChildren: PublicRouteChildren = {
   PublicIndexRoute: PublicIndexRoute,
-  PublicPlacesSlugRoute: PublicPlacesSlugRouteWithChildren,
+  PublicPlacesSlugRoute: PublicPlacesSlugRoute,
   PublicVerifyTokenRoute: PublicVerifyTokenRoute,
+  PublicPlacesSlugMenuRoute: PublicPlacesSlugMenuRoute,
 }
 
 const PublicRouteWithChildren =

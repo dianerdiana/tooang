@@ -6,7 +6,7 @@ import { normalizePublicDiscoverySearch } from '@/features/places/schemas/places
 
 import { isPublicPlaceSlug } from '@/utils/navigation/customer-route-params';
 
-export const Route = createFileRoute('/_public/places/$slug/menu')({
+export const Route = createFileRoute('/_public/places/$slug_/menu')({
   validateSearch: parsePublicMenuRouteSearch,
   beforeLoad: ({ params }) => {
     if (!isPublicPlaceSlug(params.slug)) throw notFound();
