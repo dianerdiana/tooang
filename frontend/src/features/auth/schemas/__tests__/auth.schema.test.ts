@@ -15,6 +15,11 @@ describe('loginSchema', () => {
     expect(loginSchema.parse({ email: 'dian@example.com', password: ' Secret ' }).password).toBe(' Secret ');
   });
 
+  it('counts Unicode code points rather than UTF-16 code units', () => {
+    expect(loginSchema.safeParse({ email: 'dian@example.com', password: '😀'.repeat(128) }).success).toBe(true);
+    expect(loginSchema.safeParse({ email: 'dian@example.com', password: '😀'.repeat(129) }).success).toBe(false);
+  });
+
   it.each([
     { email: 'not-an-email', password: 'secret' },
     { email: 'dian@example.com', password: '' },
@@ -48,6 +53,17 @@ describe('registration schemas', () => {
         password: 'unique passphrase',
         confirmPassword: 'different passphrase',
       }).success,
+    ).toBe(false);
+  });
+
+  it('preserves password whitespace exactly and counts Unicode limits', () => {
+    const password = '  😀😀😀😀  ';
+    expect(registerSchema.parse({ fullName: 'Dian', email: 'dian@example.com', password }).password).toBe(password);
+    expect(
+      registerSchema.safeParse({ fullName: '😀'.repeat(100), email: 'dian@example.com', password: 'abcdefgh' }).success,
+    ).toBe(true);
+    expect(
+      registerSchema.safeParse({ fullName: '😀'.repeat(101), email: 'dian@example.com', password: 'abcdefgh' }).success,
     ).toBe(false);
   });
 });

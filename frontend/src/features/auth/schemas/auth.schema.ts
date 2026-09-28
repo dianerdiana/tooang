@@ -1,15 +1,33 @@
 import z from 'zod';
 
-export const loginSchema = z.object({
+const unicodeLength = (value: string) => Array.from(value).length;
+
+const exactPasswordSchema = z
+  .string()
+  .refine((value) => unicodeLength(value) >= 1, 'Enter your password')
+  .refine((value) => unicodeLength(value) <= 128, 'Password must be at most 128 characters');
+
+const registrationPasswordSchema = z
+  .string()
+  .refine((value) => unicodeLength(value) >= 8, 'Password must be at least 8 characters')
+  .refine((value) => unicodeLength(value) <= 128, 'Password must be at most 128 characters');
+
+export const loginFormSchema = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email('Enter a valid email address').max(254)),
-  password: z.string().min(1, 'Enter your password').max(128, 'Password must be at most 128 characters'),
-  rememberMe: z.boolean().default(false),
+  password: exactPasswordSchema,
+  rememberMe: z.boolean(),
 });
 
+export const loginSchema = loginFormSchema.extend({ rememberMe: z.boolean().default(false) });
+
 export const registerSchema = z.object({
-  fullName: z.string().trim().min(1, 'Enter your full name').max(100, 'Full name must be at most 100 characters'),
+  fullName: z
+    .string()
+    .transform((value) => value.trim())
+    .refine((value) => unicodeLength(value) >= 1, 'Enter your full name')
+    .refine((value) => unicodeLength(value) <= 100, 'Full name must be at most 100 characters'),
   email: z.string().trim().toLowerCase().pipe(z.email('Enter a valid email address').max(254)),
-  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+  password: registrationPasswordSchema,
 });
 
 export const registerFormSchema = registerSchema
