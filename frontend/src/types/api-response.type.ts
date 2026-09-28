@@ -32,6 +32,7 @@ export type ApiErrorResponse = {
 export type ApplicationError = ApiErrorResponse & {
   httpStatus?: number;
   isNetworkError: boolean;
+  retryAfterSeconds?: number;
 };
 
 export type ApiResponse<TData = unknown> = ApiSuccessResponse<TData> | ApiErrorResponse;
