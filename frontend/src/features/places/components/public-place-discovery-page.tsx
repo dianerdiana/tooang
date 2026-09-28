@@ -155,14 +155,14 @@ function PlaceCard({ place, filters }: { place: PublicPlaceListItem; filters: Pu
             params={{ slug: place.slug }}
             search={filters}
             title={place.name}
-            className='flex min-h-11 items-center break-words rounded-sm focus-visible:outline-none'
+            className='flex min-h-11 items-center wrap-break-word rounded-sm focus-visible:outline-none'
           >
             {place.name}
           </Link>
         </h2>
         <p className='mt-auto flex min-w-0 items-start gap-2 pt-3 text-sm text-muted-foreground'>
           <MapPinIcon className='mt-0.5 size-4 shrink-0' aria-hidden />
-          <span className='min-w-0 break-words' title={[place.city, place.address].filter(Boolean).join(', ')}>
+          <span className='min-w-0 wrap-break-word' title={[place.city, place.address].filter(Boolean).join(', ')}>
             {place.city ? `${place.city} · ` : ''}
             {place.address}
           </span>
@@ -191,7 +191,7 @@ function DiscoverySkeleton() {
     >
       {Array.from({ length: 8 }, (_, index) => (
         <div key={index} className='overflow-hidden rounded-surface border bg-surface'>
-          <Skeleton className='aspect-[4/3] w-full rounded-none' />
+          <Skeleton className='aspect-4/3 w-full rounded-none' />
           <div className='space-y-3 p-4'>
             <Skeleton className='h-5 w-20' />
             <Skeleton className='h-6 w-3/4' />
