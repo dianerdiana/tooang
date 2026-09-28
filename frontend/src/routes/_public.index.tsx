@@ -1,8 +1,23 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { PublicLandingPlaceholder } from '@/components/pages/public-landing-placeholder';
+import { PublicPlaceDiscoveryPage } from '@/features/places/components/public-place-discovery-page';
+import { normalizePublicDiscoverySearch, parsePublicPlacesSearch } from '@/features/places/schemas/places.schema';
 
 export const Route = createFileRoute('/_public/')({
-  head: () => ({ meta: [{ title: 'Tooang' }] }),
-  component: PublicLandingPlaceholder,
+  validateSearch: parsePublicPlacesSearch,
+  head: () => ({ meta: [{ title: 'Discover Places | Tooang' }] }),
+  component: PublicPlaceDiscoveryRoute,
 });
+
+function PublicPlaceDiscoveryRoute() {
+  const filters = normalizePublicDiscoverySearch(Route.useSearch());
+  const navigate = Route.useNavigate();
+
+  return (
+    <PublicPlaceDiscoveryPage
+      key={`${filters.search ?? ''}:${filters.city ?? ''}`}
+      filters={filters}
+      onFiltersChange={(nextFilters, options) => void navigate({ search: nextFilters, replace: options?.replace })}
+    />
+  );
+}
