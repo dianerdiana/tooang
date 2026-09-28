@@ -1,8 +1,7 @@
 import { createFileRoute, notFound } from '@tanstack/react-router';
 
-import { RoutePlaceholder } from '@/components/pages/route-placeholder';
-
-import { parsePublicPlacesSearch } from '@/features/places/schemas/places.schema';
+import { PublicPlaceDetailPage } from '@/features/places/components/public-place-detail-page';
+import { normalizePublicDiscoverySearch, parsePublicPlacesSearch } from '@/features/places/schemas/places.schema';
 
 import { isPublicPlaceSlug } from '@/utils/navigation/customer-route-params';
 
@@ -16,11 +15,7 @@ export const Route = createFileRoute('/_public/places/$slug')({
 });
 
 function PlaceDetailRoute() {
-  return (
-    <RoutePlaceholder
-      eyebrow='Place'
-      title='Place details are coming next'
-      description='This public route is ready for the published place experience without requiring a session.'
-    />
-  );
+  const { slug } = Route.useParams();
+  const discoverySearch = normalizePublicDiscoverySearch(Route.useSearch());
+  return <PublicPlaceDetailPage slug={slug} discoverySearch={discoverySearch} />;
 }
