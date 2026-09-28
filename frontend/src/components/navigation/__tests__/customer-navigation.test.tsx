@@ -34,7 +34,7 @@ describe('customer navigation model', () => {
     expect(getLogicalBackHref('/places/warung-kita', '?page=2&search=noodles&type=CAFE')).toBe(
       '/?page=2&search=noodles&type=CAFE',
     );
-    expect(getLogicalBackHref('/places/warung-kita/menu', '?page=2')).toBe('/places/warung-kita');
+    expect(getLogicalBackHref('/places/warung-kita/menu', '?page=2')).toBe('/places/warung-kita?page=2');
   });
 
   it('offers a cart only in a selected place or menu context', () => {

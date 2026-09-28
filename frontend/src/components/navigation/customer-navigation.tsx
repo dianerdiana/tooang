@@ -77,7 +77,7 @@ function getLogicalBackHref(pathname: string, searchString = ''): string | null 
     const [, slug, step] = placeMatch;
     if (step === 'checkout') return `/places/${slug}/cart`;
     if (step === 'cart') return `/places/${slug}/menu`;
-    if (step === 'menu') return `/places/${slug}`;
+    if (step === 'menu') return `/places/${slug}${searchString}`;
     return `/${searchString}`;
   }
   if (/^\/orders\/[^/]+$/.test(pathname)) return '/orders';
