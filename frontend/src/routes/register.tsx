@@ -22,7 +22,7 @@ function RegisterRoute() {
   return (
     <main className='relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10'>
       <div className='pointer-events-none absolute inset-x-0 top-0 h-72 bg-linear-to-b from-primary-subtle to-transparent' />
-      <div className='relative w-full max-w-[27.5rem]'>
+      <div className='relative w-full max-w-110'>
         <RegisterForm intentId={intent} redirectTo={redirectTarget} />
       </div>
     </main>

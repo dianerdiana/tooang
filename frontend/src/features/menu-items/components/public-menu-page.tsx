@@ -152,8 +152,8 @@ function PublicMenuItemCard({
         <p className='text-xs font-semibold text-primary'>
           {item.categoryName} · {typeLabels[item.type]}
         </p>
-        <h2 className='mt-1 break-words font-semibold leading-snug'>{item.name}</h2>
-        <p className='mt-1 line-clamp-2 break-words text-sm text-muted-foreground'>
+        <h2 className='mt-1 wrap-break-word font-semibold leading-snug'>{item.name}</h2>
+        <p className='mt-1 line-clamp-2 wrap-break-word text-sm text-muted-foreground'>
           {item.description || 'No description available.'}
         </p>
         <p className='mt-2 font-bold tabular-nums'>{formatCurrency(item.price)}</p>
@@ -205,8 +205,8 @@ function MenuPlaceHeader({
       </Button>
       <div>
         <p className='text-sm font-semibold text-primary'>Menu at</p>
-        <h1 className='mt-1 break-words text-3xl font-bold tracking-tight'>{place.name}</h1>
-        {place.city && <p className='mt-1 break-words text-muted-foreground'>{place.city}</p>}
+        <h1 className='mt-1 wrap-break-word text-3xl font-bold tracking-tight'>{place.name}</h1>
+        {place.city && <p className='mt-1 wrap-break-word text-muted-foreground'>{place.city}</p>}
       </div>
       <div className='flex flex-wrap gap-2'>
         <PlaceOpenStateBadge state={place.isOpen ? 'OPEN' : 'CLOSED'} />
