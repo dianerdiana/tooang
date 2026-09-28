@@ -64,6 +64,20 @@ function PlaceOpenStateBadge({ state }: { state: OpenState }) {
   );
 }
 
+function PlaceOrderingStateBadge({ enabled }: { enabled: boolean }) {
+  const presentation: StatusPresentation = enabled
+    ? { label: 'Ordering available', tone: 'success', icon: CheckCircle2Icon }
+    : openStatePresentation.ORDERING_DISABLED;
+  const Icon = presentation.icon;
+
+  return (
+    <StatusBadge tone={presentation.tone} aria-label={`Ordering status: ${presentation.label}`}>
+      <Icon className='size-3.5' aria-hidden />
+      {presentation.label}
+    </StatusBadge>
+  );
+}
+
 export {
   CUSTOMER_ORDER_STATUS,
   type CustomerOrderStatus,
@@ -72,4 +86,5 @@ export {
   type OpenState,
   openStatePresentation,
   PlaceOpenStateBadge,
+  PlaceOrderingStateBadge,
 };

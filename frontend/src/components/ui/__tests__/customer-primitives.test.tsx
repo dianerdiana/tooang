@@ -8,6 +8,7 @@ import {
   CustomerOrderStatusBadge,
   customerOrderStatusPresentation,
   PlaceOpenStateBadge,
+  PlaceOrderingStateBadge,
 } from '@/components/ui/customer-status-badge';
 import { LiveRegion } from '@/components/ui/live-region';
 import { QuantityControl } from '@/components/ui/quantity-control';
@@ -108,5 +109,15 @@ describe('customer status badges', () => {
       expect(markup).toContain('Place status:');
       expect(markup).toContain('<svg');
     }
+  });
+
+  it('represents ordering independently from opening state', () => {
+    const available = renderToStaticMarkup(<PlaceOrderingStateBadge enabled />);
+    const unavailable = renderToStaticMarkup(<PlaceOrderingStateBadge enabled={false} />);
+
+    expect(available).toContain('Ordering available');
+    expect(available).toContain('aria-label="Ordering status: Ordering available"');
+    expect(unavailable).toContain('Ordering unavailable');
+    expect(unavailable).toContain('aria-label="Ordering status: Ordering unavailable"');
   });
 });
