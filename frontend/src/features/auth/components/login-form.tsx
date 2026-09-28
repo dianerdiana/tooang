@@ -4,6 +4,7 @@ import { useForm } from '@tanstack/react-form';
 import { Link, useRouter } from '@tanstack/react-router';
 import { Loader2Icon, LogInIcon } from 'lucide-react';
 
+import { TooangWordmark } from '@/components/branding/tooang-wordmark';
 import { FormControl, FormField, FormLabel, FormMessage } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,7 +58,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
   return (
     <Card className='w-full max-w-md shadow-md'>
       <CardHeader className='items-center text-center'>
-        <img src='/assets/logo/logo-brand-name.png' alt='Tooang' className='mb-3 h-10 w-auto object-contain' />
+        <TooangWordmark size='auth' className='mb-3' />
         <CardTitle className='text-xl'>Welcome back</CardTitle>
         <CardDescription>Sign in to continue to your Tooang account.</CardDescription>
       </CardHeader>
