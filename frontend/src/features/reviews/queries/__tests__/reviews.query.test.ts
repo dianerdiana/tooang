@@ -4,7 +4,13 @@ import { QueryClient } from '@tanstack/react-query';
 
 import { normalizePublicPlaceReviewListParams, normalizePublicReviewPlaceId } from '../../schemas/reviews.schema';
 import { invalidateModerationReviews, invalidatePublicPlaceReviews } from '../reviews.mutation';
-import { moderationReviewKeys, publicPlaceReviewKeys, publicPlaceReviewsInfiniteQueryOptions } from '../reviews.query';
+import {
+  moderationReviewKeys,
+  publicMenuItemReviewKeys,
+  publicMenuItemReviewsInfiniteQueryOptions,
+  publicPlaceReviewKeys,
+  publicPlaceReviewsInfiniteQueryOptions,
+} from '../reviews.query';
 
 describe('review moderation queries', () => {
   it('isolates type, page, and context filters in list keys', () => {
@@ -77,5 +83,35 @@ describe('public place review queries', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['reviews', 'public', 'place', placeId] });
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['reviews', 'own'] });
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['reviews', 'moderation'] });
+  });
+});
+
+describe('public menu-item review queries', () => {
+  const placeId = '5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae';
+  const itemId = '8f95e179-a74f-46e0-aea8-e796a297c667';
+  const otherItemId = '123e4567-e89b-12d3-a456-426614174000';
+
+  it('isolates place, item, numbered, infinite, and place-review caches', () => {
+    const first = publicMenuItemReviewKeys.list(placeId, itemId, { page: 1, limit: 10 });
+    const next = publicMenuItemReviewKeys.list(placeId, itemId, { page: 2, limit: 10 });
+    const other = publicMenuItemReviewKeys.list(placeId, otherItemId, { page: 1, limit: 10 });
+    const infinite = publicMenuItemReviewKeys.infinite(placeId, itemId, 10);
+
+    expect(first.slice(0, 7)).toEqual(['reviews', 'public', 'menu-item', 'place', placeId, 'item', itemId]);
+    expect(first).not.toEqual(next);
+    expect(first).not.toEqual(other);
+    expect(first).not.toEqual(infinite);
+    expect(first).not.toEqual(publicPlaceReviewKeys.list(placeId, { page: 1, limit: 10 }));
+  });
+
+  it('stops progressive item reviews from returned metadata', () => {
+    const options = publicMenuItemReviewsInfiniteQueryOptions(placeId, itemId, 10);
+    const page = {
+      reviews: [],
+      summary: { reviewCount: 11, averageRating: 4.5 },
+      meta: { page: 1, limit: 10, totalItems: 11, totalPages: 2 },
+    };
+    expect(options.getNextPageParam?.(page, [page], 1, [1])).toBe(2);
+    expect(options.getNextPageParam?.({ ...page, meta: { ...page.meta, page: 2 } }, [page], 2, [1, 2])).toBeUndefined();
   });
 });

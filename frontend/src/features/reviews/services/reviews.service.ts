@@ -16,6 +16,7 @@ import type {
   OwnMenuItemReview,
   OwnPlaceReview,
   PlaceModerationReview,
+  PublicMenuItemReviewListResult,
   PublicPlaceReview,
   PublicPlaceReviewListParams,
   PublicPlaceReviewListResult,
@@ -48,6 +49,29 @@ const moderate = async (endpoint: string): Promise<ModeratedReview> => {
 };
 
 export const reviewsService = {
+  async listPublicMenuItemReviews(
+    placeId: string,
+    menuItemId: string,
+    params: PublicPlaceReviewListParams,
+  ): Promise<PublicMenuItemReviewListResult> {
+    try {
+      const normalizedPlaceId = normalizePublicReviewPlaceId(placeId);
+      const normalizedMenuItemId = normalizePublicReviewPlaceId(menuItemId);
+      const response = await api.get<ApiPaginatedResponse<Pick<PublicMenuItemReviewListResult, 'reviews' | 'summary'>>>(
+        `/places/${encodeURIComponent(normalizedPlaceId)}/menu-items/${encodeURIComponent(normalizedMenuItemId)}/reviews`,
+        { params: normalizePublicPlaceReviewListParams(params) },
+      );
+      const result = unwrapPaginatedApiResponse(response.data);
+      return {
+        reviews: result.items.reviews,
+        summary: result.items.summary,
+        meta: result.meta as PublicReviewPaginationMeta,
+      };
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
   async listPublicPlaceReviews(
     placeId: string,
     params: PublicPlaceReviewListParams,

@@ -119,3 +119,59 @@ describe('reviewsService public place reviews', () => {
     });
   });
 });
+
+describe('reviewsService public menu-item reviews', () => {
+  const placeId = '5D2B73E0-84F0-4F8C-A3E8-733E7B8312AE';
+  const menuItemId = '8F95E179-A74F-46E0-AEA8-E796A297C667';
+
+  beforeEach(() => apiMock.get.mockReset());
+
+  it('uses the exact public item endpoint and preserves its safe response', async () => {
+    const data = {
+      reviews: [
+        {
+          reviewId: 'review-1',
+          rating: 5,
+          comment: 'Excellent',
+          reviewer: { userId: 'public-user-1', fullName: 'A Guest' },
+          createdAt: '2026-09-28T00:00:00.000Z',
+          updatedAt: '2026-09-28T00:00:00.000Z',
+        },
+      ],
+      summary: { reviewCount: 1, averageRating: 5 },
+    };
+    const meta = { page: 1, limit: 10, totalItems: 1, totalPages: 1 };
+    apiMock.get.mockResolvedValueOnce({ data: { error: false, message: 'Reviews retrieved', data, meta } });
+
+    await expect(
+      reviewsService.listPublicMenuItemReviews(placeId, menuItemId, { page: 1, limit: 10 }),
+    ).resolves.toEqual({ ...data, meta });
+    expect(apiMock.get).toHaveBeenCalledWith(
+      '/places/5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae/menu-items/8f95e179-a74f-46e0-aea8-e796a297c667/reviews',
+      { params: { page: 1, limit: 10 } },
+    );
+  });
+
+  it('preserves nullable empty item-review summaries and converts errors', async () => {
+    const meta = { page: 1, limit: 20, totalItems: 0, totalPages: 0 };
+    apiMock.get.mockResolvedValueOnce({
+      data: {
+        error: false,
+        message: 'No reviews',
+        data: { reviews: [], summary: { reviewCount: 0, averageRating: null } },
+        meta,
+      },
+    });
+    await expect(reviewsService.listPublicMenuItemReviews(placeId, menuItemId, {})).resolves.toEqual({
+      reviews: [],
+      summary: { reviewCount: 0, averageRating: null },
+      meta,
+    });
+
+    apiMock.get.mockRejectedValueOnce({ error: true, message: 'Item unavailable', code: 'NOT_FOUND' });
+    await expect(reviewsService.listPublicMenuItemReviews(placeId, menuItemId, {})).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      isNetworkError: false,
+    });
+  });
+});

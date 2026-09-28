@@ -22,6 +22,55 @@ export const publicPlaceReviewKeys = {
     [...publicPlaceReviewKeys.place(placeId), 'infinite', { limit }] as const,
 };
 
+export const publicMenuItemReviewKeys = {
+  all: ['reviews', 'public', 'menu-item'] as const,
+  places: () => [...publicMenuItemReviewKeys.all, 'place'] as const,
+  place: (placeId: string) => [...publicMenuItemReviewKeys.places(), normalizePublicReviewPlaceId(placeId)] as const,
+  item: (placeId: string, menuItemId: string) =>
+    [...publicMenuItemReviewKeys.place(placeId), 'item', normalizePublicReviewPlaceId(menuItemId)] as const,
+  list: (placeId: string, menuItemId: string, params: PublicPlaceReviewListParams) =>
+    [
+      ...publicMenuItemReviewKeys.item(placeId, menuItemId),
+      'list',
+      normalizePublicPlaceReviewListParams(params),
+    ] as const,
+  infinite: (placeId: string, menuItemId: string, limit: number) =>
+    [...publicMenuItemReviewKeys.item(placeId, menuItemId), 'infinite', { limit }] as const,
+};
+
+export const publicMenuItemReviewsQueryOptions = (
+  placeId: string,
+  menuItemId: string,
+  params: PublicPlaceReviewListParams,
+) => {
+  const normalizedPlaceId = normalizePublicReviewPlaceId(placeId);
+  const normalizedMenuItemId = normalizePublicReviewPlaceId(menuItemId);
+  const normalized = normalizePublicPlaceReviewListParams(params);
+  return queryOptions({
+    queryKey: publicMenuItemReviewKeys.list(normalizedPlaceId, normalizedMenuItemId, normalized),
+    queryFn: () => reviewsService.listPublicMenuItemReviews(normalizedPlaceId, normalizedMenuItemId, normalized),
+    staleTime: 30_000,
+  });
+};
+
+export const publicMenuItemReviewsInfiniteQueryOptions = (placeId: string, menuItemId: string, limit = 10) => {
+  const normalizedPlaceId = normalizePublicReviewPlaceId(placeId);
+  const normalizedMenuItemId = normalizePublicReviewPlaceId(menuItemId);
+  const normalized = normalizePublicPlaceReviewListParams({ page: 1, limit });
+  return infiniteQueryOptions({
+    queryKey: publicMenuItemReviewKeys.infinite(normalizedPlaceId, normalizedMenuItemId, normalized.limit),
+    queryFn: ({ pageParam }) =>
+      reviewsService.listPublicMenuItemReviews(normalizedPlaceId, normalizedMenuItemId, {
+        page: pageParam,
+        limit: normalized.limit,
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.meta.page < lastPage.meta.totalPages ? lastPage.meta.page + 1 : undefined,
+    staleTime: 30_000,
+  });
+};
+
 export const publicPlaceReviewsQueryOptions = (placeId: string, params: PublicPlaceReviewListParams) => {
   const normalizedPlaceId = normalizePublicReviewPlaceId(placeId);
   const normalized = normalizePublicPlaceReviewListParams(params);

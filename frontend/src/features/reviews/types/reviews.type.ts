@@ -80,6 +80,14 @@ export type PublicPlaceReviewListResult = {
   meta: PublicReviewPaginationMeta;
 };
 
+export type PublicMenuItemReview = PublicPlaceReview;
+
+export type PublicMenuItemReviewListResult = {
+  reviews: PublicMenuItemReview[];
+  summary: PublicReviewSummary;
+  meta: PublicReviewPaginationMeta;
+};
+
 export type ModeratedReview = { reviewId: string; deletedAt: string };
 
 export type OwnReviewTab = ReviewModerationTab;
