@@ -105,7 +105,7 @@ function PlaceHero({ place }: { place: PublicPlaceDetail }) {
         aspect='wide'
         alt={media.kind === 'cover' ? `${place.name} cover` : media.kind === 'logo' ? `${place.name} logo` : ''}
         fallbackLabel={`${place.name} image unavailable`}
-        className='max-h-[32rem] rounded-none sm:rounded-surface'
+        className='max-h-128 rounded-none sm:rounded-surface'
       />
       {place.coverUrl && place.logoUrl && (
         <div className='absolute bottom-4 left-4 size-20 overflow-hidden rounded-xl border-2 border-surface bg-surface shadow-sm sm:size-24'>
@@ -161,14 +161,14 @@ function PlaceContactDetails({ place }: { place: PublicPlaceDetail }) {
             <MapPinIcon className='mt-0.5 size-5 text-muted-foreground' aria-hidden />
             <div className='min-w-0'>
               <dt className='font-medium'>Address</dt>
-              <dd className='mt-1 break-words text-muted-foreground'>{place.address}</dd>
+              <dd className='mt-1 wrap-break-word text-muted-foreground'>{place.address}</dd>
             </div>
           </div>
           <div className='grid grid-cols-[auto_minmax(0,1fr)] gap-3'>
             <Globe2Icon className='mt-0.5 size-5 text-muted-foreground' aria-hidden />
             <div className='min-w-0'>
               <dt className='font-medium'>Timezone</dt>
-              <dd className='mt-1 break-words text-muted-foreground'>{place.timezone}</dd>
+              <dd className='mt-1 wrap-break-word text-muted-foreground'>{place.timezone}</dd>
             </div>
           </div>
           {place.phone && (
@@ -274,7 +274,7 @@ function PlaceDetailContent({
                 {placeTypeLabels[place.type]}
                 {place.city ? ` · ${place.city}` : ''}
               </p>
-              <h1 className='mt-2 break-words text-3xl font-bold tracking-tight sm:text-4xl'>{place.name}</h1>
+              <h1 className='mt-2 wrap-break-word text-3xl font-bold tracking-tight sm:text-4xl'>{place.name}</h1>
             </header>
             <AvailabilitySummary place={place} />
             <div className='grid gap-3 sm:grid-cols-2'>
@@ -293,7 +293,7 @@ function PlaceDetailContent({
               <h2 id='about-place-heading' className='text-xl font-semibold'>
                 About
               </h2>
-              <p className='mt-3 break-words whitespace-pre-line text-muted-foreground'>
+              <p className='mt-3 wrap-break-word whitespace-pre-line text-muted-foreground'>
                 {place.description || 'No description is available for this place.'}
               </p>
             </section>
@@ -304,7 +304,7 @@ function PlaceDetailContent({
           </div>
         </div>
 
-        <PublicPlaceReviewsSection placeId={place.id} />
+        <PublicPlaceReviewsSection placeId={place.id} placeSlug={place.slug} />
       </div>
     </article>
   );

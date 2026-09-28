@@ -11,6 +11,8 @@ import { LiveRegion } from '@/components/ui/live-region';
 import { RatingDisplay } from '@/components/ui/rating';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import { ProtectedActionLoginLink } from '@/features/auth/components/protected-action-login-link';
+
 import { getCustomerErrorPresentation } from '@/utils/customer-error-presentation';
 import { useAuth } from '@/utils/hooks/use-auth';
 
@@ -20,6 +22,7 @@ import type { PublicPlaceReview, PublicReviewSummary } from '../types/reviews.ty
 
 type PublicPlaceReviewsSectionProps = {
   placeId: string;
+  placeSlug: string;
 };
 
 function deduplicatePublicReviews(reviews: readonly PublicPlaceReview[]) {
@@ -40,7 +43,7 @@ function PublicReviewCard({ review }: { review: PublicPlaceReview }) {
     <article className='min-w-0 rounded-lg border bg-surface p-4 shadow-xs'>
       <div className='flex min-w-0 flex-wrap items-start justify-between gap-3'>
         <div className='min-w-0'>
-          <h3 className='break-words font-semibold'>{review.reviewer.fullName}</h3>
+          <h3 className='wrap-break-word font-semibold'>{review.reviewer.fullName}</h3>
           <p className='mt-1 flex items-center gap-1.5 text-xs text-muted-foreground'>
             <CheckCircle2Icon className='size-3.5 text-success' aria-hidden />
             Verified purchase
@@ -52,7 +55,7 @@ function PublicReviewCard({ review }: { review: PublicPlaceReview }) {
       </div>
       <RatingDisplay value={review.rating} className='mt-3' label={`Rating by ${review.reviewer.fullName}`} />
       {review.comment && (
-        <p className='mt-3 break-words whitespace-pre-line text-sm text-foreground'>{review.comment}</p>
+        <p className='mt-3 wrap-break-word whitespace-pre-line text-sm text-foreground'>{review.comment}</p>
       )}
     </article>
   );
@@ -71,7 +74,15 @@ function PublicReviewSummaryView({ summary }: { summary: PublicReviewSummary }) 
   );
 }
 
-function ReviewEligibilityGuidance({ isAuthenticated }: { isAuthenticated: boolean }) {
+function ReviewEligibilityGuidance({
+  isAuthenticated,
+  placeId,
+  placeSlug,
+}: {
+  isAuthenticated: boolean;
+  placeId: string;
+  placeSlug: string;
+}) {
   return (
     <CustomerAlert
       tone='info'
@@ -86,9 +97,11 @@ function ReviewEligibilityGuidance({ isAuthenticated }: { isAuthenticated: boole
           {isAuthenticated ? (
             <Link to='/orders'>View your orders</Link>
           ) : (
-            <Link to='/login' search={{ redirect: '/orders' }}>
+            <ProtectedActionLoginLink
+              intent={{ kind: 'review', payload: { placeId, placeSlug, target: 'place' }, returnTo: '/orders' }}
+            >
               Sign in
-            </Link>
+            </ProtectedActionLoginLink>
           )}
         </Button>
       }
@@ -111,7 +124,7 @@ function PublicReviewsSkeleton() {
   );
 }
 
-function PublicPlaceReviewsSection({ placeId }: PublicPlaceReviewsSectionProps) {
+function PublicPlaceReviewsSection({ placeId, placeSlug }: PublicPlaceReviewsSectionProps) {
   const { isAuthenticated } = useAuth();
   const reviewsQuery = useInfiniteQuery(
     publicPlaceReviewsInfiniteQueryOptions(placeId, PUBLIC_PLACE_REVIEWS_PAGE_SIZE),
@@ -203,7 +216,7 @@ function PublicPlaceReviewsSection({ placeId }: PublicPlaceReviewsSectionProps) 
           </>
         ) : null}
 
-        <ReviewEligibilityGuidance isAuthenticated={isAuthenticated} />
+        <ReviewEligibilityGuidance isAuthenticated={isAuthenticated} placeId={placeId} placeSlug={placeSlug} />
       </CardContent>
     </Card>
   );
