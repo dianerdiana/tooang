@@ -2,7 +2,7 @@ import { TooangWordmark } from '@/components/branding/tooang-wordmark';
 
 function PublicLandingPlaceholder() {
   return (
-    <main className='min-h-screen bg-background px-page py-10 text-foreground sm:py-14 lg:py-20'>
+    <div className='min-h-[calc(100vh-8rem)] bg-background px-page py-10 text-foreground sm:py-14 lg:py-20'>
       <div className='mx-auto w-full max-w-6xl'>
         <TooangWordmark size='auth' />
         <section className='mt-14 max-w-2xl sm:mt-20 lg:mt-24' aria-labelledby='discovery-heading'>
@@ -16,7 +16,7 @@ function PublicLandingPlaceholder() {
           </p>
         </section>
       </div>
-    </main>
+    </div>
   );
 }
 

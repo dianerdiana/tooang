@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { AuthenticatedUser } from '@/types/user-data.type';
 
-import { Route } from './index';
+import { Route } from './_public.index';
 
 const runBeforeLoad = (isAuthenticated: boolean, user: AuthenticatedUser | null) => {
   if (!Route.options.beforeLoad) return null;
