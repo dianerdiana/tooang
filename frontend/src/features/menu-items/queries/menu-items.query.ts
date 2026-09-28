@@ -1,8 +1,31 @@
 import { keepPreviousData, queryOptions } from '@tanstack/react-query';
 
-import { normalizeMenuItemListParams } from '../schemas/menu-items.schema';
+import {
+  normalizeMenuItemListParams,
+  normalizePublicMenuListParams,
+  normalizePublicMenuPlaceId,
+} from '../schemas/menu-items.schema';
 import { menuItemsService } from '../services/menu-items.service';
-import type { MenuItemListParams } from '../types/menu-items.type';
+import type { MenuItemListParams, PublicMenuListParams } from '../types/menu-items.type';
+
+export const publicMenuKeys = {
+  all: ['menu-items', 'public'] as const,
+  places: () => [...publicMenuKeys.all, 'place'] as const,
+  place: (placeId: string) => [...publicMenuKeys.places(), normalizePublicMenuPlaceId(placeId)] as const,
+  lists: (placeId: string) => [...publicMenuKeys.place(placeId), 'list'] as const,
+  list: (placeId: string, params: PublicMenuListParams) =>
+    [...publicMenuKeys.lists(placeId), normalizePublicMenuListParams(params)] as const,
+};
+
+export const publicMenuQueryOptions = (placeId: string, params: PublicMenuListParams) => {
+  const normalizedPlaceId = normalizePublicMenuPlaceId(placeId);
+  const normalized = normalizePublicMenuListParams(params);
+  return queryOptions({
+    queryKey: publicMenuKeys.list(normalizedPlaceId, normalized),
+    queryFn: () => menuItemsService.listPublicMenu(normalizedPlaceId, normalized),
+    staleTime: 30_000,
+  });
+};
 
 export const menuItemsKeys = {
   all: ['menu-items'] as const,

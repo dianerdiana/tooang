@@ -4,8 +4,9 @@ import { QueryClient } from '@tanstack/react-query';
 
 import { placesKeys } from '@/features/places/queries/places.key';
 
+import { normalizePublicMenuListParams, normalizePublicMenuPlaceId } from '../../schemas/menu-items.schema';
 import { cacheCreatedMenuItem, cacheDeletedMenuItem, cacheUpdatedMenuItem } from '../menu-items.mutation';
-import { menuItemsKeys } from '../menu-items.query';
+import { menuItemsKeys, publicMenuKeys, publicMenuQueryOptions } from '../menu-items.query';
 
 const item = {
   menuItemId: 'item-1',
@@ -44,5 +45,60 @@ describe('menu-item query cache', () => {
     expect(client.getQueryState(placesKeys.managementDetail('place-1'))?.isInvalidated).toBe(true);
     await cacheDeletedMenuItem(client, 'place-1', 'item-1');
     expect(client.getQueryData(menuItemsKeys.detail('place-1', 'item-1'))).toBeUndefined();
+  });
+});
+
+describe('public menu contract and query cache', () => {
+  const placeId = '5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae';
+  const otherPlaceId = '8f95e179-a74f-46e0-aea8-e796a297c667';
+  const categoryId = '123e4567-e89b-12d3-a456-426614174000';
+
+  it('normalizes only supported public filters', () => {
+    expect(normalizePublicMenuPlaceId(` ${placeId.toUpperCase()} `)).toBe(placeId);
+    expect(normalizePublicMenuListParams({})).toEqual({ page: 1, limit: 20 });
+    expect(
+      normalizePublicMenuListParams({
+        page: '2' as unknown as number,
+        limit: 100,
+        type: 'DRINK',
+        categoryId: categoryId.toUpperCase(),
+        search: 'ignored',
+        isAvailable: false,
+      } as never),
+    ).toEqual({ page: 2, limit: 100, type: 'DRINK', categoryId });
+    expect(normalizePublicMenuListParams({ page: 0, limit: 101, type: 'INVALID' as 'FOOD' })).toEqual({
+      page: 1,
+      limit: 20,
+    });
+  });
+
+  it('isolates places, pages, types, and category filters from management keys', () => {
+    const food = publicMenuKeys.list(placeId, { page: 1, type: 'FOOD' });
+    const drink = publicMenuKeys.list(placeId, { page: 1, type: 'DRINK' });
+    const category = publicMenuKeys.list(placeId, { page: 1, type: 'FOOD', categoryId });
+    const nextPage = publicMenuKeys.list(placeId, { page: 2, type: 'FOOD' });
+    const otherPlace = publicMenuKeys.list(otherPlaceId, { page: 1, type: 'FOOD' });
+
+    expect(food.slice(0, 4)).toEqual(['menu-items', 'public', 'place', placeId]);
+    expect(food).not.toEqual(drink);
+    expect(food).not.toEqual(category);
+    expect(food).not.toEqual(nextPage);
+    expect(food).not.toEqual(otherPlace);
+    expect(food).not.toEqual(menuItemsKeys.list(placeId, { page: 1, type: 'FOOD' }));
+  });
+
+  it('builds public options without cross-key placeholder data', () => {
+    const options = publicMenuQueryOptions(placeId, { page: 2, limit: 10, categoryId });
+
+    expect(options.queryKey).toEqual([
+      'menu-items',
+      'public',
+      'place',
+      placeId,
+      'list',
+      { page: 2, limit: 10, categoryId },
+    ]);
+    expect(options.placeholderData).toBeUndefined();
+    expect(options.staleTime).toBe(30_000);
   });
 });
