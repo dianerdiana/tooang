@@ -5,7 +5,11 @@ import { unwrapApiResponse, unwrapPaginatedApiResponse } from '@/utils/api-respo
 
 import type { ApiPaginatedResponse, ApiResponse } from '@/types/api-response.type';
 
-import { normalizePlaceListParams } from '../schemas/places.schema';
+import {
+  normalizePlaceListParams,
+  normalizePublicPlaceListParams,
+  normalizePublicPlaceSlug,
+} from '../schemas/places.schema';
 import type {
   PlaceCreateInput,
   PlaceListParams,
@@ -14,11 +18,39 @@ import type {
   PlacePublishingInput,
   PlaceSummary,
   PlaceUpdateInput,
+  PublicPlaceDetail,
+  PublicPlaceListItem,
+  PublicPlaceListParams,
+  PublicPlaceListResult,
+  PublicPlacePaginationMeta,
 } from '../types/places.type';
 
 type PlaceListData = { places: PlaceSummary[] };
+type PublicPlaceListData = { places: PublicPlaceListItem[] };
 
 export const placesService = {
+  async listPublic(params: PublicPlaceListParams): Promise<PublicPlaceListResult> {
+    try {
+      const response = await api.get<ApiPaginatedResponse<PublicPlaceListData>>('/places', {
+        params: normalizePublicPlaceListParams(params),
+      });
+      const result = unwrapPaginatedApiResponse(response.data);
+      return { places: result.items.places, meta: result.meta as PublicPlacePaginationMeta };
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
+  async getPublic(slug: string): Promise<PublicPlaceDetail> {
+    try {
+      const normalizedSlug = normalizePublicPlaceSlug(slug);
+      const response = await api.get<ApiResponse<{ place: PublicPlaceDetail }>>(`/places/${normalizedSlug}`);
+      return unwrapApiResponse(response.data).place;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
   async create(input: PlaceCreateInput): Promise<PlaceSummary> {
     try {
       const response = await api.post<PlaceCreateInput, ApiResponse<{ place: PlaceSummary }>>('/places', input);

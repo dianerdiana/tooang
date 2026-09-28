@@ -40,6 +40,48 @@ describe('placesService', () => {
     expect(apiMock.post).toHaveBeenCalledWith('/places', input);
   });
 
+  it('loads the public list through the exact endpoint with normalized supported filters', async () => {
+    const publicResponse = {
+      data: {
+        error: false as const,
+        message: 'Places retrieved',
+        data: { places: [{ id: 'place-1', name: 'Tooang Cafe', slug: 'tooang-cafe', type: 'CAFE' }] },
+        meta: { page: 2, limit: 12, totalItems: 13, totalPages: 2 },
+      },
+    };
+    apiMock.get.mockResolvedValueOnce(publicResponse);
+
+    await expect(
+      placesService.listPublic({ page: 2, limit: 12, search: '  coffee ', city: ' Bandung ', type: 'CAFE' }),
+    ).resolves.toEqual({ places: publicResponse.data.data.places, meta: publicResponse.data.meta });
+
+    expect(apiMock.get).toHaveBeenCalledWith('/places', {
+      params: { page: 2, limit: 12, search: 'coffee', type: 'CAFE', city: 'Bandung' },
+    });
+  });
+
+  it('loads a normalized public slug detail with seven-day hours and isOpen', async () => {
+    const place = {
+      id: 'place-1',
+      name: 'Tooang Cafe',
+      slug: 'tooang-cafe',
+      type: 'CAFE',
+      businessHours: Array.from({ length: 7 }, (_, index) => ({
+        day: index === 0 ? 'MONDAY' : 'TUESDAY',
+        isClosed: true,
+        opensAt: null,
+        closesAt: null,
+      })),
+      isOpen: false,
+    };
+    apiMock.get.mockResolvedValueOnce({
+      data: { error: false, message: 'Place retrieved', data: { place } },
+    });
+
+    await expect(placesService.getPublic('  TOOANG-CAFE ')).resolves.toEqual(place);
+    expect(apiMock.get).toHaveBeenCalledWith('/places/tooang-cafe');
+  });
+
   it('loads management details by ID and updates only the provided fields', async () => {
     const place = { id: 'place-1', name: 'Tooang Cafe' };
     apiMock.get.mockResolvedValueOnce({
@@ -87,6 +129,16 @@ describe('placesService', () => {
   it('normalizes failures for page error handling', async () => {
     apiMock.get.mockRejectedValue(new Error('Places unavailable'));
     await expect(placesService.listManagement({})).rejects.toMatchObject({
+      error: true,
+      message: 'Places unavailable',
+      code: 'APPLICATION_ERROR',
+      isNetworkError: false,
+    });
+  });
+
+  it('normalizes public failures for customer error handling', async () => {
+    apiMock.get.mockRejectedValue(new Error('Places unavailable'));
+    await expect(placesService.listPublic({})).rejects.toMatchObject({
       error: true,
       message: 'Places unavailable',
       code: 'APPLICATION_ERROR',

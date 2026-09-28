@@ -51,6 +51,84 @@ export type PlaceListResult = {
   meta: ApiPaginationMeta;
 };
 
+export const DAY_OF_WEEK = {
+  MONDAY: 'MONDAY',
+  TUESDAY: 'TUESDAY',
+  WEDNESDAY: 'WEDNESDAY',
+  THURSDAY: 'THURSDAY',
+  FRIDAY: 'FRIDAY',
+  SATURDAY: 'SATURDAY',
+  SUNDAY: 'SUNDAY',
+} as const;
+
+export type DayOfWeek = (typeof DAY_OF_WEEK)[keyof typeof DAY_OF_WEEK];
+
+export type PublicPlaceBusinessHour = {
+  day: DayOfWeek;
+  isClosed: boolean;
+  opensAt: string | null;
+  closesAt: string | null;
+};
+
+export type PublicPlaceListItem = {
+  id: string;
+  name: string;
+  slug: string;
+  type: PlaceType;
+  description: string | null;
+  address: string;
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  phone: string | null;
+  whatsapp: string | null;
+  timezone: string;
+  isPublished: boolean;
+  isOrderingEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  logoUrl: string | null;
+  coverUrl: string | null;
+};
+
+export type PublicPlaceDetail = PublicPlaceListItem & {
+  businessHours: PublicPlaceBusinessHour[];
+  isOpen: boolean;
+};
+
+export type PublicPlaceListParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: PlaceType;
+  city?: string;
+};
+
+export type NormalizedPublicPlaceListParams = {
+  page: number;
+  limit: number;
+  search?: string;
+  type?: PlaceType;
+  city?: string;
+};
+
+export type PublicPlaceDiscoverySearch = Omit<NormalizedPublicPlaceListParams, 'limit'>;
+
+export type PublicPlaceRouteSearch = Partial<PublicPlaceDiscoverySearch>;
+
+export type PublicPlacePaginationMeta = {
+  page: number;
+  limit: number;
+  totalItems: number;
+  totalPages: number;
+  search?: string;
+};
+
+export type PublicPlaceListResult = {
+  places: PublicPlaceListItem[];
+  meta: PublicPlacePaginationMeta;
+};
+
 export type PlaceUpdateInput = Partial<{
   name: string;
   slug: string;

@@ -1,16 +1,21 @@
 import { z } from 'zod';
 
 import type {
+  NormalizedPublicPlaceListParams,
   PlaceCreateFormValues,
   PlaceCreateInput,
   PlaceProfileFormValues,
   PlaceSummary,
   PlaceUpdateInput,
+  PublicPlaceDiscoverySearch,
+  PublicPlaceListParams,
+  PublicPlaceRouteSearch,
 } from '../types/places.type';
 import { type NormalizedPlaceListParams, PLACE_TYPE, type PlaceListParams } from '../types/places.type';
 
 export const DEFAULT_PLACES_PAGE = 1;
 export const DEFAULT_PLACES_LIMIT = 20;
+export const PUBLIC_PLACES_PAGE_SIZE = 12;
 
 const optionalTrimmedString = (maximum: number) =>
   z.preprocess(
@@ -51,6 +56,58 @@ export const normalizePlaceListParams = (params: PlaceListParams): NormalizedPla
     ...(parsed.city ? { city: parsed.city } : {}),
   };
 };
+
+export const publicPlacesSearchSchema = z
+  .object({
+    page: positiveInteger(DEFAULT_PLACES_PAGE),
+    search: optionalTrimmedString(120),
+    type: z.enum(PLACE_TYPE).optional().catch(undefined),
+    city: optionalTrimmedString(100),
+  })
+  .strip();
+
+const publicPlaceListParamsSchema = z
+  .object({
+    page: positiveInteger(DEFAULT_PLACES_PAGE),
+    limit: positiveInteger(PUBLIC_PLACES_PAGE_SIZE, 100),
+    search: optionalTrimmedString(120),
+    type: z.enum(PLACE_TYPE).optional().catch(undefined),
+    city: optionalTrimmedString(100),
+  })
+  .strip();
+
+export const parsePublicPlacesSearch = (search: Record<string, unknown>): PublicPlaceRouteSearch =>
+  publicPlacesSearchSchema.parse(search) as PublicPlaceDiscoverySearch;
+
+export const normalizePublicDiscoverySearch = (search: PublicPlaceRouteSearch): PublicPlaceDiscoverySearch =>
+  publicPlacesSearchSchema.parse(search) as PublicPlaceDiscoverySearch;
+
+export const normalizePublicPlaceListParams = (params: PublicPlaceListParams): NormalizedPublicPlaceListParams => {
+  const parsed = publicPlaceListParamsSchema.parse({
+    ...params,
+    limit: params.limit ?? PUBLIC_PLACES_PAGE_SIZE,
+  }) as NormalizedPublicPlaceListParams;
+  return {
+    page: parsed.page,
+    limit: parsed.limit,
+    ...(parsed.search ? { search: parsed.search } : {}),
+    ...(parsed.type ? { type: parsed.type } : {}),
+    ...(parsed.city ? { city: parsed.city } : {}),
+  };
+};
+
+export const publicDiscoveryToListParams = (search: PublicPlaceDiscoverySearch): NormalizedPublicPlaceListParams =>
+  normalizePublicPlaceListParams({ ...search, limit: PUBLIC_PLACES_PAGE_SIZE });
+
+const publicPlaceSlugSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+
+export const normalizePublicPlaceSlug = (slug: string) => publicPlaceSlugSchema.parse(slug);
 
 const requiredText = (minimum: number, maximum: number) =>
   z.string().trim().min(minimum, 'This field is required').max(maximum);
