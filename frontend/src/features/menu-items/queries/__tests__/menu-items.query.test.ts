@@ -6,7 +6,12 @@ import { placesKeys } from '@/features/places/queries/places.key';
 
 import { normalizePublicMenuListParams, normalizePublicMenuPlaceId } from '../../schemas/menu-items.schema';
 import { cacheCreatedMenuItem, cacheDeletedMenuItem, cacheUpdatedMenuItem } from '../menu-items.mutation';
-import { menuItemsKeys, publicMenuKeys, publicMenuQueryOptions } from '../menu-items.query';
+import {
+  menuItemsKeys,
+  publicMenuInfiniteQueryOptions,
+  publicMenuKeys,
+  publicMenuQueryOptions,
+} from '../menu-items.query';
 
 const item = {
   menuItemId: 'item-1',
@@ -100,5 +105,24 @@ describe('public menu contract and query cache', () => {
     ]);
     expect(options.placeholderData).toBeUndefined();
     expect(options.staleTime).toBe(30_000);
+  });
+
+  it('keeps progressive pages inside one place-and-filter scoped infinite cache', () => {
+    const options = publicMenuInfiniteQueryOptions(placeId, { limit: 20, type: 'FOOD', categoryId });
+    const page = { categories: [], meta: { page: 1, limit: 20, totalItems: 21, totalPages: 2 } };
+
+    expect(options.queryKey).toEqual([
+      'menu-items',
+      'public',
+      'place',
+      placeId,
+      'infinite',
+      { limit: 20, type: 'FOOD', categoryId },
+    ]);
+    expect(options.getNextPageParam?.(page, [page], 1, [1])).toBe(2);
+    expect(options.getNextPageParam?.({ ...page, meta: { ...page.meta, page: 2 } }, [page], 2, [1, 2])).toBeUndefined();
+    expect(publicMenuInfiniteQueryOptions(otherPlaceId, { limit: 20, type: 'FOOD' }).queryKey).not.toEqual(
+      publicMenuInfiniteQueryOptions(placeId, { limit: 20, type: 'FOOD' }).queryKey,
+    );
   });
 });

@@ -1,3 +1,5 @@
+import type { PublicPlaceRouteSearch } from '@/features/places/types/places.type';
+
 import type { ApiPaginationMeta } from '@/types/api-response.type';
 
 export type MenuItemType = 'FOOD' | 'DRINK';
@@ -67,6 +69,13 @@ export type PublicMenuPaginationMeta = Required<
 export type PublicMenuListResult = {
   categories: PublicMenuCategory[];
   meta: PublicMenuPaginationMeta;
+};
+
+export type PublicMenuFilters = Pick<PublicMenuListParams, 'type' | 'categoryId'>;
+
+export type PublicMenuRouteSearch = PublicPlaceRouteSearch & {
+  menuType?: MenuItemType;
+  categoryId?: string;
 };
 
 export type CreateMenuItemInput = {

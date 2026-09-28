@@ -4,6 +4,7 @@ import {
   changedMenuItemFields,
   menuItemPriceSchema,
   normalizeMenuItemListParams,
+  parsePublicMenuRouteSearch,
   toCreateMenuItemInput,
 } from '../menu-items.schema';
 
@@ -74,6 +75,27 @@ describe('menu-item schemas', () => {
       type: 'DRINK',
       categoryId,
       isAvailable: false,
+    });
+  });
+
+  it('keeps discovery context separate from public menu filters', () => {
+    expect(
+      parsePublicMenuRouteSearch({
+        page: '3',
+        search: '  coffee  ',
+        type: 'CAFE',
+        city: '  Bandung  ',
+        menuType: 'DRINK',
+        categoryId: categoryId.toUpperCase(),
+        isAvailable: 'false',
+      }),
+    ).toEqual({
+      page: 3,
+      search: 'coffee',
+      type: 'CAFE',
+      city: 'Bandung',
+      menuType: 'DRINK',
+      categoryId,
     });
   });
 });

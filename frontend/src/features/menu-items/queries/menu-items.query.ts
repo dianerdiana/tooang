@@ -1,4 +1,4 @@
-import { keepPreviousData, queryOptions } from '@tanstack/react-query';
+import { infiniteQueryOptions, keepPreviousData, queryOptions } from '@tanstack/react-query';
 
 import {
   normalizeMenuItemListParams,
@@ -23,6 +23,24 @@ export const publicMenuQueryOptions = (placeId: string, params: PublicMenuListPa
   return queryOptions({
     queryKey: publicMenuKeys.list(normalizedPlaceId, normalized),
     queryFn: () => menuItemsService.listPublicMenu(normalizedPlaceId, normalized),
+    staleTime: 30_000,
+  });
+};
+
+export const publicMenuInfiniteQueryOptions = (placeId: string, params: Omit<PublicMenuListParams, 'page'>) => {
+  const normalizedPlaceId = normalizePublicMenuPlaceId(placeId);
+  const normalized = normalizePublicMenuListParams({ ...params, page: 1 });
+  const filters = {
+    limit: normalized.limit,
+    ...(normalized.type ? { type: normalized.type } : {}),
+    ...(normalized.categoryId ? { categoryId: normalized.categoryId } : {}),
+  };
+  return infiniteQueryOptions({
+    queryKey: [...publicMenuKeys.place(normalizedPlaceId), 'infinite', filters] as const,
+    queryFn: ({ pageParam }) => menuItemsService.listPublicMenu(normalizedPlaceId, { ...filters, page: pageParam }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.meta.page < lastPage.meta.totalPages ? lastPage.meta.page + 1 : undefined,
     staleTime: 30_000,
   });
 };

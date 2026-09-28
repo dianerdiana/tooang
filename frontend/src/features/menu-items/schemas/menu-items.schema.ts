@@ -1,13 +1,17 @@
 import { z } from 'zod';
 
+import { parsePublicPlacesSearch } from '@/features/places/schemas/places.schema';
+
 import type {
   CreateMenuItemInput,
   MenuItem,
   MenuItemFormValues,
   MenuItemListParams,
+  MenuItemType,
   NormalizedMenuItemListParams,
   NormalizedPublicMenuListParams,
   PublicMenuListParams,
+  PublicMenuRouteSearch,
   UpdateMenuItemInput,
 } from '../types/menu-items.type';
 
@@ -99,6 +103,19 @@ export const normalizePublicMenuListParams = (params: PublicMenuListParams): Nor
     limit: parsed.limit,
     ...(parsed.type ? { type: parsed.type } : {}),
     ...(parsed.categoryId ? { categoryId: parsed.categoryId } : {}),
+  };
+};
+
+export const parsePublicMenuRouteSearch = (search: Record<string, unknown>): PublicMenuRouteSearch => {
+  const discovery = parsePublicPlacesSearch(search);
+  const menu = normalizePublicMenuListParams({
+    type: search.menuType as MenuItemType | undefined,
+    categoryId: search.categoryId as string | undefined,
+  });
+  return {
+    ...discovery,
+    ...(menu.type ? { menuType: menu.type } : {}),
+    ...(menu.categoryId ? { categoryId: menu.categoryId } : {}),
   };
 };
 
