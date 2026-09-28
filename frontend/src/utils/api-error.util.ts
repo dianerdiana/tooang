@@ -13,6 +13,22 @@ export const isApiErrorResponse = (value: unknown): value is ApiErrorResponse =>
 export const isApplicationError = (value: unknown): value is ApplicationError =>
   isApiErrorResponse(value) && typeof (value as Partial<ApplicationError>).isNetworkError === 'boolean';
 
+const getRetryAfterSeconds = (headers: unknown) => {
+  if (!headers || typeof headers !== 'object') return undefined;
+
+  const candidate = headers as {
+    get?: (name: string) => unknown;
+    ['retry-after']?: unknown;
+    ['Retry-After']?: unknown;
+  };
+  const raw = candidate.get?.('retry-after') ?? candidate['retry-after'] ?? candidate['Retry-After'];
+  if (typeof raw !== 'string' && typeof raw !== 'number') return undefined;
+  if (typeof raw === 'string' && !/^\d+(?:\.\d+)?$/.test(raw.trim())) return undefined;
+
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) && seconds >= 0 ? Math.ceil(seconds) : undefined;
+};
+
 export const toApiError = (error: unknown): ApplicationError => {
   if (isApplicationError(error)) return error;
 
@@ -26,12 +42,14 @@ export const toApiError = (error: unknown): ApplicationError => {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data;
     const httpStatus = error.response?.status;
+    const retryAfterSeconds = getRetryAfterSeconds(error.response?.headers);
 
     if (isApiErrorResponse(data)) {
       return {
         ...data,
         httpStatus,
         isNetworkError: false,
+        ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }),
       };
     }
 
@@ -41,6 +59,7 @@ export const toApiError = (error: unknown): ApplicationError => {
       code: error.code || (error.response ? 'HTTP_ERROR' : 'NETWORK_ERROR'),
       httpStatus,
       isNetworkError: !error.response,
+      ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }),
     };
   }
 

@@ -51,6 +51,35 @@ describe('toApiError', () => {
     });
   });
 
+  it.each([
+    ['12', 12],
+    ['0', 0],
+    ['1.2', 2],
+    [90, 90],
+  ])('accepts a finite non-negative numeric Retry-After value %#', (header, expected) => {
+    const error = {
+      isAxiosError: true,
+      message: 'Rate limited',
+      response: {
+        status: 429,
+        headers: { 'retry-after': header },
+        data: { error: true, message: 'Rate limited', code: 'RATE_LIMITED' },
+      },
+    };
+
+    expect(toApiError(error).retryAfterSeconds).toBe(expected);
+  });
+
+  it.each(['soon', '-1', 'Infinity', '', '0x10'])('rejects an invalid Retry-After value %s', (header) => {
+    const error = {
+      isAxiosError: true,
+      message: 'Rate limited',
+      response: { status: 429, headers: { 'retry-after': header }, data: 'Rate limited' },
+    };
+
+    expect(toApiError(error).retryAfterSeconds).toBeUndefined();
+  });
+
   it('marks Axios failures without a response as network errors', () => {
     const error = {
       isAxiosError: true,
