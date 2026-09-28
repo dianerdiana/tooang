@@ -38,6 +38,21 @@ describe('public and customer route boundaries', () => {
     expect(LoginRoute.options.component).not.toBe(CustomerRoute.options.component);
   });
 
+  it.each([LoginRoute, RegisterRoute])('returns authenticated auth-entry visitors to their safe flow', (route) => {
+    let result: unknown;
+    try {
+      route.options.beforeLoad?.({
+        context: { auth: { isAuthenticated: true, isInitialLoading: false, user: {} as AuthenticatedUser } },
+        search: { redirect: '/orders' },
+      } as never);
+    } catch (error) {
+      result = error;
+    }
+
+    expect(isRedirect(result)).toBe(true);
+    if (isRedirect(result)) expect(result.options).toMatchObject({ href: '/orders' });
+  });
+
   it('guards the customer boundary and preserves a safe deep link', () => {
     const result = runCustomerBeforeLoad(false, null, '/orders?status=READY');
     expect(isRedirect(result)).toBe(true);
