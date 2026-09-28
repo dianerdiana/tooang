@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { LiveRegion } from '@/components/ui/live-region';
 
+import { ProtectedActionLoginLink } from '@/features/auth/components/protected-action-login-link';
 import { useLogoutMutation } from '@/features/auth/queries/auth.mutations';
 
 import { canAccessDashboard } from '@/utils/auth/dashboard-access';
@@ -140,10 +141,12 @@ function CustomerAccountMenu() {
   if (!user) {
     return (
       <Button variant='ghost' asChild>
-        <Link to='/login' search={{ redirect: '/account/profile' }}>
+        <ProtectedActionLoginLink
+          intent={{ kind: 'account', payload: { destination: 'profile' }, returnTo: '/account/profile' }}
+        >
           <LogInIcon aria-hidden />
           <span className='hidden sm:inline'>Sign in</span>
-        </Link>
+        </ProtectedActionLoginLink>
       </Button>
     );
   }
@@ -285,13 +288,12 @@ function CustomerNavigation({ cartItemCount }: CustomerNavigationProps) {
                   Orders
                 </Link>
               ) : (
-                <Link
-                  to='/login'
-                  search={{ redirect: '/orders' }}
-                  aria-current={activeDestination === 'orders' ? 'page' : undefined}
+                <ProtectedActionLoginLink
+                  intent={{ kind: 'orders', payload: {}, returnTo: '/orders' }}
+                  ariaCurrent={activeDestination === 'orders' ? 'page' : undefined}
                 >
                   Orders
-                </Link>
+                </ProtectedActionLoginLink>
               )}
             </Button>
             {cart && (
@@ -380,15 +382,19 @@ function MobileNavigationItem({ destination, label, icon: Icon, active, authenti
   }
 
   if (!authenticated) {
+    const returnTo = destination === 'orders' ? '/orders' : '/account/profile';
     return (
-      <Link
-        to='/login'
-        search={{ redirect: destination === 'orders' ? '/orders' : '/account/profile' }}
-        aria-current={current}
+      <ProtectedActionLoginLink
+        intent={
+          destination === 'orders'
+            ? { kind: 'orders', payload: {}, returnTo }
+            : { kind: 'account', payload: { destination: 'profile' }, returnTo }
+        }
+        ariaCurrent={current}
         className={className}
       >
         {content}
-      </Link>
+      </ProtectedActionLoginLink>
     );
   }
 
