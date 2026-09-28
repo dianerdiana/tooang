@@ -29,6 +29,7 @@ import {
   type PublicPlaceDetail,
   type PublicPlaceDiscoverySearch,
 } from '@/features/places/types/places.type';
+import { PublicPlaceReviewsSection } from '@/features/reviews/components/public-place-reviews-section';
 
 import { getCustomerErrorPresentation } from '@/utils/customer-error-presentation';
 
@@ -303,17 +304,7 @@ function PlaceDetailContent({
           </div>
         </div>
 
-        <Card id='reviews' aria-labelledby='place-reviews-heading' className='scroll-mt-24'>
-          <CardHeader>
-            <CardTitle id='place-reviews-heading'>Reviews</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className='text-sm text-muted-foreground'>
-              Verified-purchase reviews will appear here. Review data and rating summaries are added in the dedicated
-              review flow.
-            </p>
-          </CardContent>
-        </Card>
+        <PublicPlaceReviewsSection placeId={place.id} />
       </div>
     </article>
   );
