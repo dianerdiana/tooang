@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { ArrowLeftIcon, PlusIcon, UtensilsIcon } from 'lucide-react';
+import { ArrowLeftIcon, UtensilsIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { CustomerAlert } from '@/components/ui/customer-alert';
@@ -22,6 +22,8 @@ import { cn } from '@/utils/utils';
 
 import { publicMenuInfiniteQueryOptions } from '../queries/menu-items.query';
 import type { MenuItemType, PublicMenuCategory, PublicMenuFilters, PublicMenuItem } from '../types/menu-items.type';
+
+import { PublicMenuItemDetail } from './public-menu-item-detail';
 
 const PUBLIC_MENU_PAGE_SIZE = 20;
 
@@ -130,9 +132,11 @@ function PublicMenuFiltersBar({
 
 function PublicMenuItemCard({
   item,
+  placeId,
   orderingEnabled,
 }: {
   item: PublicMenuItem & { categoryName: string };
+  placeId: string;
   orderingEnabled: boolean;
 }) {
   return (
@@ -153,24 +157,8 @@ function PublicMenuItemCard({
           {item.description || 'No description available.'}
         </p>
         <p className='mt-2 font-bold tabular-nums'>{formatCurrency(item.price)}</p>
-        <div className='mt-3 grid grid-cols-2 gap-2 sm:mt-auto sm:pt-4'>
-          <details className='col-span-2 rounded-lg border px-3 open:pb-3'>
-            <summary className='flex min-h-11 cursor-pointer items-center font-semibold'>Item details</summary>
-            <p className='break-words whitespace-pre-line text-sm text-muted-foreground'>
-              {item.description || 'No description available.'}
-            </p>
-            <p className='mt-2 text-xs text-muted-foreground'>The current price is confirmed again during checkout.</p>
-          </details>
-          <Button
-            type='button'
-            size='sm'
-            className='col-span-2 min-h-11'
-            disabled
-            aria-label={`Add ${item.name} to cart`}
-            title={orderingEnabled ? 'Cart actions are coming next' : 'Online ordering is unavailable'}
-          >
-            <PlusIcon aria-hidden /> Add
-          </Button>
+        <div className='mt-3 sm:mt-auto sm:pt-4'>
+          <PublicMenuItemDetail placeId={placeId} item={item} orderingEnabled={orderingEnabled} />
         </div>
       </div>
     </article>
@@ -316,7 +304,12 @@ function PublicMenuResults({
       ) : (
         <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-3' aria-label='Menu items'>
           {items.map((item) => (
-            <PublicMenuItemCard key={item.menuItemId} item={item} orderingEnabled={place.isOrderingEnabled} />
+            <PublicMenuItemCard
+              key={item.menuItemId}
+              placeId={place.id}
+              item={item}
+              orderingEnabled={place.isOrderingEnabled}
+            />
           ))}
         </div>
       )}

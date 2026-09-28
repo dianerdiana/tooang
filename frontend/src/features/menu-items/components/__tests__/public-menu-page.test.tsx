@@ -57,14 +57,17 @@ describe('public menu presentation', () => {
 
   it('renders image-safe item content, IDR price, details, and add affordance', () => {
     const markup = renderToStaticMarkup(
-      <PublicMenuItemCard item={{ ...item(), categoryName: 'Cold drinks' }} orderingEnabled />,
+      <PublicMenuItemCard
+        placeId='5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae'
+        item={{ ...item(), categoryName: 'Cold drinks' }}
+        orderingEnabled
+      />,
     );
 
     expect(markup).toContain('Cold drinks · Drinks');
     expect(markup).toContain('Iced tea');
     expect(markup).toContain('Rp');
-    expect(markup).toContain('Item details');
-    expect(markup).toContain('Add Iced tea to cart');
+    expect(markup).toContain('View details');
     expect(markup).toContain('Image unavailable');
   });
 
