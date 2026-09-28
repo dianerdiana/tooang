@@ -6,6 +6,8 @@ import type {
   MenuItemFormValues,
   MenuItemListParams,
   NormalizedMenuItemListParams,
+  NormalizedPublicMenuListParams,
+  PublicMenuListParams,
   UpdateMenuItemInput,
 } from '../types/menu-items.type';
 
@@ -61,6 +63,44 @@ export const normalizeMenuItemListParams = (params: MenuItemListParams): Normali
   ...(params.categoryId ? { categoryId: params.categoryId } : {}),
   ...(typeof params.isAvailable === 'boolean' ? { isAvailable: params.isAvailable } : {}),
 });
+
+export const DEFAULT_PUBLIC_MENU_PAGE = 1;
+export const DEFAULT_PUBLIC_MENU_LIMIT = 20;
+
+const publicMenuUuid = z.string().trim().toLowerCase().uuid();
+const publicMenuPositiveInteger = (fallback: number, maximum?: number) =>
+  z.preprocess(
+    (value) => {
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string' && value.trim()) return Number(value);
+      return fallback;
+    },
+    maximum ? z.number().int().min(1).max(maximum).catch(fallback) : z.number().int().min(1).catch(fallback),
+  );
+
+const publicMenuListSchema = z
+  .object({
+    page: publicMenuPositiveInteger(DEFAULT_PUBLIC_MENU_PAGE),
+    limit: publicMenuPositiveInteger(DEFAULT_PUBLIC_MENU_LIMIT, 100),
+    type: z.enum(['FOOD', 'DRINK']).optional().catch(undefined),
+    categoryId: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() ? value.trim().toLowerCase() : undefined),
+      z.string().uuid().optional().catch(undefined),
+    ),
+  })
+  .strip();
+
+export const normalizePublicMenuPlaceId = (placeId: string) => publicMenuUuid.parse(placeId);
+
+export const normalizePublicMenuListParams = (params: PublicMenuListParams): NormalizedPublicMenuListParams => {
+  const parsed = publicMenuListSchema.parse(params) as NormalizedPublicMenuListParams;
+  return {
+    page: parsed.page,
+    limit: parsed.limit,
+    ...(parsed.type ? { type: parsed.type } : {}),
+    ...(parsed.categoryId ? { categoryId: parsed.categoryId } : {}),
+  };
+};
 
 export const menuItemToFormValues = (item?: MenuItem): MenuItemFormValues => ({
   categoryId: item?.categoryId ?? '',

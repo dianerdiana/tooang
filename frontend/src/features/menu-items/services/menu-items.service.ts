@@ -5,16 +5,41 @@ import { unwrapApiResponse, unwrapPaginatedApiResponse } from '@/utils/api-respo
 
 import type { ApiPaginatedResponse, ApiResponse } from '@/types/api-response.type';
 
-import { normalizeMenuItemListParams } from '../schemas/menu-items.schema';
+import {
+  normalizeMenuItemListParams,
+  normalizePublicMenuListParams,
+  normalizePublicMenuPlaceId,
+} from '../schemas/menu-items.schema';
 import type {
   CreateMenuItemInput,
   MenuItem,
   MenuItemListParams,
   MenuItemListResult,
+  PublicMenuCategory,
+  PublicMenuListParams,
+  PublicMenuListResult,
+  PublicMenuPaginationMeta,
   UpdateMenuItemInput,
 } from '../types/menu-items.type';
 
 export const menuItemsService = {
+  async listPublicMenu(placeId: string, params: PublicMenuListParams): Promise<PublicMenuListResult> {
+    try {
+      const normalizedPlaceId = normalizePublicMenuPlaceId(placeId);
+      const response = await api.get<ApiPaginatedResponse<{ categories: PublicMenuCategory[] }>>(
+        `/places/${encodeURIComponent(normalizedPlaceId)}/menu`,
+        { params: normalizePublicMenuListParams(params) },
+      );
+      const result = unwrapPaginatedApiResponse(response.data);
+      return {
+        categories: result.items.categories,
+        meta: result.meta as PublicMenuPaginationMeta,
+      };
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
   async list(placeId: string, params: MenuItemListParams): Promise<MenuItemListResult> {
     try {
       const response = await api.get<ApiPaginatedResponse<{ items: MenuItem[] }>>(`/places/${placeId}/menu-items`, {
