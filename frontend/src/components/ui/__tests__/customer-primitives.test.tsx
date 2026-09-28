@@ -30,6 +30,14 @@ describe('responsive image', () => {
     expect(markup).toContain('aria-label="Loading image"');
     expect(markup).toContain('animate-pulse');
   });
+
+  it('supports contained logos without changing reserved geometry', () => {
+    const markup = renderToStaticMarkup(
+      <ResponsiveImage alt='Tooang logo' src='https://example.com/logo.png' fit='contain' />,
+    );
+    expect(markup).toContain('object-contain');
+    expect(markup).toContain('aspect-[4/3]');
+  });
 });
 
 describe('rating primitives', () => {

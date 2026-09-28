@@ -15,6 +15,7 @@ const aspectClasses = {
 type ResponsiveImageProps = Omit<React.ComponentProps<'img'>, 'children'> & {
   aspect?: keyof typeof aspectClasses;
   fallbackLabel?: string;
+  fit?: 'cover' | 'contain';
   loadingState?: boolean;
 };
 
@@ -23,6 +24,7 @@ function ResponsiveImage({
   aspect = 'landscape',
   className,
   fallbackLabel = 'Image unavailable',
+  fit = 'cover',
   loadingState = false,
   onError,
   src,
@@ -60,7 +62,7 @@ function ResponsiveImage({
       <img
         alt={alt}
         src={src}
-        className='size-full object-cover'
+        className={cn('size-full', fit === 'contain' ? 'object-contain p-6' : 'object-cover')}
         onError={(event) => {
           setFailed(true);
           onError?.(event);
