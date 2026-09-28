@@ -6,6 +6,10 @@ import type { ReviewUpdateInput } from '../types/reviews.type';
 
 import { moderationReviewKeys } from './reviews.query';
 import { ownReviewKeys } from './reviews.query';
+import { publicPlaceReviewKeys } from './reviews.query';
+
+export const invalidatePublicPlaceReviews = (queryClient: QueryClient, placeId: string) =>
+  queryClient.invalidateQueries({ queryKey: publicPlaceReviewKeys.place(placeId) });
 
 export const invalidateModerationReviews = (queryClient: QueryClient) =>
   queryClient.invalidateQueries({ queryKey: moderationReviewKeys.all });

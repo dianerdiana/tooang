@@ -1,8 +1,50 @@
-import { keepPreviousData, queryOptions } from '@tanstack/react-query';
+import { infiniteQueryOptions, keepPreviousData, queryOptions } from '@tanstack/react-query';
 
-import { normalizeReviewModerationParams } from '../schemas/reviews.schema';
+import {
+  normalizePublicPlaceReviewListParams,
+  normalizePublicReviewPlaceId,
+  normalizeReviewModerationParams,
+} from '../schemas/reviews.schema';
 import { reviewsService } from '../services/reviews.service';
-import { REVIEW_MODERATION_TAB, type ReviewModerationListParams } from '../types/reviews.type';
+import {
+  type PublicPlaceReviewListParams,
+  REVIEW_MODERATION_TAB,
+  type ReviewModerationListParams,
+} from '../types/reviews.type';
+
+export const publicPlaceReviewKeys = {
+  all: ['reviews', 'public'] as const,
+  places: () => [...publicPlaceReviewKeys.all, 'place'] as const,
+  place: (placeId: string) => [...publicPlaceReviewKeys.places(), normalizePublicReviewPlaceId(placeId)] as const,
+  list: (placeId: string, params: PublicPlaceReviewListParams) =>
+    [...publicPlaceReviewKeys.place(placeId), 'list', normalizePublicPlaceReviewListParams(params)] as const,
+  infinite: (placeId: string, limit: number) =>
+    [...publicPlaceReviewKeys.place(placeId), 'infinite', { limit }] as const,
+};
+
+export const publicPlaceReviewsQueryOptions = (placeId: string, params: PublicPlaceReviewListParams) => {
+  const normalizedPlaceId = normalizePublicReviewPlaceId(placeId);
+  const normalized = normalizePublicPlaceReviewListParams(params);
+  return queryOptions({
+    queryKey: publicPlaceReviewKeys.list(normalizedPlaceId, normalized),
+    queryFn: () => reviewsService.listPublicPlaceReviews(normalizedPlaceId, normalized),
+    staleTime: 30_000,
+  });
+};
+
+export const publicPlaceReviewsInfiniteQueryOptions = (placeId: string, limit: number) => {
+  const normalizedPlaceId = normalizePublicReviewPlaceId(placeId);
+  const normalized = normalizePublicPlaceReviewListParams({ page: 1, limit });
+  return infiniteQueryOptions({
+    queryKey: publicPlaceReviewKeys.infinite(normalizedPlaceId, normalized.limit),
+    queryFn: ({ pageParam }) =>
+      reviewsService.listPublicPlaceReviews(normalizedPlaceId, { page: pageParam, limit: normalized.limit }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.meta.page < lastPage.meta.totalPages ? lastPage.meta.page + 1 : undefined,
+    staleTime: 30_000,
+  });
+};
 
 export const moderationReviewKeys = {
   all: ['reviews', 'moderation'] as const,
