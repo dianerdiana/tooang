@@ -5,13 +5,22 @@ import { unwrapApiResponse, unwrapPaginatedApiResponse } from '@/utils/api-respo
 
 import type { ApiPaginatedResponse, ApiResponse } from '@/types/api-response.type';
 
-import { normalizeReviewModerationParams } from '../schemas/reviews.schema';
+import {
+  normalizePublicPlaceReviewListParams,
+  normalizePublicReviewPlaceId,
+  normalizeReviewModerationParams,
+} from '../schemas/reviews.schema';
 import type {
   MenuItemModerationReview,
   ModeratedReview,
   OwnMenuItemReview,
   OwnPlaceReview,
   PlaceModerationReview,
+  PublicPlaceReview,
+  PublicPlaceReviewListParams,
+  PublicPlaceReviewListResult,
+  PublicReviewPaginationMeta,
+  PublicReviewSummary,
   ReviewModerationListParams,
   ReviewModerationListResult,
   ReviewUpdateInput,
@@ -39,6 +48,27 @@ const moderate = async (endpoint: string): Promise<ModeratedReview> => {
 };
 
 export const reviewsService = {
+  async listPublicPlaceReviews(
+    placeId: string,
+    params: PublicPlaceReviewListParams,
+  ): Promise<PublicPlaceReviewListResult> {
+    try {
+      const normalizedPlaceId = normalizePublicReviewPlaceId(placeId);
+      const normalizedParams = normalizePublicPlaceReviewListParams(params);
+      const response = await api.get<
+        ApiPaginatedResponse<{ reviews: PublicPlaceReview[]; summary: PublicReviewSummary }>
+      >(`/places/${encodeURIComponent(normalizedPlaceId)}/reviews`, { params: normalizedParams });
+      const result = unwrapPaginatedApiResponse(response.data);
+      return {
+        reviews: result.items.reviews,
+        summary: result.items.summary,
+        meta: result.meta as PublicReviewPaginationMeta,
+      };
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
   listOwnPlaceReviews(
     params: Pick<ReviewModerationListParams, 'page' | 'limit'>,
   ): Promise<ReviewModerationListResult<OwnPlaceReview>> {

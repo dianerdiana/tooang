@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 import {
+  type NormalizedPublicPlaceReviewListParams,
+  type PublicPlaceReviewListParams,
   REVIEW_MODERATION_TAB,
   type ReviewModerationListParams,
   type ReviewModerationSearch,
@@ -8,6 +10,7 @@ import {
 
 export const DEFAULT_REVIEW_PAGE = 1;
 export const DEFAULT_REVIEW_LIMIT = 20;
+export const PUBLIC_PLACE_REVIEWS_PAGE_SIZE = 10;
 
 const positiveInteger = (fallback: number, maximum?: number) =>
   z.preprocess(
@@ -23,6 +26,22 @@ const optionalUuid = z.preprocess(
   (value) => (typeof value === 'string' && value.trim() ? value.trim().toLowerCase() : undefined),
   z.string().uuid().optional().catch(undefined),
 );
+
+const requiredUuid = z.string().trim().toLowerCase().uuid();
+
+const publicReviewListSchema = z
+  .object({
+    page: positiveInteger(DEFAULT_REVIEW_PAGE),
+    limit: positiveInteger(DEFAULT_REVIEW_LIMIT, 100),
+  })
+  .strip();
+
+export const normalizePublicReviewPlaceId = (placeId: string) => requiredUuid.parse(placeId);
+
+export const normalizePublicPlaceReviewListParams = (
+  params: PublicPlaceReviewListParams,
+): NormalizedPublicPlaceReviewListParams =>
+  publicReviewListSchema.parse(params) as NormalizedPublicPlaceReviewListParams;
 
 export const reviewModerationSearchSchema = z
   .object({

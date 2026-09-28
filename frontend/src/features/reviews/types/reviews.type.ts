@@ -38,6 +38,48 @@ export type ReviewModerationListResult<TReview> = {
   meta: ApiPaginationMeta;
 };
 
+export type PublicReviewer = {
+  userId: string;
+  fullName: string;
+};
+
+export type PublicPlaceReview = {
+  reviewId: string;
+  rating: number;
+  comment: string | null;
+  reviewer: PublicReviewer;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PublicReviewSummary = {
+  reviewCount: number;
+  averageRating: number | null;
+};
+
+export type PublicReviewPaginationMeta = {
+  page: number;
+  limit: number;
+  totalItems: number;
+  totalPages: number;
+};
+
+export type PublicPlaceReviewListParams = {
+  page?: number;
+  limit?: number;
+};
+
+export type NormalizedPublicPlaceReviewListParams = {
+  page: number;
+  limit: number;
+};
+
+export type PublicPlaceReviewListResult = {
+  reviews: PublicPlaceReview[];
+  summary: PublicReviewSummary;
+  meta: PublicReviewPaginationMeta;
+};
+
 export type ModeratedReview = { reviewId: string; deletedAt: string };
 
 export type OwnReviewTab = ReviewModerationTab;

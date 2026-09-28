@@ -68,3 +68,54 @@ describe('reviewsService moderation', () => {
     });
   });
 });
+
+describe('reviewsService public place reviews', () => {
+  const placeId = '5D2B73E0-84F0-4F8C-A3E8-733E7B8312AE';
+
+  beforeEach(() => {
+    apiMock.get.mockReset();
+  });
+
+  it('uses the public endpoint and preserves summary precision and pagination', async () => {
+    const response = {
+      reviews: [
+        {
+          reviewId: 'review-public-1',
+          rating: 4,
+          comment: 'Worth another visit.',
+          reviewer: { userId: 'user-public-1', fullName: 'Public Guest' },
+          createdAt: '2026-09-27T10:00:00.000Z',
+          updatedAt: '2026-09-27T10:00:00.000Z',
+        },
+      ],
+      summary: { reviewCount: 3, averageRating: 4.333333333333333 },
+    };
+    const meta = { page: 2, limit: 10, totalItems: 3, totalPages: 2 };
+    apiMock.get.mockResolvedValueOnce({ data: { error: false, message: 'Reviews retrieved', data: response, meta } });
+
+    await expect(
+      reviewsService.listPublicPlaceReviews(placeId, { page: '2' as unknown as number, limit: 10 }),
+    ).resolves.toEqual({ ...response, meta });
+    expect(apiMock.get).toHaveBeenCalledWith('/places/5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae/reviews', {
+      params: { page: 2, limit: 10 },
+    });
+  });
+
+  it('keeps an empty result and nullable average intact', async () => {
+    const response = { reviews: [], summary: { reviewCount: 0, averageRating: null } };
+    const meta = { page: 1, limit: 20, totalItems: 0, totalPages: 0 };
+    apiMock.get.mockResolvedValueOnce({ data: { error: false, message: 'No reviews', data: response, meta } });
+
+    await expect(reviewsService.listPublicPlaceReviews(placeId, {})).resolves.toEqual({ ...response, meta });
+  });
+
+  it('converts public review request errors', async () => {
+    apiMock.get.mockRejectedValueOnce({ error: true, message: 'Place unavailable', code: 'NOT_FOUND' });
+
+    await expect(reviewsService.listPublicPlaceReviews(placeId, {})).rejects.toMatchObject({
+      message: 'Place unavailable',
+      code: 'NOT_FOUND',
+      isNetworkError: false,
+    });
+  });
+});
