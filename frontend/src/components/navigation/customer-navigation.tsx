@@ -71,14 +71,14 @@ function isTheme(value: string): value is Theme {
   return value === 'light' || value === 'dark' || value === 'system';
 }
 
-function getLogicalBackHref(pathname: string): string | null {
+function getLogicalBackHref(pathname: string, searchString = ''): string | null {
   const placeMatch = pathname.match(/^\/places\/([^/]+)(?:\/(menu|cart|checkout))?$/);
   if (placeMatch) {
     const [, slug, step] = placeMatch;
     if (step === 'checkout') return `/places/${slug}/cart`;
     if (step === 'cart') return `/places/${slug}/menu`;
     if (step === 'menu') return `/places/${slug}`;
-    return '/';
+    return `/${searchString}`;
   }
   if (/^\/orders\/[^/]+$/.test(pathname)) return '/orders';
   if (pathname === '/account/reviews') return '/account/profile';
@@ -234,8 +234,9 @@ type CustomerNavigationProps = {
 function CustomerNavigation({ cartItemCount }: CustomerNavigationProps) {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const backHref = getLogicalBackHref(pathname);
+  const location = useRouterState({ select: (state) => state.location });
+  const pathname = location.pathname;
+  const backHref = getLogicalBackHref(pathname, location.searchStr);
   const cart = getContextualCart(pathname, cartItemCount);
   const activeDestination = getActiveCustomerDestination(pathname);
 
