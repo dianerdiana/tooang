@@ -55,7 +55,9 @@ describe('public and customer route boundaries', () => {
   });
 
   it('renders stable header, main, and footer landmarks for the public shell', () => {
-    const markup = renderToStaticMarkup(<PublicShell>Public content</PublicShell>);
+    const markup = renderToStaticMarkup(
+      <PublicShell navigation={<header>Navigation</header>}>Public content</PublicShell>,
+    );
     expect(markup).toContain('<header');
     expect(markup).toContain('<main');
     expect(markup).toContain('<footer');
@@ -63,7 +65,9 @@ describe('public and customer route boundaries', () => {
   });
 
   it('renders a distinct customer shell without the dashboard sidebar', () => {
-    const markup = renderToStaticMarkup(<CustomerShell>Customer content</CustomerShell>);
+    const markup = renderToStaticMarkup(
+      <CustomerShell navigation={<header>Navigation</header>}>Customer content</CustomerShell>,
+    );
     expect(markup).toContain('<header');
     expect(markup).toContain('<main');
     expect(markup).not.toContain('sidebar');
