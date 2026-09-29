@@ -1,4 +1,4 @@
-import { createFileRoute, notFound } from '@tanstack/react-router';
+import { createFileRoute, notFound, useLocation } from '@tanstack/react-router';
 
 import { PublicMenuPage } from '@/features/menu-items/components/public-menu-page';
 import { parsePublicMenuRouteSearch } from '@/features/menu-items/schemas/menu-items.schema';
@@ -18,11 +18,13 @@ export const Route = createFileRoute('/_public/places/$slug_/menu')({
 function PublicMenuRoute() {
   const { slug } = Route.useParams();
   const search = Route.useSearch();
+  const location = useLocation();
   const navigate = Route.useNavigate();
   const discoverySearch = normalizePublicDiscoverySearch(search);
   return (
     <PublicMenuPage
       slug={slug}
+      currentUrl={location.href}
       discoverySearch={discoverySearch}
       filters={{
         ...(search.menuType ? { type: search.menuType } : {}),
