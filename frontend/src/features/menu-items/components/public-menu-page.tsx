@@ -13,22 +13,32 @@ import { LiveRegion } from '@/components/ui/live-region';
 import { ResponsiveImage } from '@/components/ui/responsive-image';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import {
+  ProtectedActionRecoveryNotice,
+  useProtectedActionRecovery,
+} from '@/features/auth/components/protected-action-recovery';
+import { cartQueryOptions } from '@/features/cart/queries/cart.query';
+import type { Cart } from '@/features/cart/types/cart.type';
 import { publicPlaceQueryOptions } from '@/features/places/queries/places.query';
 import type { PublicPlaceDetail, PublicPlaceDiscoverySearch } from '@/features/places/types/places.type';
 
+import type { ProtectedActionIntent } from '@/utils/auth/protected-action-intent';
 import { getCustomerErrorPresentation } from '@/utils/customer-error-presentation';
 import { formatCurrency } from '@/utils/format-currency';
+import { useAuth } from '@/utils/hooks/use-auth';
 import { cn } from '@/utils/utils';
 
 import { publicMenuInfiniteQueryOptions } from '../queries/menu-items.query';
 import type { MenuItemType, PublicMenuCategory, PublicMenuFilters, PublicMenuItem } from '../types/menu-items.type';
 
+import { MenuItemCartControls } from './menu-item-cart-controls';
 import { PublicMenuItemDetail } from './public-menu-item-detail';
 
 const PUBLIC_MENU_PAGE_SIZE = 20;
 
 type PublicMenuPageProps = {
   slug: string;
+  currentUrl?: string;
   discoverySearch: PublicPlaceDiscoverySearch;
   filters: PublicMenuFilters;
   onFiltersChange: (filters: PublicMenuFilters) => void;
@@ -131,13 +141,25 @@ function PublicMenuFiltersBar({
 }
 
 function PublicMenuItemCard({
+  cart,
+  cartReady,
+  currentUrl,
+  isAuthenticated,
   item,
   placeId,
+  placeSlug,
   orderingEnabled,
+  restoredIntent,
 }: {
+  cart?: Cart;
+  cartReady: boolean;
+  currentUrl: string;
+  isAuthenticated: boolean;
   item: PublicMenuItem & { categoryName: string };
   placeId: string;
+  placeSlug: string;
   orderingEnabled: boolean;
+  restoredIntent?: Extract<ProtectedActionIntent, { kind: 'add-to-cart' }>;
 }) {
   return (
     <article className='grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] gap-3 rounded-surface border bg-surface p-3 shadow-xs sm:grid-cols-1 sm:p-0'>
@@ -157,8 +179,28 @@ function PublicMenuItemCard({
           {item.description || 'No description available.'}
         </p>
         <p className='mt-2 font-bold tabular-nums'>{formatCurrency(item.price)}</p>
-        <div className='mt-3 sm:mt-auto sm:pt-4'>
-          <PublicMenuItemDetail placeId={placeId} item={item} orderingEnabled={orderingEnabled} />
+        <div className='mt-3 space-y-2 sm:mt-auto sm:pt-4'>
+          <MenuItemCartControls
+            cart={cart}
+            cartReady={cartReady}
+            isAuthenticated={isAuthenticated}
+            menuItemId={item.menuItemId}
+            placeId={placeId}
+            placeSlug={placeSlug}
+            returnTo={currentUrl}
+          />
+          <PublicMenuItemDetail
+            key={restoredIntent?.id ?? 'normal'}
+            cart={cart}
+            cartReady={cartReady}
+            isAuthenticated={isAuthenticated}
+            placeId={placeId}
+            placeSlug={placeSlug}
+            item={item}
+            orderingEnabled={orderingEnabled}
+            returnTo={currentUrl}
+            restoredIntent={restoredIntent}
+          />
         </div>
       </div>
     </article>
@@ -224,23 +266,33 @@ function MenuPlaceHeader({
 }
 
 function PublicMenuResults({
+  currentUrl,
   place,
   filters,
   onFiltersChange,
 }: {
+  currentUrl: string;
   place: PublicPlaceDetail;
   filters: PublicMenuFilters;
   onFiltersChange: (filters: PublicMenuFilters) => void;
 }) {
+  const { isAuthenticated } = useAuth();
   const menuQuery = useInfiniteQuery(
     publicMenuInfiniteQueryOptions(place.id, { ...filters, limit: PUBLIC_MENU_PAGE_SIZE }),
   );
+  const cartQuery = useQuery(cartQueryOptions(place.id, isAuthenticated));
+  const recovery = useProtectedActionRecovery({ currentUrl, placeId: place.id, placeSlug: place.slug });
   const pages = menuQuery.data?.pages ?? [];
   const categories = collectPublicMenuCategories(pages);
   const items = collectPublicMenuItems(pages);
   const summary = pages[0]?.meta;
   const errorPresentation = useMemo(() => getCustomerErrorPresentation(menuQuery.error), [menuQuery.error]);
   const hasFilters = Boolean(filters.type || filters.categoryId);
+  const restoredIntent =
+    recovery.status === 'consumed' && recovery.intent.kind === 'add-to-cart' ? recovery.intent : undefined;
+  const restoredItemAvailable = restoredIntent
+    ? items.some((item) => item.menuItemId === restoredIntent.payload.menuItemId)
+    : true;
 
   if (menuQuery.isPending) return <PublicMenuSkeleton />;
   if (menuQuery.isError && !menuQuery.data) {
@@ -257,6 +309,30 @@ function PublicMenuResults({
 
   return (
     <div className='space-y-5'>
+      <ProtectedActionRecoveryNotice result={recovery} focusRestoredDraft={Boolean(restoredIntent)} />
+      {restoredIntent && !restoredItemAvailable && (
+        <CustomerAlert
+          tone='warning'
+          title='The saved item is unavailable'
+          description='The item draft was not submitted because that item is not in the current menu results.'
+          live
+        />
+      )}
+      {cartQuery.isError && (
+        <CustomerAlert
+          tone='error'
+          title={getCustomerErrorPresentation(cartQuery.error).title}
+          description={getCustomerErrorPresentation(cartQuery.error).description}
+          action={
+            getCustomerErrorPresentation(cartQuery.error).action === 'retry' ? (
+              <Button type='button' variant='outline' size='sm' onClick={() => void cartQuery.refetch()}>
+                Try again
+              </Button>
+            ) : undefined
+          }
+          live
+        />
+      )}
       <PublicMenuFiltersBar categories={categories} filters={filters} onChange={onFiltersChange} />
 
       {menuQuery.isFetching && !menuQuery.isFetchingNextPage && (
@@ -306,9 +382,15 @@ function PublicMenuResults({
           {items.map((item) => (
             <PublicMenuItemCard
               key={item.menuItemId}
+              cart={cartQuery.data}
+              cartReady={!isAuthenticated || cartQuery.isSuccess}
+              currentUrl={currentUrl}
+              isAuthenticated={isAuthenticated}
               placeId={place.id}
+              placeSlug={place.slug}
               item={item}
               orderingEnabled={place.isOrderingEnabled}
+              restoredIntent={restoredIntent?.payload.menuItemId === item.menuItemId ? restoredIntent : undefined}
             />
           ))}
         </div>
@@ -336,7 +418,13 @@ function PublicMenuResults({
   );
 }
 
-function PublicMenuPage({ slug, discoverySearch, filters, onFiltersChange }: PublicMenuPageProps) {
+function PublicMenuPage({
+  slug,
+  currentUrl = `/places/${slug}/menu`,
+  discoverySearch,
+  filters,
+  onFiltersChange,
+}: PublicMenuPageProps) {
   const placeQuery = useQuery(publicPlaceQueryOptions(slug));
   const errorPresentation = useMemo(() => getCustomerErrorPresentation(placeQuery.error), [placeQuery.error]);
 
@@ -375,7 +463,12 @@ function PublicMenuPage({ slug, discoverySearch, filters, onFiltersChange }: Pub
     <main className='mx-auto w-full max-w-6xl space-y-6 px-page py-6 sm:py-8'>
       {placeQuery.isFetching && <LiveRegion>Updating place information.</LiveRegion>}
       <MenuPlaceHeader place={placeQuery.data} discoverySearch={discoverySearch} />
-      <PublicMenuResults place={placeQuery.data} filters={filters} onFiltersChange={onFiltersChange} />
+      <PublicMenuResults
+        currentUrl={currentUrl}
+        place={placeQuery.data}
+        filters={filters}
+        onFiltersChange={onFiltersChange}
+      />
     </main>
   ) : null;
 }

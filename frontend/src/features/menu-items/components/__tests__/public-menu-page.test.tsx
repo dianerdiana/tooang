@@ -2,6 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
 import type { PublicMenuCategory, PublicMenuItem } from '../../types/menu-items.type';
 import {
   collectPublicMenuCategories,
@@ -57,17 +59,27 @@ describe('public menu presentation', () => {
 
   it('renders image-safe item content, IDR price, details, and add affordance', () => {
     const markup = renderToStaticMarkup(
-      <PublicMenuItemCard
-        placeId='5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae'
-        item={{ ...item(), categoryName: 'Cold drinks' }}
-        orderingEnabled
-      />,
+      <QueryClientProvider client={new QueryClient()}>
+        <PublicMenuItemCard
+          cartReady
+          currentUrl='/places/warung-kita/menu'
+          isAuthenticated
+          placeId='5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae'
+          placeSlug='warung-kita'
+          item={{
+            ...item({ menuItemId: '123e4567-e89b-42d3-a456-426614174000' }),
+            categoryName: 'Cold drinks',
+          }}
+          orderingEnabled
+        />
+      </QueryClientProvider>,
     );
 
     expect(markup).toContain('Cold drinks · Drinks');
     expect(markup).toContain('Iced tea');
     expect(markup).toContain('Rp');
     expect(markup).toContain('View details');
+    expect(markup).toContain('Add to cart');
     expect(markup).toContain('Image unavailable');
   });
 
