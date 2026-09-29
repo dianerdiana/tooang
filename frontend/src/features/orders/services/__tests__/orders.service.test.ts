@@ -138,4 +138,72 @@ describe('ordersService', () => {
       headers: { 'Idempotency-Key': 'stable-key' },
     });
   });
+
+  it('checks out with the exact customer body and caller-managed header', async () => {
+    const input = {
+      placeId: '5D2B73E0-84F0-4F8C-A3E8-733E7B8312AE',
+      fulfillmentType: 'TAKEAWAY' as const,
+      customerName: '  Ayu   Lestari ',
+      customerNote: '  No plastic ',
+    };
+    const order = {
+      orderId: '123e4567-e89b-42d3-a456-426614174000',
+      orderCode: 'TNG-20260929-ABCDEFGH',
+      placeId: input.placeId.toLowerCase(),
+      status: 'PENDING',
+    };
+    apiMock.post.mockResolvedValueOnce({
+      data: { error: false, message: 'Order created', data: { order } },
+    });
+
+    await expect(ordersService.checkout(input, 'checkout:key-1')).resolves.toEqual(order);
+    expect(apiMock.post).toHaveBeenCalledWith(
+      '/me/orders',
+      {
+        placeId: input.placeId.toLowerCase(),
+        fulfillmentType: 'TAKEAWAY',
+        customerName: 'Ayu Lestari',
+        customerNote: 'No plastic',
+      },
+      { headers: { 'Idempotency-Key': 'checkout:key-1' } },
+    );
+
+    apiMock.post.mockResolvedValueOnce({
+      data: { error: false, message: 'Order created', data: { order: { ...order, fulfillmentType: 'DINE_IN' } } },
+    });
+    await ordersService.checkout(
+      {
+        placeId: input.placeId,
+        fulfillmentType: 'DINE_IN',
+        tableId: '123E4567-E89B-42D3-A456-426614174000',
+        customerName: 'Ayu',
+      },
+      'checkout:key-2',
+    );
+    expect(apiMock.post).toHaveBeenLastCalledWith(
+      '/me/orders',
+      {
+        placeId: input.placeId.toLowerCase(),
+        fulfillmentType: 'DINE_IN',
+        tableId: '123e4567-e89b-42d3-a456-426614174000',
+        customerName: 'Ayu',
+      },
+      { headers: { 'Idempotency-Key': 'checkout:key-2' } },
+    );
+  });
+
+  it('normalizes checkout transport failures', async () => {
+    apiMock.post.mockRejectedValueOnce(new Error('Checkout unavailable'));
+
+    await expect(
+      ordersService.checkout(
+        {
+          placeId: '5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae',
+          fulfillmentType: 'TAKEAWAY',
+          customerName: 'Ayu',
+        },
+        'checkout-key',
+      ),
+    ).rejects.toMatchObject({ code: 'APPLICATION_ERROR', isNetworkError: false });
+  });
 });

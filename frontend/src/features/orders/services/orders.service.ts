@@ -5,7 +5,10 @@ import { unwrapApiResponse, unwrapPaginatedApiResponse } from '@/utils/api-respo
 
 import type { ApiPaginatedResponse, ApiResponse } from '@/types/api-response.type';
 
+import { checkoutInputSchema, idempotencyKeySchema } from '../schemas/checkout.schema';
 import type {
+  CheckoutInput,
+  CheckoutOrder,
   CreateManualOrderInput,
   ManualOrderOptions,
   OperationalOrderStatusInput,
@@ -35,6 +38,21 @@ const listOrders = async (endpoint: string, params: OrderListParams): Promise<Or
 };
 
 export const ordersService = {
+  async checkout(input: CheckoutInput, idempotencyKey: string): Promise<CheckoutOrder> {
+    try {
+      const validatedInput = checkoutInputSchema.parse(input);
+      const validatedKey = idempotencyKeySchema.parse(idempotencyKey);
+      const response = await api.post<CheckoutInput, ApiResponse<{ order: CheckoutOrder }>>(
+        '/me/orders',
+        validatedInput,
+        { headers: { 'Idempotency-Key': validatedKey } },
+      );
+      return unwrapApiResponse(response.data).order;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
   listForPlace(placeId: string, params: OrderListParams) {
     return listOrders(`/places/${placeId}/orders`, params);
   },
