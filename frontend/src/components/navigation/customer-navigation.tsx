@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useRouter, useRouterState } from '@tanstack/react-router';
 import {
   ArrowLeftIcon,
@@ -38,6 +39,8 @@ import { LiveRegion } from '@/components/ui/live-region';
 
 import { ProtectedActionLoginLink } from '@/features/auth/components/protected-action-login-link';
 import { useLogoutMutation } from '@/features/auth/queries/auth.mutations';
+import { cartQueryOptions } from '@/features/cart/queries/cart.query';
+import { publicPlaceQueryOptions } from '@/features/places/queries/places.query';
 
 import { canAccessDashboard } from '@/utils/auth/dashboard-access';
 import type { Theme } from '@/utils/context/theme-context';
@@ -88,9 +91,13 @@ function getLogicalBackHref(pathname: string, searchString = ''): string | null 
 }
 
 function getContextualCart(pathname: string, itemCount?: number): ContextualCart | null {
-  const match = pathname.match(/^\/places\/([^/]+)(?:\/menu)?$/);
+  const match = pathname.match(/^\/places\/([^/]+)(?:\/(?:menu|cart|checkout))?$/);
   if (!match) return null;
   return { slug: match[1], href: `/places/${match[1]}/cart`, itemCount };
+}
+
+function getCartNavigationHref(pathname: string) {
+  return getContextualCart(pathname)?.href ?? '/';
 }
 
 function getActiveCustomerDestination(pathname: string) {
@@ -105,6 +112,20 @@ function formatCartCount(count: number) {
 }
 
 function CartCountBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+
+  return (
+    <span
+      data-slot='cart-count-badge'
+      aria-hidden='true'
+      className='absolute -top-1 -right-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[0.6875rem] font-bold text-primary-foreground tabular-nums'
+    >
+      {formatCartCount(count)}
+    </span>
+  );
+}
+
+function CartCountAnnouncement({ count }: { count: number }) {
   const previousCount = useRef<number | null>(null);
   const [announcement, setAnnouncement] = useState('');
 
@@ -115,20 +136,7 @@ function CartCountBadge({ count }: { count: number }) {
     previousCount.current = count;
   }, [count]);
 
-  if (count <= 0) return null;
-
-  return (
-    <>
-      <span
-        data-slot='cart-count-badge'
-        aria-hidden='true'
-        className='absolute -top-1 -right-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[0.6875rem] font-bold text-primary-foreground tabular-nums'
-      >
-        {formatCartCount(count)}
-      </span>
-      <LiveRegion>{announcement}</LiveRegion>
-    </>
-  );
+  return <LiveRegion>{announcement}</LiveRegion>;
 }
 
 function CustomerAccountMenu() {
@@ -348,8 +356,38 @@ function CustomerNavigation({ cartItemCount }: CustomerNavigationProps) {
           authenticated={isAuthenticated}
         />
       </nav>
+      {cart && <CartCountAnnouncement count={cart.itemCount ?? 0} />}
     </>
   );
+}
+
+function useContextualCartCount(placeId: string) {
+  const cartQuery = useQuery(cartQueryOptions(placeId));
+  return cartQuery.data?.placeId === placeId ? cartQuery.data.aggregateQuantity : undefined;
+}
+
+function PlaceCartNavigation({ placeId }: { placeId: string }) {
+  const itemCount = useContextualCartCount(placeId);
+
+  return <CustomerNavigation cartItemCount={itemCount} />;
+}
+
+function AuthenticatedPlaceNavigation({ slug }: { slug: string }) {
+  const placeQuery = useQuery(publicPlaceQueryOptions(slug));
+
+  if (!placeQuery.data) return <CustomerNavigation />;
+
+  return <PlaceCartNavigation key={placeQuery.data.id} placeId={placeQuery.data.id} />;
+}
+
+function ContextualCustomerNavigation() {
+  const { isAuthenticated } = useAuth();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const contextualCart = getContextualCart(pathname);
+
+  if (!isAuthenticated || !contextualCart) return <CustomerNavigation />;
+
+  return <AuthenticatedPlaceNavigation key={contextualCart.slug} slug={contextualCart.slug} />;
 }
 
 type MobileNavigationItemProps = {
@@ -411,11 +449,14 @@ function MobileNavigationItem({ destination, label, icon: Icon, active, authenti
 
 export {
   CartCountBadge,
+  ContextualCustomerNavigation,
   CustomerNavigation,
   type CustomerNavigationProps,
   formatCartCount,
   getActiveCustomerDestination,
+  getCartNavigationHref,
   getContextualCart,
   getLogicalBackHref,
   getUserInitials,
+  useContextualCartCount,
 };

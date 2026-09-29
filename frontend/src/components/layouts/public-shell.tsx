@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 import { Outlet } from '@tanstack/react-router';
 
-import { CustomerNavigation } from '@/components/navigation/customer-navigation';
+import { ContextualCustomerNavigation } from '@/components/navigation/customer-navigation';
 
 import { cn } from '@/utils/utils';
 
@@ -20,7 +20,7 @@ function PublicShell({ children, className, navigation }: PublicShellProps) {
         className,
       )}
     >
-      {navigation ?? <CustomerNavigation />}
+      {navigation ?? <ContextualCustomerNavigation />}
       <main id='main-content' className='min-w-0 flex-1' tabIndex={-1}>
         {children ?? <Outlet />}
       </main>

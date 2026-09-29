@@ -6,6 +6,7 @@ import {
   CartCountBadge,
   formatCartCount,
   getActiveCustomerDestination,
+  getCartNavigationHref,
   getContextualCart,
   getLogicalBackHref,
   getUserInitials,
@@ -37,7 +38,7 @@ describe('customer navigation model', () => {
     expect(getLogicalBackHref('/places/warung-kita/menu', '?page=2')).toBe('/places/warung-kita?page=2');
   });
 
-  it('offers a cart only in a selected place or menu context', () => {
+  it('offers a cart throughout the active place context', () => {
     expect(getContextualCart('/places/warung-kita')).toEqual({
       slug: 'warung-kita',
       href: '/places/warung-kita/cart',
@@ -49,7 +50,13 @@ describe('customer navigation model', () => {
       itemCount: 3,
     });
     expect(getContextualCart('/orders')).toBeNull();
-    expect(getContextualCart('/places/warung-kita/cart')).toBeNull();
+    expect(getContextualCart('/places/warung-kita/cart', 3)?.itemCount).toBe(3);
+    expect(getContextualCart('/places/warung-kita/checkout')?.slug).toBe('warung-kita');
+  });
+
+  it('falls back to Discover instead of fabricating a global cart', () => {
+    expect(getCartNavigationHref('/orders')).toBe('/');
+    expect(getCartNavigationHref('/places/warung-kita/menu')).toBe('/places/warung-kita/cart');
   });
 
   it.each([
