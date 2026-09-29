@@ -1,11 +1,10 @@
 import { createFileRoute, notFound } from '@tanstack/react-router';
 
-import { RoutePlaceholder } from '@/components/pages/route-placeholder';
-
 import {
   ProtectedActionRecoveryNotice,
   useProtectedActionRecovery,
 } from '@/features/auth/components/protected-action-recovery';
+import { CheckoutPage } from '@/features/orders/components/checkout-page';
 
 import { isPublicPlaceSlug } from '@/utils/navigation/customer-route-params';
 
@@ -25,12 +24,9 @@ function CheckoutRoute() {
   });
 
   return (
-    <RoutePlaceholder
-      eyebrow='Checkout'
-      title='Complete your order'
-      description='The authenticated checkout feature will render here after its contract-dependent tasks are complete.'
-    >
+    <>
       <ProtectedActionRecoveryNotice result={recovery} />
-    </RoutePlaceholder>
+      <CheckoutPage slug={slug} />
+    </>
   );
 }
