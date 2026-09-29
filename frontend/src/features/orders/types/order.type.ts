@@ -74,6 +74,37 @@ export type OrderDetail = OrderSummary & {
   items: OrderItemSnapshot[];
 };
 
+type CheckoutBaseInput = {
+  placeId: string;
+  customerName: string;
+  customerNote?: string | null;
+};
+
+export type CheckoutInput =
+  | (CheckoutBaseInput & { fulfillmentType: 'DINE_IN'; tableId: string })
+  | (CheckoutBaseInput & { fulfillmentType: 'TAKEAWAY' });
+
+export type CheckoutOrder = {
+  orderId: string;
+  orderCode: string;
+  placeId: string;
+  status: 'PENDING';
+  fulfillmentType: FulfillmentType;
+  customerName: string;
+  customerNote: string | null;
+  diningTable: { tableId: string; name: string } | null;
+  items: OrderItemSnapshot[];
+  subtotal: number;
+  createdAt: string;
+  statusUpdatedAt: string;
+  expiresAt: string;
+};
+
+export type CheckoutMutationVariables = {
+  input: CheckoutInput;
+  idempotencyKey: string;
+};
+
 export type OperationalOrderTransitionTarget =
   | typeof ORDER_STATUS.CONFIRMED
   | typeof ORDER_STATUS.PREPARING
