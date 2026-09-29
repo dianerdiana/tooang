@@ -32,7 +32,11 @@ const addToCartPayloadSchema = z
     placeSlug: placeSlugSchema,
     menuItemId: uuidSchema,
     quantity: z.number().int().min(1).max(99),
-    note: z.string().max(500).optional(),
+    note: z
+      .string()
+      .transform((value) => value.normalize('NFC').replace(/\r\n?/gu, '\n').trim())
+      .refine((value) => Array.from(value).length <= 500, 'Note must contain at most 500 characters')
+      .optional(),
   })
   .strict();
 
