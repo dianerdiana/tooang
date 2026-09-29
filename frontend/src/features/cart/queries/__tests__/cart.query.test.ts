@@ -23,6 +23,19 @@ describe('cart query cache', () => {
     expect(cartKeys.place(placeA)).toEqual(['cart', 'place', placeA]);
     expect(cartKeys.place(placeA)).not.toEqual(cartKeys.place(placeB));
     expect(cartQueryOptions(placeA, false)).toMatchObject({ queryKey: cartKeys.place(placeA), enabled: false });
+    expect(cartQueryOptions(placeA)).not.toHaveProperty('placeholderData');
+  });
+
+  it('preserves each confirmed cart across rapid place navigation without showing the previous place as a placeholder', () => {
+    const client = new QueryClient();
+    const cartA = cart(placeA, 4);
+    const cartB = cart(placeB, 2);
+    client.setQueryData(cartKeys.place(placeA), cartA);
+    client.setQueryData(cartKeys.place(placeB), cartB);
+
+    expect(client.getQueryData(cartQueryOptions(placeA).queryKey)).toBe(cartA);
+    expect(client.getQueryData(cartQueryOptions(placeB).queryKey)).toBe(cartB);
+    expect(client.getQueryData(cartQueryOptions(placeA).queryKey)).toBe(cartA);
   });
 
   it('replaces only the requested place with the complete server response', () => {

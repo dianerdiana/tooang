@@ -17,6 +17,7 @@ import {
   ProtectedActionRecoveryNotice,
   useProtectedActionRecovery,
 } from '@/features/auth/components/protected-action-recovery';
+import { ContextualCartSummary } from '@/features/cart/components/contextual-cart-summary';
 import { cartQueryOptions } from '@/features/cart/queries/cart.query';
 import type { Cart } from '@/features/cart/types/cart.type';
 import { publicPlaceQueryOptions } from '@/features/places/queries/places.query';
@@ -413,7 +414,7 @@ function PublicMenuResults({
           ? 'Loading more menu items.'
           : `Showing ${items.length}${summary ? ` of ${summary.totalItems}` : ''} menu items.`}
       </LiveRegion>
-      <div className='h-20' aria-hidden />
+      <ContextualCartSummary cart={cartQuery.data} placeId={place.id} placeName={place.name} placeSlug={place.slug} />
     </div>
   );
 }
