@@ -61,6 +61,10 @@ describe('customer error presentation', () => {
     ['ORDER_PENDING_EXPIRED', 'view-orders'],
     ['ORDER_STATUS_CHANGED', 'refresh'],
     ['ORDER_STATUS_TRANSITION_INVALID', 'refresh'],
+    ['REVIEW_ALREADY_EXISTS', 'refresh'],
+    ['REVIEW_ORDER_NOT_COMPLETED', 'refresh'],
+    ['REVIEW_ORDER_PLACE_MISMATCH', 'view-orders'],
+    ['REVIEW_ITEM_NOT_IN_ORDER', 'view-orders'],
   ] as const)('preserves the recovery distinction for %s', (code, action) => {
     expect(getCustomerErrorPresentation(error({ httpStatus: 409, code }))).toMatchObject({ action });
   });

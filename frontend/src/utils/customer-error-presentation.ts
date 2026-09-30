@@ -177,6 +177,38 @@ const codePresentations: Record<string, CustomerErrorPresentation> = {
     'Refresh order',
     'conflict',
   ),
+  REVIEW_ALREADY_EXISTS: presentation(
+    'conflict',
+    'Review already submitted',
+    'This completed order already has a review for this selection. You can manage it from Your reviews.',
+    'refresh',
+    'Refresh reviews',
+    'conflict',
+  ),
+  REVIEW_ORDER_NOT_COMPLETED: presentation(
+    'conflict',
+    'Review not available yet',
+    'A review can be submitted after the order is completed.',
+    'refresh',
+    'Refresh order',
+    'conflict',
+  ),
+  REVIEW_ORDER_PLACE_MISMATCH: presentation(
+    'conflict',
+    'Review unavailable',
+    'This review cannot be submitted from the selected order.',
+    'view-orders',
+    'View orders',
+    'conflict',
+  ),
+  REVIEW_ITEM_NOT_IN_ORDER: presentation(
+    'conflict',
+    'Item review unavailable',
+    'This item cannot be reviewed from the selected order.',
+    'view-orders',
+    'View orders',
+    'conflict',
+  ),
 };
 
 const fallbackPresentation = presentation(
