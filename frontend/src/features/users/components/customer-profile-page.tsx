@@ -354,7 +354,7 @@ function AccountNavigation() {
             </Link>
           </Button>
           <Button variant='outline' className='justify-start' asChild>
-            <Link to='/account/reviews'>
+            <Link to='/account/reviews' search={{ tab: 'place', page: 1, limit: 20 }}>
               <StarIcon aria-hidden /> My reviews
             </Link>
           </Button>
