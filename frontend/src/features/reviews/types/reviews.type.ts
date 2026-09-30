@@ -82,6 +82,19 @@ export type PublicPlaceReviewListResult = {
 
 export type PublicMenuItemReview = PublicPlaceReview;
 
+export type CreateReviewInput = {
+  orderId: string;
+  rating: number;
+  comment?: string | null;
+};
+
+export type PlaceReviewCreateResponse = { review: PublicPlaceReview };
+export type MenuItemReviewCreateResponse = { review: PublicMenuItemReview };
+export type ReviewCreateOutcome<TReview extends PublicPlaceReview = PublicPlaceReview> = {
+  review: TReview;
+  outcome: 'created' | 'restored';
+};
+
 export type PublicMenuItemReviewListResult = {
   reviews: PublicMenuItemReview[];
   summary: PublicReviewSummary;
@@ -104,3 +117,11 @@ export type OwnPlaceReview = OwnReviewBase;
 export type OwnMenuItemReview = OwnReviewBase & { menuItem: { menuItemId: string; name: string } };
 export type OwnReviewSearch = { tab: OwnReviewTab; page: number; limit: number };
 export type ReviewUpdateInput = { rating?: number; comment?: string | null };
+
+export type OwnReviewMutationContext = {
+  tab: ReviewModerationTab;
+  reviewId: string;
+  placeId: string;
+  orderId: string;
+  menuItemId?: string;
+};
