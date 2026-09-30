@@ -195,7 +195,7 @@ function CustomerAccountMenu() {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild className='min-h-11'>
-            <Link to='/account/reviews'>
+            <Link to='/account/reviews' search={{ tab: 'place', page: 1, limit: 20 }}>
               <StarIcon /> Reviews
             </Link>
           </DropdownMenuItem>
