@@ -8,6 +8,7 @@ import type { ApiPaginatedResponse, ApiResponse } from '@/types/api-response.typ
 import { normalizeUserListParams } from '../schemas/users.schema';
 import { platformRoleUpdateSchema } from '../schemas/users.schema';
 import type {
+  AccountDeletionRequestResult,
   CreateUserInput,
   PlatformRoleUpdateInput,
   UpdateProfileInput,
@@ -18,6 +19,17 @@ import type {
 } from '../types/users.type';
 
 export const usersService = {
+  async requestAccountDeletion(): Promise<AccountDeletionRequestResult> {
+    try {
+      const response = await api.post<undefined, ApiResponse<AccountDeletionRequestResult>>(
+        '/me/account-deletion-requests',
+      );
+      return unwrapApiResponse(response.data);
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
   async updateMe(input: UpdateProfileInput): Promise<UserSummary> {
     try {
       const response = await api.patch<UpdateProfileInput, ApiResponse<{ user: UserSummary }>>('/me', input);

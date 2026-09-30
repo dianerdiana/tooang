@@ -52,6 +52,12 @@ export type UserDeactivationResult = {
   deletedAt: string;
 };
 
+export type AccountDeletionRequestResult = {
+  userId: string;
+  status: 'DELETION_PENDING';
+  deletionRequestedAt: string;
+};
+
 export type PlatformRoleUpdateInput = {
   platformRole: PlatformRole;
 };

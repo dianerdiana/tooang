@@ -107,6 +107,20 @@ describe('usersService', () => {
     expect(apiMock.patch).toHaveBeenCalledWith('/me', { fullName: user.fullName, email: user.email });
   });
 
+  it('requests account deletion without sending a request body', async () => {
+    const result = {
+      userId: 'usr_current',
+      status: 'DELETION_PENDING',
+      deletionRequestedAt: '2026-09-30T08:00:00.000Z',
+    };
+    apiMock.post.mockResolvedValueOnce({
+      data: { error: false, message: 'Account deletion request accepted', data: result },
+    });
+
+    await expect(usersService.requestAccountDeletion()).resolves.toEqual(result);
+    expect(apiMock.post).toHaveBeenCalledWith('/me/account-deletion-requests');
+  });
+
   it('normalizes list and mutation failures', async () => {
     apiMock.get.mockRejectedValueOnce(new Error('Users unavailable'));
     apiMock.delete.mockRejectedValueOnce({
