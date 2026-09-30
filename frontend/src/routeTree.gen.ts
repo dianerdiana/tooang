@@ -27,6 +27,7 @@ import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settin
 import { Route as CustomerAccountProfileRouteImport } from './routes/_customer.account.profile'
 import { Route as CustomerAccountReviewsRouteImport } from './routes/_customer.account.reviews'
 import { Route as CustomerOrdersOrderIdRouteImport } from './routes/_customer.orders.$orderId'
+import { Route as PublicAccountDeletionRequestedRouteImport } from './routes/_public.account.deletion-requested'
 import { Route as PublicPlacesSlugRouteImport } from './routes/_public.places.$slug'
 import { Route as PublicVerifyTokenRouteImport } from './routes/_public.verify.$token'
 import { Route as DashboardAccountOrdersRouteImport } from './routes/dashboard.account.orders'
@@ -130,6 +131,12 @@ const CustomerOrdersOrderIdRoute = CustomerOrdersOrderIdRouteImport.update({
   path: '/$orderId',
   getParentRoute: () => CustomerOrdersRoute,
 } as any)
+const PublicAccountDeletionRequestedRoute =
+  PublicAccountDeletionRequestedRouteImport.update({
+    id: '/account/deletion-requested',
+    path: '/account/deletion-requested',
+    getParentRoute: () => PublicRoute,
+  } as any)
 const PublicPlacesSlugRoute = PublicPlacesSlugRouteImport.update({
   id: '/places/$slug',
   path: '/places/$slug',
@@ -222,6 +229,7 @@ export interface FileRoutesByFullPath {
   '/account/profile': typeof CustomerAccountProfileRoute
   '/account/reviews': typeof CustomerAccountReviewsRoute
   '/orders/$orderId': typeof CustomerOrdersOrderIdRoute
+  '/account/deletion-requested': typeof PublicAccountDeletionRequestedRoute
   '/places/$slug': typeof PublicPlacesSlugRoute
   '/verify/$token': typeof PublicVerifyTokenRoute
   '/dashboard/account/orders': typeof DashboardAccountOrdersRoute
@@ -253,6 +261,7 @@ export interface FileRoutesByTo {
   '/account/profile': typeof CustomerAccountProfileRoute
   '/account/reviews': typeof CustomerAccountReviewsRoute
   '/orders/$orderId': typeof CustomerOrdersOrderIdRoute
+  '/account/deletion-requested': typeof PublicAccountDeletionRequestedRoute
   '/places/$slug': typeof PublicPlacesSlugRoute
   '/verify/$token': typeof PublicVerifyTokenRoute
   '/dashboard/account/orders': typeof DashboardAccountOrdersRoute
@@ -288,6 +297,7 @@ export interface FileRoutesById {
   '/_customer/account/profile': typeof CustomerAccountProfileRoute
   '/_customer/account/reviews': typeof CustomerAccountReviewsRoute
   '/_customer/orders/$orderId': typeof CustomerOrdersOrderIdRoute
+  '/_public/account/deletion-requested': typeof PublicAccountDeletionRequestedRoute
   '/_public/places/$slug': typeof PublicPlacesSlugRoute
   '/_public/verify/$token': typeof PublicVerifyTokenRoute
   '/dashboard/account/orders': typeof DashboardAccountOrdersRoute
@@ -322,6 +332,7 @@ export interface FileRouteTypes {
     | '/account/profile'
     | '/account/reviews'
     | '/orders/$orderId'
+    | '/account/deletion-requested'
     | '/places/$slug'
     | '/verify/$token'
     | '/dashboard/account/orders'
@@ -353,6 +364,7 @@ export interface FileRouteTypes {
     | '/account/profile'
     | '/account/reviews'
     | '/orders/$orderId'
+    | '/account/deletion-requested'
     | '/places/$slug'
     | '/verify/$token'
     | '/dashboard/account/orders'
@@ -387,6 +399,7 @@ export interface FileRouteTypes {
     | '/_customer/account/profile'
     | '/_customer/account/reviews'
     | '/_customer/orders/$orderId'
+    | '/_public/account/deletion-requested'
     | '/_public/places/$slug'
     | '/_public/verify/$token'
     | '/dashboard/account/orders'
@@ -540,6 +553,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomerOrdersOrderIdRouteImport
       parentRoute: typeof CustomerOrdersRoute
     }
+    '/_public/account/deletion-requested': {
+      id: '/_public/account/deletion-requested'
+      path: '/account/deletion-requested'
+      fullPath: '/account/deletion-requested'
+      preLoaderRoute: typeof PublicAccountDeletionRequestedRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_public/places/$slug': {
       id: '/_public/places/$slug'
       path: '/places/$slug'
@@ -675,6 +695,7 @@ const CustomerRouteWithChildren = CustomerRoute._addFileChildren(
 
 interface PublicRouteChildren {
   PublicIndexRoute: typeof PublicIndexRoute
+  PublicAccountDeletionRequestedRoute: typeof PublicAccountDeletionRequestedRoute
   PublicPlacesSlugRoute: typeof PublicPlacesSlugRoute
   PublicVerifyTokenRoute: typeof PublicVerifyTokenRoute
   PublicPlacesSlugMenuRoute: typeof PublicPlacesSlugMenuRoute
@@ -682,6 +703,7 @@ interface PublicRouteChildren {
 
 const PublicRouteChildren: PublicRouteChildren = {
   PublicIndexRoute: PublicIndexRoute,
+  PublicAccountDeletionRequestedRoute: PublicAccountDeletionRequestedRoute,
   PublicPlacesSlugRoute: PublicPlacesSlugRoute,
   PublicVerifyTokenRoute: PublicVerifyTokenRoute,
   PublicPlacesSlugMenuRoute: PublicPlacesSlugMenuRoute,

@@ -10,7 +10,9 @@ import { PublicShell } from '@/components/layouts/public-shell';
 import type { AuthenticatedUser } from '@/types/user-data.type';
 
 import { Route as CustomerRoute } from './_customer';
+import { Route as CustomerProfileRoute } from './_customer.account.profile';
 import { Route as PublicRoute } from './_public';
+import { Route as DeletionRequestedRoute } from './_public.account.deletion-requested';
 import { Route as LoginRoute } from './login';
 import { Route as RegisterRoute } from './register';
 
@@ -67,6 +69,12 @@ describe('public and customer route boundaries', () => {
   it('allows an authenticated customer and defines a shell-preserving error boundary', () => {
     expect(runCustomerBeforeLoad(true, {} as AuthenticatedUser)).toBeNull();
     expect(CustomerRoute.options.errorComponent).toBeTypeOf('function');
+  });
+
+  it('keeps the profile under the customer boundary and deletion confirmation public', () => {
+    expect(CustomerProfileRoute.options.component).toBeTypeOf('function');
+    expect(DeletionRequestedRoute.options.beforeLoad).toBeUndefined();
+    expect(DeletionRequestedRoute.options.component).toBeTypeOf('function');
   });
 
   it('renders stable header, main, and footer landmarks for the public shell', () => {
