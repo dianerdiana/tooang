@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Link, useRouter } from '@tanstack/react-router';
 import { RefreshCwIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -51,12 +51,14 @@ function OrderDetailContent({
   placeSlug,
   refreshing,
   refresh,
+  returnToOrders,
 }: {
   order: OrderDetail;
   placed: boolean;
   placeSlug?: string;
   refreshing: boolean;
   refresh: () => void;
+  returnToOrders: () => void;
 }) {
   return (
     <div className='mx-auto w-full max-w-4xl px-page py-6 sm:py-8'>
@@ -156,8 +158,8 @@ function OrderDetailContent({
                 </Link>
               </Button>
             )}
-            <Button variant={placed ? 'default' : 'outline'} asChild>
-              <Link to='/orders'>My orders</Link>
+            <Button type='button' variant={placed ? 'default' : 'outline'} onClick={returnToOrders}>
+              My orders
             </Button>
             <Button variant='ghost' asChild>
               {placeSlug ? (
@@ -186,12 +188,22 @@ export function CustomerOrderDetailPage({
   orderId,
   placed = false,
   placeSlug,
+  fromCustomerOrders = false,
 }: {
   orderId: string;
   placed?: boolean;
   placeSlug?: string;
+  fromCustomerOrders?: boolean;
 }) {
+  const router = useRouter();
   const query = useQuery(ownOrderDetailQueryOptions(orderId));
+  const returnToOrders = () => {
+    if (fromCustomerOrders) {
+      router.history.back();
+      return;
+    }
+    void router.navigate({ to: '/orders' });
+  };
   if (query.isPending) return <CustomerOrderDetailSkeleton />;
   if (query.isError && !query.data) {
     const presentation = getCustomerErrorPresentation(query.error);
@@ -214,7 +226,9 @@ export function CustomerOrderDetailPage({
                   Sign in again
                 </Link>
               ) : (
-                <Link to='/orders'>Return to My orders</Link>
+                <button type='button' onClick={returnToOrders}>
+                  Return to My orders
+                </button>
               )}
             </Button>
           }
@@ -230,6 +244,7 @@ export function CustomerOrderDetailPage({
       placeSlug={placeSlug}
       refreshing={query.isFetching}
       refresh={() => void query.refetch()}
+      returnToOrders={returnToOrders}
     />
   );
 }

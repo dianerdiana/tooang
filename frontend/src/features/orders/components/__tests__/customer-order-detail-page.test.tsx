@@ -4,12 +4,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import { ordersService } from '../../services/orders.service';
 import type { OrderDetail } from '../../types/order.type';
 import { CustomerOrderDetailPage } from '../customer-order-detail-page';
 
+const routerMocks = vi.hoisted(() => ({ back: vi.fn(), navigate: vi.fn() }));
+
 vi.mock('@tanstack/react-router', () => ({
+  useRouter: () => ({
+    history: { back: routerMocks.back },
+    navigate: routerMocks.navigate,
+  }),
   Link: ({
     children,
     to,
@@ -65,11 +72,16 @@ const order: OrderDetail = {
   ],
 };
 
-const renderPage = (placed: boolean) => {
+const renderPage = (placed: boolean, fromCustomerOrders = false) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <CustomerOrderDetailPage orderId={order.orderId} placed={placed} placeSlug='warung-kita' />
+      <CustomerOrderDetailPage
+        orderId={order.orderId}
+        placed={placed}
+        placeSlug='warung-kita'
+        fromCustomerOrders={fromCustomerOrders}
+      />
     </QueryClientProvider>,
   );
 };
@@ -95,7 +107,7 @@ describe('customer order detail page', () => {
     expect(screen.getAllByText(/Rp\s*50\.000/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Pending orders expire/i)).toBeTruthy();
     expect(screen.getByRole('link', { name: 'View order details' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'My orders' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'My orders' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Return to menu' })).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/verification|payment|qr code/i);
   });
@@ -109,6 +121,15 @@ describe('customer order detail page', () => {
     expect(screen.getByText('Your order')).toBeTruthy();
   });
 
+  it('uses history when returning to a marked customer order list', async () => {
+    vi.spyOn(ordersService, 'getOwn').mockResolvedValue(order);
+    renderPage(false, true);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'My orders' }));
+    expect(routerMocks.back).toHaveBeenCalledOnce();
+    expect(routerMocks.navigate).not.toHaveBeenCalled();
+  });
+
   it('shows a neutral ownership error without exposing another order', async () => {
     vi.spyOn(ordersService, 'getOwn').mockRejectedValue({
       error: true,
@@ -119,7 +140,7 @@ describe('customer order detail page', () => {
     });
     renderPage(false);
 
-    expect(await screen.findByRole('link', { name: 'Return to My orders' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Return to My orders' })).toBeTruthy();
     expect(screen.queryByText(order.orderCode)).toBeNull();
   });
 });
