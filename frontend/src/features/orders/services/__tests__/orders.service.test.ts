@@ -98,6 +98,51 @@ describe('ordersService', () => {
     expect(apiMock.get).toHaveBeenCalledWith('/orders/order%2F1');
   });
 
+  it('gets public verification from the exact case-sensitive token path and projects only safe fields', async () => {
+    const token = `${'A'.repeat(42)}_`;
+    const orderVerification = {
+      orderCode: 'TNG-20260930-ABCDEFGH',
+      placeName: 'Warung Kita',
+      status: 'CONFIRMED',
+      fulfillmentType: 'DINE_IN',
+      createdAt: '2026-09-30T10:00:00.000Z',
+      expiresAt: '2026-09-30T10:15:00.000Z',
+      statusUpdatedAt: '2026-09-30T10:01:00.000Z',
+      customerName: 'must not leak',
+      verificationToken: token,
+    };
+    apiMock.get.mockResolvedValueOnce({
+      data: { error: false, message: 'Order verification retrieved', data: { orderVerification } },
+    });
+
+    await expect(ordersService.getPublicVerification(token)).resolves.toEqual({
+      orderCode: orderVerification.orderCode,
+      placeName: orderVerification.placeName,
+      status: orderVerification.status,
+      fulfillmentType: orderVerification.fulfillmentType,
+      createdAt: orderVerification.createdAt,
+      expiresAt: orderVerification.expiresAt,
+      statusUpdatedAt: orderVerification.statusUpdatedAt,
+    });
+    expect(apiMock.get).toHaveBeenCalledWith(`/order-verifications/${token}`);
+    expect(apiMock.get.mock.calls[0]?.[0]).not.toContain(token.toLowerCase());
+  });
+
+  it.each([
+    { httpStatus: 404, code: 'ORDER_VERIFICATION_NOT_FOUND', isNetworkError: false },
+    { httpStatus: 429, code: 'TOO_MANY_REQUESTS', isNetworkError: false, retryAfterSeconds: 30 },
+    { code: 'ERR_NETWORK', isNetworkError: true },
+  ])('normalizes public verification errors without exposing the token', async (failure) => {
+    const token = 'B'.repeat(43);
+    apiMock.get.mockRejectedValueOnce({
+      error: true,
+      message: 'Safe transport failure',
+      ...failure,
+    });
+
+    await expect(ordersService.getPublicVerification(token)).rejects.toMatchObject(failure);
+  });
+
   it('transitions through the authenticated place endpoint with the exact input', async () => {
     const order = { orderId: 'order-1', status: 'CANCELLED' };
     apiMock.patch.mockResolvedValueOnce({

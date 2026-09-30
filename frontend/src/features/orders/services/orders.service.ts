@@ -17,6 +17,7 @@ import type {
   OrderListResult,
   OrderListScope,
   OrderSummary,
+  PublicOrderVerification,
 } from '../types/order.type';
 
 type OrderListData = {
@@ -38,6 +39,26 @@ const listOrders = async (endpoint: string, params: OrderListParams): Promise<Or
 };
 
 export const ordersService = {
+  async getPublicVerification(token: string): Promise<PublicOrderVerification> {
+    try {
+      const response = await api.get<ApiResponse<{ orderVerification: PublicOrderVerification }>>(
+        `/order-verifications/${encodeURIComponent(token)}`,
+      );
+      const verification = unwrapApiResponse(response.data).orderVerification;
+      return {
+        orderCode: verification.orderCode,
+        placeName: verification.placeName,
+        status: verification.status,
+        fulfillmentType: verification.fulfillmentType,
+        createdAt: verification.createdAt,
+        expiresAt: verification.expiresAt,
+        statusUpdatedAt: verification.statusUpdatedAt,
+      };
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
   async checkout(input: CheckoutInput, idempotencyKey: string): Promise<CheckoutOrder> {
     try {
       const validatedInput = checkoutInputSchema.parse(input);
