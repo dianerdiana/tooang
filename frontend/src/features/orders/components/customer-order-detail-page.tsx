@@ -11,6 +11,8 @@ import { ErrorState } from '@/components/ui/error-state';
 import { LiveRegion } from '@/components/ui/live-region';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import { OrderReviewActions } from '@/features/reviews/components/order-review-actions';
+
 import { isApplicationError } from '@/utils/api-error.util';
 import { getCancellationErrorPresentation, getCustomerErrorPresentation } from '@/utils/customer-error-presentation';
 import { formatCurrency } from '@/utils/format-currency';
@@ -141,22 +143,6 @@ function OrderItems({ order }: { order: OrderDetail }) {
         <span className='font-semibold'>Subtotal</span>
         <span className='text-lg font-bold tabular-nums'>{formatCurrency(order.subtotal)}</span>
       </div>
-    </section>
-  );
-}
-
-function ReviewPlaceholder() {
-  return (
-    <section className='rounded-surface border bg-surface p-5' aria-labelledby='review-order-title'>
-      <h2 id='review-order-title' className='font-semibold'>
-        Review this order
-      </h2>
-      <p className='mt-1 text-sm text-muted-foreground'>
-        This completed order is eligible for review actions. Review submission will be added in a later task.
-      </p>
-      <Button type='button' variant='outline' className='mt-4' disabled>
-        Reviews coming soon
-      </Button>
     </section>
   );
 }
@@ -325,7 +311,7 @@ function OrderDetailContent({
             />
           )}
 
-          {order.status === ORDER_STATUS.COMPLETED && <ReviewPlaceholder />}
+          {order.status === ORDER_STATUS.COMPLETED && <OrderReviewActions order={order} />}
 
           <nav className='grid gap-3 rounded-surface border bg-surface p-4' aria-label='Order next steps'>
             {placed && (

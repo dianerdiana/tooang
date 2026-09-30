@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import { reviewsService } from '@/features/reviews/services/reviews.service';
+
 import { ordersService } from '../../services/orders.service';
 import type { OrderDetail } from '../../types/order.type';
 import { CustomerOrderDetailPage } from '../customer-order-detail-page';
@@ -224,7 +226,15 @@ describe('customer order detail page', () => {
     expect(screen.queryByText(order.orderCode)).toBeNull();
   });
 
-  it('never offers cancellation for terminal orders and surfaces the completed-review placeholder', async () => {
+  it('never offers cancellation for terminal orders and exposes verified-purchase review actions', async () => {
+    vi.spyOn(reviewsService, 'listOwnPlaceReviews').mockResolvedValue({
+      reviews: [],
+      meta: { page: 1, limit: 100, totalItems: 0, totalPages: 0 },
+    });
+    vi.spyOn(reviewsService, 'listOwnMenuItemReviews').mockResolvedValue({
+      reviews: [],
+      meta: { page: 1, limit: 100, totalItems: 0, totalPages: 0 },
+    });
     vi.spyOn(ordersService, 'getOwn').mockResolvedValue({
       ...order,
       status: 'COMPLETED',
@@ -233,8 +243,94 @@ describe('customer order detail page', () => {
     renderPage(false);
 
     expect(await screen.findByText('Review this order')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Reviews coming soon' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Review Warung Kita' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Review Nasi Goreng Snapshot' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Cancel order' })).toBeNull();
+  });
+
+  it('submits exact completed-order review context and announces a restored review', async () => {
+    vi.spyOn(reviewsService, 'listOwnPlaceReviews').mockResolvedValue({
+      reviews: [],
+      meta: { page: 1, limit: 100, totalItems: 0, totalPages: 0 },
+    });
+    vi.spyOn(reviewsService, 'listOwnMenuItemReviews').mockResolvedValue({
+      reviews: [],
+      meta: { page: 1, limit: 100, totalItems: 0, totalPages: 0 },
+    });
+    const completed = { ...order, status: 'COMPLETED' as const, completedAt: '2026-09-29T05:30:00.000Z' };
+    vi.spyOn(ordersService, 'getOwn').mockResolvedValue(completed);
+    const create = vi.spyOn(reviewsService, 'createPlaceReview').mockResolvedValue({
+      outcome: 'restored',
+      review: {
+        reviewId: 'review-1',
+        rating: 5,
+        comment: 'Excellent',
+        reviewer: { userId: 'user-1', fullName: 'Ayu' },
+        createdAt: '2026-09-29T06:00:00.000Z',
+        updatedAt: '2026-09-29T06:00:00.000Z',
+      },
+    });
+    renderPage(false);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Review Warung Kita' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('radio', { name: '5 out of 5 stars' }));
+    await userEvent.type(within(dialog).getByLabelText('Comment (optional)'), 'Excellent');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Submit review' }));
+
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith(order.place.placeId, {
+        orderId: order.orderId,
+        rating: 5,
+        comment: 'Excellent',
+      }),
+    );
+    expect(await screen.findByText(/restored and updated/i)).toBeTruthy();
+  });
+
+  it('deduplicates item actions and preserves the draft on an authoritative duplicate conflict', async () => {
+    vi.spyOn(reviewsService, 'listOwnPlaceReviews').mockResolvedValue({
+      reviews: [],
+      meta: { page: 1, limit: 100, totalItems: 101, totalPages: 2 },
+    });
+    vi.spyOn(reviewsService, 'listOwnMenuItemReviews').mockResolvedValue({
+      reviews: [],
+      meta: { page: 1, limit: 100, totalItems: 101, totalPages: 2 },
+    });
+    const completed = {
+      ...order,
+      status: 'COMPLETED' as const,
+      completedAt: '2026-09-29T05:30:00.000Z',
+      items: [order.items[0], { ...order.items[0], note: 'No spice' }],
+    };
+    vi.spyOn(ordersService, 'getOwn').mockResolvedValue(completed);
+    const create = vi.spyOn(reviewsService, 'createMenuItemReview').mockRejectedValue({
+      error: true,
+      message: 'Internal duplicate detail',
+      code: 'REVIEW_ALREADY_EXISTS',
+      httpStatus: 409,
+      isNetworkError: false,
+    });
+    renderPage(false);
+
+    const itemActions = await screen.findAllByRole('button', { name: 'Review Nasi Goreng Snapshot' });
+    expect(itemActions).toHaveLength(1);
+    await userEvent.click(itemActions[0]);
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('radio', { name: '4 out of 5 stars' }));
+    const comment = within(dialog).getByLabelText('Comment (optional)');
+    await userEvent.type(comment, 'Keep this draft');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Submit review' }));
+
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith(order.place.placeId, order.items[0].menuItemId, {
+        orderId: order.orderId,
+        rating: 4,
+        comment: 'Keep this draft',
+      }),
+    );
+    expect(await within(dialog).findByText('Review already submitted')).toBeTruthy();
+    expect((comment as HTMLTextAreaElement).value).toBe('Keep this draft');
   });
 
   it('shows a neutral ownership error without exposing another order', async () => {
