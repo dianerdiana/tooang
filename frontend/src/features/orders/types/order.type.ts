@@ -102,7 +102,10 @@ export type CheckoutOrder = {
 
 export type CheckoutMutationVariables = {
   input: CheckoutInput;
-  idempotencyKey: string;
+  attempt: {
+    idempotencyKey: string;
+    fingerprint: string;
+  };
 };
 
 export type OperationalOrderTransitionTarget =
