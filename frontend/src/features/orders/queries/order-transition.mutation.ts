@@ -1,5 +1,7 @@
 import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { isApplicationError } from '@/utils/api-error.util';
+
 import { ordersService } from '../services/orders.service';
 import type { OperationalOrderStatusInput, OrderDetailScope } from '../types/order.type';
 
@@ -18,6 +20,27 @@ export const refreshOwnOrderDetail = (client: QueryClient, orderId: string) =>
 
 export const refreshOwnOrderData = async (client: QueryClient, orderId: string) => {
   await Promise.all([refreshOwnOrderLists(client), refreshOwnOrderDetail(client, orderId)]);
+};
+
+export const ownOrderCancellationMutationKey = (orderId: string) => ['orders', 'cancel', 'own', orderId] as const;
+
+export const shouldRefreshAfterOwnCancellationError = (error: unknown) =>
+  isApplicationError(error) && (error.isNetworkError || error.httpStatus === 404 || error.httpStatus === 409);
+
+export const useOwnOrderCancellationMutation = (orderId: string) => {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationKey: ownOrderCancellationMutationKey(orderId),
+    mutationFn: (cancellationReason?: string | null) => ordersService.transitionOwn(orderId, cancellationReason),
+    onSuccess: async (order) => {
+      client.setQueryData(orderDetailKeys.ownOrder(orderId), order);
+      await refreshOwnOrderData(client, orderId);
+    },
+    onError: async (error) => {
+      if (shouldRefreshAfterOwnCancellationError(error)) await refreshOwnOrderData(client, orderId);
+    },
+  });
 };
 
 export const refreshPlaceOrderData = async (client: QueryClient, placeId: string, orderId: string) => {

@@ -9,6 +9,7 @@ import {
   refreshOwnOrderData,
   refreshPlaceOrderData,
   refreshScopedOrderData,
+  shouldRefreshAfterOwnCancellationError,
 } from '../order-transition.mutation';
 
 describe('order transition cache refresh', () => {
@@ -51,5 +52,34 @@ describe('order transition cache refresh', () => {
     expect(invalidateQueries).not.toHaveBeenCalledWith({ queryKey: orderDetailKeys.ownOrder('order-2'), exact: true });
     expect(invalidateQueries).not.toHaveBeenCalledWith({ queryKey: platformOrderListKey() });
     expect(invalidateQueries).not.toHaveBeenCalledWith({ queryKey: placeOrderListKey('place-1') });
+  });
+
+  it('refreshes authoritative own data after uncertain or stale cancellation failures', () => {
+    expect(
+      shouldRefreshAfterOwnCancellationError({
+        error: true,
+        message: 'Network unavailable',
+        code: 'NETWORK_ERROR',
+        isNetworkError: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRefreshAfterOwnCancellationError({
+        error: true,
+        message: 'Changed',
+        code: 'ORDER_STATUS_CHANGED',
+        httpStatus: 409,
+        isNetworkError: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRefreshAfterOwnCancellationError({
+        error: true,
+        message: 'Invalid input',
+        code: 'VALIDATION_ERROR',
+        httpStatus: 400,
+        isNetworkError: false,
+      }),
+    ).toBe(false);
   });
 });
