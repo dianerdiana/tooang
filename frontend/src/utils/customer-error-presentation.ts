@@ -284,11 +284,26 @@ function getCheckoutErrorPresentation(error: unknown): CustomerErrorPresentation
   return getCustomerErrorPresentation(error);
 }
 
+function getCancellationErrorPresentation(error: unknown): CustomerErrorPresentation {
+  if (isApplicationError(error) && error.isNetworkError) {
+    return presentation(
+      'network',
+      'Cancellation status is uncertain',
+      'The connection ended before the result was confirmed. The latest order state is being refreshed before you try again.',
+      'refresh',
+      'Refresh order',
+      'conflict',
+    );
+  }
+  return getCustomerErrorPresentation(error);
+}
+
 export {
   codePresentations as customerCodePresentations,
   type CustomerErrorKind,
   type CustomerErrorPresentation,
   type CustomerRecoveryAction,
+  getCancellationErrorPresentation,
   getCheckoutErrorPresentation,
   getCustomerErrorPresentation,
 };
