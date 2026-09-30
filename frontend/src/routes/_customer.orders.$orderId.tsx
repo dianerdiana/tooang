@@ -1,4 +1,4 @@
-import { createFileRoute, notFound } from '@tanstack/react-router';
+import { createFileRoute, notFound, useRouterState } from '@tanstack/react-router';
 
 import { CustomerOrderDetailPage } from '@/features/orders/components/customer-order-detail-page';
 import { parseCustomerOrderDetailSearch } from '@/features/orders/schemas/order-detail.schema';
@@ -17,5 +17,15 @@ export const Route = createFileRoute('/_customer/orders/$orderId')({
 function OrderDetailRoute() {
   const { orderId } = Route.useParams();
   const { placed, place } = Route.useSearch();
-  return <CustomerOrderDetailPage orderId={orderId} placed={placed} placeSlug={place} />;
+  const fromCustomerOrders = useRouterState({
+    select: (state) => state.location.state.fromCustomerOrders === true,
+  });
+  return (
+    <CustomerOrderDetailPage
+      orderId={orderId}
+      placed={placed}
+      placeSlug={place}
+      fromCustomerOrders={fromCustomerOrders}
+    />
+  );
 }

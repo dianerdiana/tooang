@@ -1,23 +1,29 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useRouterState } from '@tanstack/react-router';
 
-import { RoutePlaceholder } from '@/components/pages/route-placeholder';
-
+import { CustomerOrdersPage } from '@/features/orders/components/customer-orders-page';
 import {
-  ProtectedActionRecoveryNotice,
-  useProtectedActionRecovery,
-} from '@/features/auth/components/protected-action-recovery';
+  compactCustomerOrderSearch,
+  normalizeCustomerOrderSearch,
+  parseCustomerOrderSearch,
+} from '@/features/orders/schemas/customer-order-list.schema';
 
 export const Route = createFileRoute('/_customer/orders')({
+  validateSearch: parseCustomerOrderSearch,
   head: () => ({ meta: [{ title: 'Your orders | Tooang' }] }),
   component: OrdersRoute,
 });
 
 function OrdersRoute() {
-  const recovery = useProtectedActionRecovery({ currentUrl: '/orders' });
-
+  const filters = normalizeCustomerOrderSearch(Route.useSearch());
+  const navigate = Route.useNavigate();
+  const currentUrl = useRouterState({ select: (state) => state.location.href });
   return (
-    <RoutePlaceholder eyebrow='Orders' title='Your orders' description='Authenticated order history will render here.'>
-      <ProtectedActionRecoveryNotice result={recovery} />
-    </RoutePlaceholder>
+    <CustomerOrdersPage
+      filters={filters}
+      currentUrl={currentUrl}
+      onFiltersChange={(next, options) =>
+        void navigate({ search: compactCustomerOrderSearch(next), replace: options?.replace })
+      }
+    />
   );
 }
