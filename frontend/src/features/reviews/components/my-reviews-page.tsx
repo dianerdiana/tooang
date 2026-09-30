@@ -33,7 +33,7 @@ function ReviewCard({
   review,
   tab,
 }: {
-  review: OwnReviewBase & { menuItem?: { name: string } };
+  review: OwnReviewBase & { menuItem?: { menuItemId: string; name: string } };
   tab: 'place' | 'menu-item';
 }) {
   const updateMutation = useUpdateOwnReviewMutation();
@@ -46,7 +46,14 @@ function ReviewCard({
     const parsed = reviewUpdateSchema.safeParse({ rating: Number(rating), comment });
     if (!parsed.success) return setError(parsed.error.issues[0]?.message);
     try {
-      await updateMutation.mutateAsync({ tab, reviewId: review.reviewId, input: parsed.data });
+      await updateMutation.mutateAsync({
+        tab,
+        reviewId: review.reviewId,
+        placeId: review.place.placeId,
+        orderId: review.order.orderId,
+        ...(review.menuItem ? { menuItemId: review.menuItem.menuItemId } : {}),
+        input: parsed.data,
+      });
       setEditing(false);
       toast.success('Review updated.');
     } catch (mutationError) {
@@ -55,7 +62,13 @@ function ReviewCard({
   };
   const remove = async () => {
     try {
-      await deleteMutation.mutateAsync({ tab, reviewId: review.reviewId });
+      await deleteMutation.mutateAsync({
+        tab,
+        reviewId: review.reviewId,
+        placeId: review.place.placeId,
+        orderId: review.order.orderId,
+        ...(review.menuItem ? { menuItemId: review.menuItem.menuItemId } : {}),
+      });
       toast.success('Review deleted.');
     } catch (mutationError) {
       setError(getSafeMutationError(mutationError, 'Unable to delete this review.'));
