@@ -8,6 +8,7 @@ import { authSessionQueryOptions, clearAuthSession, setAuthSession } from '@/fea
 import type { LoginDto, RegisterDto } from '@/features/auth/schemas/auth.schema';
 import { authService } from '@/features/auth/services/auth.service';
 import type { RegisterResponse } from '@/features/auth/types/auth.response';
+import { clearAllCheckoutAttempts } from '@/features/orders/utils/checkout-attempt';
 
 import { clearProtectedActionIntent } from '@/utils/auth/protected-action-intent';
 
@@ -32,6 +33,7 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
 
   const clearLocalSession = useCallback(() => {
     api.removeToken();
+    clearAllCheckoutAttempts();
     clearAuthSession(queryClient);
   }, [queryClient]);
 
