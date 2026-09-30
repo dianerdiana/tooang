@@ -19,6 +19,16 @@ export const FULFILLMENT_TYPE = {
 
 export type FulfillmentType = (typeof FULFILLMENT_TYPE)[keyof typeof FULFILLMENT_TYPE];
 
+export type PublicOrderVerification = {
+  orderCode: string;
+  placeName: string;
+  status: OrderStatus;
+  fulfillmentType: FulfillmentType;
+  createdAt: string;
+  expiresAt: string;
+  statusUpdatedAt: string;
+};
+
 export const ORDER_SOURCE = { CUSTOMER: 'CUSTOMER', MANUAL: 'MANUAL' } as const;
 export type OrderSource = (typeof ORDER_SOURCE)[keyof typeof ORDER_SOURCE];
 
