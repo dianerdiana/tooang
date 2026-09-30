@@ -1,5 +1,11 @@
 import { type QueryClient, type QueryKey, queryOptions } from '@tanstack/react-query';
 
+import { api } from '@/configs/api-config';
+
+import { clearAllCheckoutAttempts } from '@/features/orders/utils/checkout-attempt';
+
+import { clearProtectedActionIntent } from '@/utils/auth/protected-action-intent';
+
 import type { AuthenticatedUser } from '@/types/user-data.type';
 
 import { authService } from '../services/auth.service';
@@ -25,4 +31,11 @@ export const setAuthSession = (queryClient: QueryClient, user: AuthenticatedUser
 export const clearAuthSession = (queryClient: QueryClient) => {
   queryClient.setQueryData<AuthenticatedUser | null>(AUTH_SESSION_QUERY_KEY, null);
   queryClient.removeQueries({ predicate: (query) => !isAuthSessionQueryKey(query.queryKey) });
+};
+
+export const clearPrivateClientSession = (queryClient: QueryClient) => {
+  api.removeToken();
+  clearAllCheckoutAttempts();
+  clearProtectedActionIntent();
+  clearAuthSession(queryClient);
 };

@@ -1,6 +1,12 @@
+// @vitest-environment jsdom
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { QueryClient } from '@tanstack/react-query';
+
+import { api } from '@/configs/api-config';
+
+import { CHECKOUT_ATTEMPT_STORAGE_PREFIX } from '@/features/orders/utils/checkout-attempt';
 
 import { PlatformRole } from '@/types/enums/user-role.enum';
 
@@ -14,6 +20,7 @@ import {
   AUTH_SESSION_QUERY_KEY,
   authSessionQueryOptions,
   clearAuthSession,
+  clearPrivateClientSession,
   setAuthSession,
 } from '../auth-session.query';
 
@@ -94,5 +101,21 @@ describe('auth session query', () => {
     clearAuthSession(queryClient);
     expect(queryClient.getQueryData(AUTH_SESSION_QUERY_KEY)).toBeNull();
     expect(queryClient.getQueryData(['/places'])).toBeUndefined();
+  });
+
+  it('clears tokens, private storage, protected intent, and non-session queries together', () => {
+    const removeToken = vi.spyOn(api, 'removeToken').mockImplementation(() => undefined);
+    sessionStorage.setItem(`${CHECKOUT_ATTEMPT_STORAGE_PREFIX}.user.place`, '{}');
+    sessionStorage.setItem('tooang.protected-action-intent.v1', '{}');
+    queryClient.setQueryData(['/private-orders'], [{ orderId: 'order-1' }]);
+    setAuthSession(queryClient, user);
+
+    clearPrivateClientSession(queryClient);
+
+    expect(removeToken).toHaveBeenCalledOnce();
+    expect(sessionStorage.getItem(`${CHECKOUT_ATTEMPT_STORAGE_PREFIX}.user.place`)).toBeNull();
+    expect(sessionStorage.getItem('tooang.protected-action-intent.v1')).toBeNull();
+    expect(queryClient.getQueryData(['/private-orders'])).toBeUndefined();
+    expect(queryClient.getQueryData(AUTH_SESSION_QUERY_KEY)).toBeNull();
   });
 });
