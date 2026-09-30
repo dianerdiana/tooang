@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import {
+  type CreateReviewInput,
   type NormalizedPublicPlaceReviewListParams,
   type PublicPlaceReviewListParams,
   REVIEW_MODERATION_TAB,
@@ -11,6 +12,9 @@ import {
 export const DEFAULT_REVIEW_PAGE = 1;
 export const DEFAULT_REVIEW_LIMIT = 20;
 export const PUBLIC_PLACE_REVIEWS_PAGE_SIZE = 10;
+export const REVIEW_COMMENT_MAX_LENGTH = 2000;
+
+export const reviewUnicodeLength = (value: string) => Array.from(value).length;
 
 const positiveInteger = (fallback: number, maximum?: number) =>
   z.preprocess(
@@ -81,11 +85,31 @@ export const parseOwnReviewSearch = (search: Record<string, unknown>) => {
   return { tab: parsed.tab, page: parsed.page, limit: parsed.limit };
 };
 
-export const reviewUpdateSchema = z.object({
-  rating: z.number().int().min(1).max(5),
-  comment: z
-    .string()
-    .trim()
-    .max(2000)
-    .transform((value) => value || null),
-});
+export const reviewRatingSchema = z.number().int('Choose a whole-star rating.').min(1).max(5);
+
+export const reviewCommentSchema = z
+  .union([z.string(), z.null()])
+  .transform((value) => (value === null ? null : value.normalize('NFC').trim() || null))
+  .refine(
+    (value) => value === null || reviewUnicodeLength(value) <= REVIEW_COMMENT_MAX_LENGTH,
+    `Use at most ${REVIEW_COMMENT_MAX_LENGTH.toLocaleString()} characters.`,
+  );
+
+export const reviewDraftSchema = z
+  .object({
+    rating: reviewRatingSchema,
+    comment: reviewCommentSchema.optional(),
+  })
+  .strict();
+
+export const createReviewSchema: z.ZodType<CreateReviewInput> = reviewDraftSchema
+  .extend({ orderId: requiredUuid })
+  .strict();
+
+export const reviewUpdateSchema = z
+  .object({
+    rating: reviewRatingSchema.optional(),
+    comment: reviewCommentSchema.optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, 'Change the rating or comment before saving.');
