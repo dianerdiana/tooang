@@ -104,7 +104,8 @@ export const moderationReviewKeys = {
 
 export const ownReviewKeys = {
   all: ['reviews', 'own'] as const,
-  list: (tab: string, params: { page: number; limit: number }) => [...ownReviewKeys.all, tab, params] as const,
+  lists: (tab: string) => [...ownReviewKeys.all, tab] as const,
+  list: (tab: string, params: { page: number; limit: number }) => [...ownReviewKeys.lists(tab), params] as const,
 };
 
 export const ownReviewsQueryOptions = (tab: 'place' | 'menu-item', params: { page: number; limit: number }) =>

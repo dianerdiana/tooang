@@ -3,7 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
 
 import { normalizePublicPlaceReviewListParams, normalizePublicReviewPlaceId } from '../../schemas/reviews.schema';
-import { invalidateModerationReviews, invalidatePublicPlaceReviews } from '../reviews.mutation';
+import {
+  invalidateCreatedMenuItemReview,
+  invalidateCreatedPlaceReview,
+  invalidateModerationReviews,
+  invalidateOwnReviewContext,
+  invalidatePublicPlaceReviews,
+} from '../reviews.mutation';
 import {
   moderationReviewKeys,
   publicMenuItemReviewKeys,
@@ -113,5 +119,59 @@ describe('public menu-item review queries', () => {
     };
     expect(options.getNextPageParam?.(page, [page], 1, [1])).toBe(2);
     expect(options.getNextPageParam?.({ ...page, meta: { ...page.meta, page: 2 } }, [page], 2, [1, 2])).toBeUndefined();
+  });
+});
+
+describe('review creation cache invalidation', () => {
+  const placeId = '5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae';
+  const itemId = '8f95e179-a74f-46e0-aea8-e796a297c667';
+  const orderId = '123e4567-e89b-42d3-a456-426614174000';
+
+  it('invalidates only place public, place-own, and affected order detail caches', async () => {
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, 'invalidateQueries').mockResolvedValue();
+    await invalidateCreatedPlaceReview(client, placeId, orderId);
+    expect(invalidate.mock.calls.map(([filter]) => filter?.queryKey)).toEqual([
+      ['reviews', 'public', 'place', placeId],
+      ['reviews', 'own', 'place'],
+      ['orders', 'detail', 'own', orderId],
+    ]);
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['reviews', 'moderation'] });
+  });
+
+  it('invalidates only item public, item-own, and affected order detail caches', async () => {
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, 'invalidateQueries').mockResolvedValue();
+    await invalidateCreatedMenuItemReview(client, placeId, itemId, orderId);
+    expect(invalidate.mock.calls.map(([filter]) => filter?.queryKey)).toEqual([
+      ['reviews', 'public', 'menu-item', 'place', placeId, 'item', itemId],
+      ['reviews', 'own', 'menu-item'],
+      ['orders', 'detail', 'own', orderId],
+    ]);
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['reviews', 'public', 'place', placeId] });
+  });
+});
+
+describe('own review mutation cache invalidation', () => {
+  const placeId = '5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae';
+  const itemId = '8f95e179-a74f-46e0-aea8-e796a297c667';
+  const orderId = '123e4567-e89b-42d3-a456-426614174000';
+
+  it('refreshes the own tab and identifiable public target without global review noise', async () => {
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, 'invalidateQueries').mockResolvedValue();
+    await invalidateOwnReviewContext(client, {
+      tab: 'menu-item',
+      reviewId: 'review-1',
+      placeId,
+      menuItemId: itemId,
+      orderId,
+    });
+    expect(invalidate.mock.calls.map(([filter]) => filter?.queryKey)).toEqual([
+      ['reviews', 'own', 'menu-item'],
+      ['reviews', 'public', 'menu-item', 'place', placeId, 'item', itemId],
+    ]);
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['reviews', 'own'] });
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['reviews', 'moderation'] });
   });
 });
