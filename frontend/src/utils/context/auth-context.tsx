@@ -4,13 +4,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@/configs/api-config';
 
-import { authSessionQueryOptions, clearAuthSession, setAuthSession } from '@/features/auth/queries/auth-session.query';
+import {
+  authSessionQueryOptions,
+  clearPrivateClientSession,
+  setAuthSession,
+} from '@/features/auth/queries/auth-session.query';
 import type { LoginDto, RegisterDto } from '@/features/auth/schemas/auth.schema';
 import { authService } from '@/features/auth/services/auth.service';
 import type { RegisterResponse } from '@/features/auth/types/auth.response';
-import { clearAllCheckoutAttempts } from '@/features/orders/utils/checkout-attempt';
-
-import { clearProtectedActionIntent } from '@/utils/auth/protected-action-intent';
 
 import type { AuthenticatedUser } from '@/types/user-data.type';
 
@@ -32,9 +33,7 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
   const isInitialLoading = sessionQuery.isPending;
 
   const clearLocalSession = useCallback(() => {
-    api.removeToken();
-    clearAllCheckoutAttempts();
-    clearAuthSession(queryClient);
+    clearPrivateClientSession(queryClient);
   }, [queryClient]);
 
   const login = useCallback(
@@ -52,7 +51,6 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       await authService.logout();
     } finally {
-      clearProtectedActionIntent();
       clearLocalSession();
     }
   }, [clearLocalSession]);
@@ -63,7 +61,6 @@ const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const clearTerminalSession = () => {
-      clearProtectedActionIntent();
       clearLocalSession();
     };
     const unsubscribe = api.onSessionExpired(clearTerminalSession);
