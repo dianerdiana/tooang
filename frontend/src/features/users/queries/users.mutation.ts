@@ -2,6 +2,8 @@ import { type QueryClient, useMutation, useQueryClient } from '@tanstack/react-q
 
 import { AUTH_SESSION_QUERY_KEY } from '@/features/auth/queries/auth-session.query';
 
+import type { AuthenticatedUser } from '@/types/user-data.type';
+
 import { usersService } from '../services/users.service';
 import type { CreateUserInput, PlatformRoleUpdateInput, UpdateProfileInput } from '../types/users.type';
 
@@ -15,6 +17,16 @@ export const refreshPlatformRoleData = async (queryClient: QueryClient, userId: 
     queryClient.invalidateQueries({ queryKey: usersKeys.detail(userId) }),
     queryClient.invalidateQueries({ queryKey: AUTH_SESSION_QUERY_KEY }),
   ]);
+};
+
+export const refreshProfileSession = async (
+  queryClient: QueryClient,
+  updated: Pick<AuthenticatedUser, 'userId' | 'fullName' | 'email' | 'platformRole' | 'createdAt' | 'updatedAt'>,
+) => {
+  queryClient.setQueryData<AuthenticatedUser | null>(AUTH_SESSION_QUERY_KEY, (current) =>
+    current ? { ...current, ...updated } : current,
+  );
+  await queryClient.invalidateQueries({ queryKey: AUTH_SESSION_QUERY_KEY, exact: true });
 };
 
 export const useDeactivateUserMutation = () => {
@@ -38,13 +50,12 @@ export const useUpdateProfileMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: UpdateProfileInput) => usersService.updateMe(input),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(AUTH_SESSION_QUERY_KEY, (current: object | undefined) =>
-        current ? { ...current, ...updated } : current,
-      );
-    },
+    onSuccess: (updated) => refreshProfileSession(queryClient, updated),
   });
 };
+
+export const useAccountDeletionRequestMutation = () =>
+  useMutation({ mutationFn: () => usersService.requestAccountDeletion() });
 
 export const useUpdatePlatformRoleMutation = () => {
   const queryClient = useQueryClient();
