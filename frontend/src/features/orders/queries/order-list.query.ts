@@ -1,9 +1,19 @@
-import { queryOptions } from '@tanstack/react-query';
+import { keepPreviousData, queryOptions } from '@tanstack/react-query';
 
 import { ordersService } from '../services/orders.service';
-import type { OrderListParams, OrderListScope } from '../types/order.type';
+import { ORDER_STATUS, type OrderListParams, type OrderListScope, type OrderStatus } from '../types/order.type';
 
 export const ORDER_REFRESH_INTERVAL = 30_000;
+
+const ACTIVE_ORDER_STATUSES = new Set<OrderStatus>([
+  ORDER_STATUS.PENDING,
+  ORDER_STATUS.CONFIRMED,
+  ORDER_STATUS.PREPARING,
+  ORDER_STATUS.READY,
+]);
+
+export const shouldPollOrderList = (params: OrderListParams) =>
+  params.status === undefined || ACTIVE_ORDER_STATUSES.has(params.status);
 
 const normalizedParams = (scope: OrderListScope | null, params: OrderListParams) => ({
   page: params.page ?? 1,
@@ -12,6 +22,13 @@ const normalizedParams = (scope: OrderListScope | null, params: OrderListParams)
   ...(params.fulfillmentType ? { fulfillmentType: params.fulfillmentType } : {}),
   ...(scope?.kind !== 'place' && params.placeId ? { placeId: params.placeId } : {}),
 });
+
+export const orderListKeys = {
+  all: ['orders', 'list'] as const,
+  place: (placeId: string) => [...orderListKeys.all, 'place', placeId] as const,
+  platform: () => [...orderListKeys.all, 'platform'] as const,
+  own: () => [...orderListKeys.all, 'own'] as const,
+};
 
 export const orderListQueryKey = (scope: OrderListScope | null, params: OrderListParams) =>
   [
@@ -31,8 +48,13 @@ export const orderListQueryOptions = (scope: OrderListScope | null, params: Orde
     },
     enabled: scope !== null,
     staleTime: 15_000,
-    refetchInterval: ORDER_REFRESH_INTERVAL,
-    refetchOnWindowFocus: true,
+    refetchInterval: shouldPollOrderList(normalizedParams(scope, params)) ? ORDER_REFRESH_INTERVAL : false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: shouldPollOrderList(normalizedParams(scope, params)),
   });
 
-export const ownOrderListQueryOptions = (params: OrderListParams) => orderListQueryOptions({ kind: 'own' }, params);
+export const ownOrderListQueryOptions = (params: OrderListParams) =>
+  queryOptions({
+    ...orderListQueryOptions({ kind: 'own' }, params),
+    placeholderData: keepPreviousData,
+  });

@@ -5,7 +5,9 @@ import {
   orderDetailQueryKey,
   ownOrderDetailQueryOptions,
   placeOrderDetailQueryOptions,
+  shouldPollOrderDetail,
 } from '../order-detail.query';
+import { ORDER_REFRESH_INTERVAL } from '../order-list.query';
 import { placeOrderListKey, platformOrderListKey } from '../order-transition.mutation';
 
 describe('operational order detail query keys', () => {
@@ -41,5 +43,19 @@ describe('operational order detail query keys', () => {
   it('targets every list variant for one place when refreshing', () => {
     expect(placeOrderListKey('place-a')).toEqual(['orders', 'list', 'place', 'place-a']);
     expect(platformOrderListKey()).toEqual(['orders', 'list', 'platform']);
+  });
+
+  it('polls owned detail only while its status is active', () => {
+    expect(shouldPollOrderDetail('PENDING')).toBe(true);
+    expect(shouldPollOrderDetail('READY')).toBe(true);
+    expect(shouldPollOrderDetail('COMPLETED')).toBe(false);
+    expect(shouldPollOrderDetail()).toBe(false);
+
+    const interval = ownOrderDetailQueryOptions('order-1').refetchInterval;
+    expect(typeof interval).toBe('function');
+    if (typeof interval === 'function') {
+      expect(interval({ state: { data: { status: 'PREPARING' } } } as never)).toBe(ORDER_REFRESH_INTERVAL);
+      expect(interval({ state: { data: { status: 'CANCELLED' } } } as never)).toBe(false);
+    }
   });
 });

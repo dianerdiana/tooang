@@ -13,8 +13,7 @@ import { ordersService } from '../services/orders.service';
 import type { CheckoutMutationVariables, CheckoutOrder } from '../types/order.type';
 import { fingerprintCheckoutInput } from '../utils/checkout-attempt';
 
-import { orderDetailKeys } from './order-detail.query';
-import { ownOrderListKey } from './order-transition.mutation';
+import { refreshOwnOrderData, refreshOwnOrderLists } from './order-transition.mutation';
 
 export const checkoutMutationKey = (placeId: string) => ['orders', 'checkout', placeId] as const;
 
@@ -40,8 +39,7 @@ export const applyCheckoutSuccess = async (client: QueryClient, order: CheckoutO
   client.setQueryData(cartKeys.place(order.placeId), emptyCartForPlace(order.placeId));
   await Promise.all([
     client.invalidateQueries({ queryKey: cartKeys.place(order.placeId), exact: true }),
-    client.invalidateQueries({ queryKey: ownOrderListKey() }),
-    client.invalidateQueries({ queryKey: orderDetailKeys.ownOrder(order.orderId), exact: true }),
+    refreshOwnOrderData(client, order.orderId),
   ]);
 };
 
@@ -63,7 +61,7 @@ export const refreshAfterCheckoutError = async (
 
   if (refreshCart) work.push(client.invalidateQueries({ queryKey: cartKeys.place(placeId), exact: true }));
   if (refreshPlace) work.push(client.invalidateQueries({ queryKey: placesKeys.publicDetail(placeSlug), exact: true }));
-  if (error.isNetworkError) work.push(client.invalidateQueries({ queryKey: ownOrderListKey() }));
+  if (error.isNetworkError) work.push(refreshOwnOrderLists(client));
 
   await Promise.all(work);
 };

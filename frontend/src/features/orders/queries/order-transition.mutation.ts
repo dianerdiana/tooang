@@ -4,10 +4,21 @@ import { ordersService } from '../services/orders.service';
 import type { OperationalOrderStatusInput, OrderDetailScope } from '../types/order.type';
 
 import { orderDetailKeys, orderDetailQueryKey } from './order-detail.query';
+import { orderListKeys } from './order-list.query';
 
-export const placeOrderListKey = (placeId: string) => ['orders', 'list', 'place', placeId] as const;
-export const platformOrderListKey = () => ['orders', 'list', 'platform'] as const;
-export const ownOrderListKey = () => ['orders', 'list', 'own'] as const;
+export const placeOrderListKey = orderListKeys.place;
+export const platformOrderListKey = orderListKeys.platform;
+export const ownOrderListKey = orderListKeys.own;
+
+export const refreshOwnOrderLists = (client: QueryClient) =>
+  client.invalidateQueries({ queryKey: orderListKeys.own() });
+
+export const refreshOwnOrderDetail = (client: QueryClient, orderId: string) =>
+  client.invalidateQueries({ queryKey: orderDetailKeys.ownOrder(orderId), exact: true });
+
+export const refreshOwnOrderData = async (client: QueryClient, orderId: string) => {
+  await Promise.all([refreshOwnOrderLists(client), refreshOwnOrderDetail(client, orderId)]);
+};
 
 export const refreshPlaceOrderData = async (client: QueryClient, placeId: string, orderId: string) => {
   await Promise.all([
@@ -17,16 +28,16 @@ export const refreshPlaceOrderData = async (client: QueryClient, placeId: string
 };
 
 export const refreshScopedOrderData = async (client: QueryClient, scope: OrderDetailScope, orderId: string) => {
+  if (scope.kind === 'own') {
+    await refreshOwnOrderData(client, orderId);
+    return;
+  }
+
   await Promise.all([
     client.invalidateQueries({
-      queryKey:
-        scope.kind === 'place'
-          ? placeOrderListKey(scope.placeId)
-          : scope.kind === 'own'
-            ? ownOrderListKey()
-            : platformOrderListKey(),
+      queryKey: scope.kind === 'place' ? placeOrderListKey(scope.placeId) : platformOrderListKey(),
     }),
-    client.invalidateQueries({ queryKey: orderDetailQueryKey(scope, orderId) }),
+    client.invalidateQueries({ queryKey: orderDetailQueryKey(scope, orderId), exact: true }),
   ]);
 };
 

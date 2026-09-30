@@ -1,7 +1,19 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import { ordersService } from '../services/orders.service';
-import type { OrderDetailScope } from '../types/order.type';
+import { ORDER_STATUS, type OrderDetailScope, type OrderStatus } from '../types/order.type';
+
+import { ORDER_REFRESH_INTERVAL } from './order-list.query';
+
+const ACTIVE_ORDER_STATUSES = new Set<OrderStatus>([
+  ORDER_STATUS.PENDING,
+  ORDER_STATUS.CONFIRMED,
+  ORDER_STATUS.PREPARING,
+  ORDER_STATUS.READY,
+]);
+
+export const shouldPollOrderDetail = (status?: OrderStatus) =>
+  status !== undefined && ACTIVE_ORDER_STATUSES.has(status);
 
 export const orderDetailKeys = {
   all: ['orders', 'detail'] as const,
@@ -39,4 +51,10 @@ export const orderDetailQueryOptions = (scope: OrderDetailScope, orderId: string
 export const placeOrderDetailQueryOptions = (placeId: string, orderId: string | null) =>
   orderDetailQueryOptions({ kind: 'place', placeId }, orderId);
 
-export const ownOrderDetailQueryOptions = (orderId: string | null) => orderDetailQueryOptions({ kind: 'own' }, orderId);
+export const ownOrderDetailQueryOptions = (orderId: string | null) =>
+  queryOptions({
+    ...orderDetailQueryOptions({ kind: 'own' }, orderId),
+    refetchInterval: (query) => (shouldPollOrderDetail(query.state.data?.status) ? ORDER_REFRESH_INTERVAL : false),
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: (query) => shouldPollOrderDetail(query.state.data?.status),
+  });

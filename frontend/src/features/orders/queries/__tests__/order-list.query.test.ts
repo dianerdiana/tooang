@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { orderListQueryKey, orderListQueryOptions, ownOrderListQueryOptions } from '../order-list.query';
+import { ordersService } from '../../services/orders.service';
+import {
+  ORDER_REFRESH_INTERVAL,
+  orderListQueryKey,
+  orderListQueryOptions,
+  ownOrderListQueryOptions,
+  shouldPollOrderList,
+} from '../order-list.query';
 
 describe('order list queries', () => {
   it('separates place caches by place and status', () => {
@@ -44,5 +51,38 @@ describe('order list queries', () => {
       page: 1,
       limit: 20,
     });
+  });
+
+  it('sends the normalized own place filter to the service', async () => {
+    const list = vi.spyOn(ordersService, 'list').mockResolvedValue({
+      orders: [],
+      meta: { page: 2, limit: 10, totalItems: 0, totalPages: 0 },
+    });
+    const options = ownOrderListQueryOptions({
+      page: 2,
+      limit: 10,
+      placeId: 'place-a',
+      status: 'READY',
+      fulfillmentType: 'TAKEAWAY',
+    });
+
+    await options.queryFn?.({} as never);
+
+    expect(list).toHaveBeenCalledWith(
+      { kind: 'own' },
+      { page: 2, limit: 10, placeId: 'place-a', status: 'READY', fulfillmentType: 'TAKEAWAY' },
+    );
+  });
+
+  it('polls unfiltered and active queues but not terminal-only history', () => {
+    expect(shouldPollOrderList({})).toBe(true);
+    expect(shouldPollOrderList({ status: 'PENDING' })).toBe(true);
+    expect(shouldPollOrderList({ status: 'READY' })).toBe(true);
+    expect(shouldPollOrderList({ status: 'COMPLETED' })).toBe(false);
+    expect(orderListQueryOptions({ kind: 'platform' }, {}).refetchInterval).toBe(ORDER_REFRESH_INTERVAL);
+    expect(orderListQueryOptions({ kind: 'place', placeId: 'place-a' }, { status: 'CANCELLED' }).refetchInterval).toBe(
+      false,
+    );
+    expect(ownOrderListQueryOptions({ status: 'EXPIRED' }).refetchOnWindowFocus).toBe(false);
   });
 });
