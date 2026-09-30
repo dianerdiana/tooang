@@ -1,16 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useForm } from '@tanstack/react-form';
-import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
-import {
-  ArrowLeftIcon,
-  CheckCircle2Icon,
-  Loader2Icon,
-  RefreshCwIcon,
-  ShoppingBagIcon,
-  UtensilsIcon,
-} from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { ArrowLeftIcon, Loader2Icon, RefreshCwIcon, ShoppingBagIcon, UtensilsIcon } from 'lucide-react';
 
 import { FormControl, FormDescription, FormField, FormLabel, FormMessage } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
@@ -33,6 +26,7 @@ import { formatCurrency } from '@/utils/format-currency';
 import { useAuth } from '@/utils/hooks/use-auth';
 
 import { useCheckoutMutation } from '../queries/checkout.mutation';
+import { ownOrderListQueryOptions } from '../queries/order-list.query';
 import {
   CHECKOUT_CUSTOMER_NAME_MAX_LENGTH,
   CHECKOUT_CUSTOMER_NOTE_MAX_LENGTH,
@@ -41,7 +35,17 @@ import {
   checkoutFormSchema,
   checkoutInputSchema,
 } from '../schemas/checkout.schema';
-import type { CheckoutInput, CheckoutOrder } from '../types/order.type';
+import type { CheckoutInput, OrderSummary } from '../types/order.type';
+import {
+  canonicalizeCheckoutInput,
+  CHECKOUT_ATTEMPT_STATE,
+  type CheckoutAttempt,
+  clearCheckoutAttempt,
+  createOrReuseCheckoutAttempt,
+  markCheckoutRecoveryChecked,
+  readCheckoutAttempt,
+  transitionCheckoutAttempt,
+} from '../utils/checkout-attempt';
 
 const firstErrorMessage = (errors: unknown[]) => {
   const error = errors[0];
@@ -129,45 +133,6 @@ function OrderReview({ cart }: { cart: Cart }) {
   );
 }
 
-function ConfirmedCheckout({ order, place }: { order: CheckoutOrder; place: PublicPlaceDetail }) {
-  return (
-    <div className='mx-auto flex min-h-[65vh] w-full max-w-2xl items-center px-page py-10'>
-      <section
-        className='w-full rounded-surface border bg-surface p-6 text-center shadow-sm sm:p-8'
-        aria-labelledby='checkout-success-title'
-      >
-        <CheckCircle2Icon className='mx-auto size-12 text-success' aria-hidden />
-        <p className='mt-4 text-sm font-semibold text-primary'>Order received</p>
-        <h1 id='checkout-success-title' className='mt-1 text-2xl font-bold tracking-tight'>
-          Your order is pending
-        </h1>
-        <p className='mt-2 text-muted-foreground'>The place will review your order next.</p>
-        <div className='mx-auto mt-6 max-w-sm rounded-lg border bg-muted/40 p-4'>
-          <p className='text-sm text-muted-foreground'>Order code</p>
-          <p className='mt-1 select-all font-mono text-xl font-bold tracking-wide'>{order.orderCode}</p>
-        </div>
-        <div className='mt-6 flex flex-col justify-center gap-3 sm:flex-row'>
-          <Button asChild>
-            <Link to='/orders/$orderId' params={{ orderId: order.orderId }}>
-              View order
-            </Link>
-          </Button>
-          <Button variant='outline' asChild>
-            <Link to='/orders'>My orders</Link>
-          </Button>
-          <Button variant='ghost' asChild>
-            <Link to='/places/$slug/menu' params={{ slug: place.slug }}>
-              Return to menu
-            </Link>
-          </Button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-type Attempt = { fingerprint: string; key: string; uncertain: boolean };
-
 function ResolvedCheckoutPage({ place }: { place: PublicPlaceDetail }) {
   const { user } = useAuth();
   const cartQuery = useQuery(cartQueryOptions(place.id));
@@ -177,13 +142,15 @@ function ResolvedCheckoutPage({ place }: { place: PublicPlaceDetail }) {
     return <CheckoutLoadError error={cartQuery.error} retry={() => void cartQuery.refetch()} />;
   }
   if (!cartQuery.data) return null;
+  if (!user) return null;
 
   return (
     <CheckoutForm
       place={place}
       cart={cartQuery.data}
       refetchCart={() => void cartQuery.refetch()}
-      defaultName={user?.fullName ?? ''}
+      defaultName={user.fullName}
+      userId={user.userId}
     />
   );
 }
@@ -193,18 +160,70 @@ function CheckoutForm({
   cart,
   refetchCart,
   defaultName,
+  userId,
 }: {
   place: PublicPlaceDetail;
   cart: Cart;
   refetchCart: () => void;
   defaultName: string;
+  userId: string;
 }) {
   const mutation = useCheckoutMutation(place.id, place.slug);
-  const attemptRef = useRef<Attempt | null>(null);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const formRef = useRef<HTMLFormElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
-  const [confirmedOrder, setConfirmedOrder] = useState<CheckoutOrder>();
+  const restoredFormRef = useRef(false);
+  const [attempt, setAttempt] = useState<CheckoutAttempt | null>();
   const [submissionError, setSubmissionError] = useState<unknown>();
+  const [recentOrders, setRecentOrders] = useState<OrderSummary[]>([]);
+  const [historyError, setHistoryError] = useState<unknown>();
+  const [checkingHistory, setCheckingHistory] = useState(false);
+
+  const runAttempt = async (current: CheckoutAttempt) => {
+    if (current.expiresAt <= Date.now()) {
+      clearCheckoutAttempt({ userId, placeId: place.id });
+      setAttempt({ ...current, state: CHECKOUT_ATTEMPT_STATE.BLOCKED });
+      setSubmissionError({
+        error: true,
+        message: 'This checkout attempt has expired',
+        code: 'CHECKOUT_ATTEMPT_EXPIRED',
+        isNetworkError: false,
+      });
+      window.requestAnimationFrame(() => errorRef.current?.focus());
+      return;
+    }
+    const submitting = transitionCheckoutAttempt(current, CHECKOUT_ATTEMPT_STATE.SUBMITTING);
+    setAttempt(submitting);
+    setSubmissionError(undefined);
+    try {
+      const order = await mutation.mutateAsync({
+        input: submitting.input,
+        attempt: {
+          idempotencyKey: submitting.idempotencyKey,
+          fingerprint: submitting.fingerprint,
+        },
+      });
+      clearCheckoutAttempt({ userId, placeId: place.id });
+      setAttempt(null);
+      await navigate({
+        to: '/orders/$orderId',
+        params: { orderId: order.orderId },
+        search: { placed: true, place: place.slug },
+        replace: true,
+      });
+    } catch (error) {
+      const nextState =
+        isApplicationError(error) && error.isNetworkError
+          ? CHECKOUT_ATTEMPT_STATE.UNCERTAIN
+          : isApplicationError(error) && error.code === 'IDEMPOTENCY_KEY_REUSED'
+            ? CHECKOUT_ATTEMPT_STATE.BLOCKED
+            : CHECKOUT_ATTEMPT_STATE.READY;
+      setAttempt(transitionCheckoutAttempt(submitting, nextState));
+      setSubmissionError(error);
+      window.requestAnimationFrame(() => errorRef.current?.focus());
+    }
+  };
 
   const form = useForm({
     defaultValues: { customerName: defaultName, customerNote: '' },
@@ -217,43 +236,88 @@ function CheckoutForm({
         customerName: value.customerName,
         customerNote: value.customerNote,
       }) as CheckoutInput;
-      const fingerprint = JSON.stringify(input);
-      const previousAttempt = attemptRef.current;
-
-      if (previousAttempt?.uncertain && previousAttempt.fingerprint !== fingerprint) {
-        setSubmissionError({
-          error: true,
-          code: 'UNCERTAIN_CHECKOUT_CHANGED',
-          message: 'Checkout details changed after an uncertain result',
-          isNetworkError: true,
-        });
-        window.requestAnimationFrame(() => errorRef.current?.focus());
-        return;
-      }
-
-      if (!previousAttempt || previousAttempt.fingerprint !== fingerprint) {
-        attemptRef.current = { fingerprint, key: crypto.randomUUID(), uncertain: false };
-      }
-
-      const attempt = attemptRef.current;
-      if (!attempt) return;
-
       try {
-        const order = await mutation.mutateAsync({ input, idempotencyKey: attempt.key });
-        setConfirmedOrder(order);
-      } catch (error) {
-        if (isApplicationError(error) && error.isNetworkError && attemptRef.current) {
-          attemptRef.current.uncertain = true;
+        if (attempt) {
+          if (canonicalizeCheckoutInput(input) !== canonicalizeCheckoutInput(attempt.input)) return;
+          await runAttempt(attempt);
+          return;
         }
+        const result = await createOrReuseCheckoutAttempt({ userId, input });
+        setAttempt(result.attempt);
+        if (result.status === 'payload-mismatch') return;
+        await runAttempt(result.attempt);
+      } catch (error) {
         setSubmissionError(error);
         window.requestAnimationFrame(() => errorRef.current?.focus());
       }
     },
   });
 
-  if (confirmedOrder) return <ConfirmedCheckout order={confirmedOrder} place={place} />;
+  useEffect(() => {
+    let active = true;
+    void readCheckoutAttempt({ userId, placeId: place.id }).then((restored) => {
+      if (!active) return;
+      setAttempt(restored);
+    });
+    return () => {
+      active = false;
+    };
+  }, [form, place.id, userId]);
 
-  if (cart.items.length === 0) {
+  useEffect(() => {
+    if (attempt === undefined || restoredFormRef.current) return;
+    restoredFormRef.current = true;
+    if (!attempt) return;
+    form.reset({
+      customerName: attempt.input.customerName,
+      customerNote: attempt.input.customerNote ?? '',
+    });
+  }, [attempt, form]);
+
+  if (attempt === undefined) return <CheckoutSkeleton />;
+
+  const currentInput = checkoutInputSchema.safeParse({
+    placeId: place.id,
+    fulfillmentType: 'TAKEAWAY',
+    customerName: form.state.values.customerName,
+    customerNote: form.state.values.customerNote,
+  });
+  const detailsChanged = Boolean(
+    attempt &&
+    currentInput.success &&
+    canonicalizeCheckoutInput(currentInput.data) !== canonicalizeCheckoutInput(attempt.input),
+  );
+  const uncertain =
+    attempt?.state === CHECKOUT_ATTEMPT_STATE.UNCERTAIN || attempt?.state === CHECKOUT_ATTEMPT_STATE.SUBMITTING;
+  const blocked = attempt?.state === CHECKOUT_ATTEMPT_STATE.BLOCKED;
+
+  const abandonAttempt = () => {
+    clearCheckoutAttempt({ userId, placeId: place.id });
+    setAttempt(null);
+    setSubmissionError(undefined);
+    setHistoryError(undefined);
+    setRecentOrders([]);
+    mutation.reset();
+  };
+
+  const checkRecentOrders = async () => {
+    if (!attempt) return;
+    setCheckingHistory(true);
+    setHistoryError(undefined);
+    try {
+      const query = ownOrderListQueryOptions({ page: 1, limit: 5, placeId: attempt.placeId });
+      const result = await queryClient.fetchQuery({ ...query, staleTime: 0 });
+      setRecentOrders(result.orders);
+      const checked = markCheckoutRecoveryChecked(attempt);
+      setAttempt(checked);
+    } catch (error) {
+      setHistoryError(error);
+    } finally {
+      setCheckingHistory(false);
+    }
+  };
+
+  if (cart.items.length === 0 && !uncertain && !blocked) {
     return (
       <div className='mx-auto w-full max-w-3xl px-page py-8'>
         <EmptyState
@@ -272,8 +336,8 @@ function CheckoutForm({
     );
   }
 
-  const presentation = submissionError ? getCheckoutErrorPresentation(submissionError) : null;
-  const uncertain = Boolean(isApplicationError(submissionError) && submissionError.isNetworkError);
+  const presentation = submissionError && !uncertain ? getCheckoutErrorPresentation(submissionError) : null;
+  const historyPresentation = historyError ? getCheckoutErrorPresentation(historyError) : null;
   const knownAvailabilityBlocker = !place.isOpen || !place.isOrderingEnabled;
 
   const recoveryAction = presentation ? (
@@ -311,7 +375,15 @@ function CheckoutForm({
           type='submit'
           size='lg'
           className={mobile ? 'min-h-12 shrink-0' : 'w-full'}
-          disabled={!canSubmit || isSubmitting || mutation.isPending || knownAvailabilityBlocker || uncertain}
+          disabled={
+            !canSubmit ||
+            isSubmitting ||
+            mutation.isPending ||
+            knownAvailabilityBlocker ||
+            uncertain ||
+            blocked ||
+            detailsChanged
+          }
         >
           {isSubmitting || mutation.isPending ? (
             <>
@@ -352,7 +424,7 @@ function CheckoutForm({
         onSubmit={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          if (mutation.isPending || form.state.isSubmitting || uncertain) return;
+          if (mutation.isPending || form.state.isSubmitting || uncertain || blocked || detailsChanged) return;
           const valid = checkoutFormSchema.safeParse(form.state.values).success;
           void form.handleSubmit().then(() => {
             if (!valid) {
@@ -383,6 +455,126 @@ function CheckoutForm({
               tone='warning'
               title='Online ordering is unavailable'
               description='This place is not accepting customer orders right now.'
+            />
+          )}
+          {uncertain && attempt && (
+            <section className='space-y-4' aria-labelledby='checkout-recovery-title'>
+              <CustomerAlert
+                ref={errorRef}
+                tabIndex={-1}
+                tone='warning'
+                title='Check whether your order was received'
+                description='The connection ended before we could confirm the result. Your order may still have been placed, so check your recent orders before trying these same details again.'
+                live
+              />
+              <div className='rounded-surface border bg-surface p-4 sm:p-5'>
+                <h2 id='checkout-recovery-title' className='font-semibold'>
+                  Recover this checkout safely
+                </h2>
+                <p className='mt-1 text-sm text-muted-foreground'>
+                  We kept only the request details needed to retry this checkout in this browser tab.
+                </p>
+                <div className='mt-4 flex flex-wrap gap-3'>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    onClick={() => void checkRecentOrders()}
+                    disabled={checkingHistory}
+                  >
+                    {checkingHistory ? (
+                      <Loader2Icon className='animate-spin motion-reduce:animate-none' aria-hidden />
+                    ) : (
+                      <RefreshCwIcon aria-hidden />
+                    )}
+                    Check recent orders
+                  </Button>
+                  <Button
+                    type='button'
+                    onClick={() => void runAttempt(attempt)}
+                    disabled={!attempt.recoveryCheckedAt || mutation.isPending}
+                  >
+                    Retry the same order details
+                  </Button>
+                  {attempt.recoveryCheckedAt && (
+                    <Button type='button' variant='ghost' onClick={abandonAttempt} disabled={mutation.isPending}>
+                      Abandon and start a new attempt
+                    </Button>
+                  )}
+                </div>
+                {!attempt.recoveryCheckedAt && (
+                  <p className='mt-3 text-sm text-muted-foreground'>
+                    The retry action unlocks after recent orders have been refreshed successfully.
+                  </p>
+                )}
+                {historyPresentation && (
+                  <CustomerAlert
+                    className='mt-4'
+                    tone='error'
+                    title={historyPresentation.title}
+                    description={historyPresentation.description}
+                  />
+                )}
+                {attempt.recoveryCheckedAt && !historyError && (
+                  <div className='mt-5 border-t pt-4'>
+                    <h3 className='font-medium'>Recent orders from this place</h3>
+                    <p className='mt-1 text-sm text-muted-foreground'>
+                      These are possible matches only. Open an order to check its details.
+                    </p>
+                    {recentOrders.length > 0 ? (
+                      <ul className='mt-3 divide-y' aria-label='Recent orders from this place'>
+                        {recentOrders.map((order) => (
+                          <li key={order.orderId} className='flex items-center justify-between gap-4 py-3'>
+                            <div className='min-w-0'>
+                              <p className='font-medium select-all'>{order.orderCode}</p>
+                              <p className='text-sm text-muted-foreground'>{order.status}</p>
+                            </div>
+                            <Button asChild size='sm' variant='outline'>
+                              <Link
+                                to='/orders/$orderId'
+                                params={{ orderId: order.orderId }}
+                                search={{ place: place.slug }}
+                              >
+                                View order
+                              </Link>
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className='mt-3 text-sm text-muted-foreground'>
+                        No recent orders from this place are visible yet.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+          {blocked && (
+            <CustomerAlert
+              ref={errorRef}
+              tabIndex={-1}
+              tone='warning'
+              title='Start a new checkout attempt'
+              description='These checkout details can no longer be retried with the previous request. Review the details, then start a new attempt.'
+              action={
+                <Button type='button' size='sm' onClick={abandonAttempt}>
+                  Start a new attempt
+                </Button>
+              }
+              live
+            />
+          )}
+          {detailsChanged && !uncertain && !blocked && (
+            <CustomerAlert
+              tone='warning'
+              title='Order details changed'
+              description='The previous attempt is tied to different details. Start a new attempt to use your edits.'
+              action={
+                <Button type='button' size='sm' onClick={abandonAttempt}>
+                  Start a new attempt
+                </Button>
+              }
             />
           )}
           {presentation && (
@@ -459,7 +651,7 @@ function CheckoutForm({
                             setSubmissionError(undefined);
                             field.handleChange(event.target.value);
                           }}
-                          disabled={mutation.isPending || uncertain}
+                          disabled={mutation.isPending || uncertain || blocked}
                         />
                       </FormControl>
                       <FormDescription>Use the name the place should call for this order.</FormDescription>
@@ -491,7 +683,7 @@ function CheckoutForm({
                             setSubmissionError(undefined);
                             field.handleChange(event.target.value);
                           }}
-                          disabled={mutation.isPending || uncertain}
+                          disabled={mutation.isPending || uncertain || blocked}
                           className='min-h-28 w-full resize-y rounded-md border border-input bg-form px-3 py-3 text-sm text-form-foreground shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 disabled:cursor-not-allowed disabled:bg-surface-disabled disabled:text-disabled-foreground'
                           placeholder='Add preparation or pickup information for the place'
                         />

@@ -15,17 +15,32 @@ import { AuthContext, type AuthContextType } from '@/utils/context/auth-context'
 import { PlatformRole } from '@/types/enums/user-role.enum';
 
 import { ordersService } from '../../services/orders.service';
-import type { CheckoutOrder } from '../../types/order.type';
+import type { CheckoutOrder, OrderSummary } from '../../types/order.type';
+import {
+  CHECKOUT_ATTEMPT_STATE,
+  createOrReuseCheckoutAttempt,
+  transitionCheckoutAttempt,
+} from '../../utils/checkout-attempt';
 import { CheckoutPage } from '../checkout-page';
 
+const navigate = vi.hoisted(() => vi.fn());
+
 vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => navigate,
   Link: ({
     children,
     to,
     ...props
-  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { to: string; params?: unknown }) => {
-    const { params, ...anchorProps } = props;
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+    to: string;
+    params?: unknown;
+    search?: unknown;
+    replace?: boolean;
+  }) => {
+    const { params, search, replace, ...anchorProps } = props;
     void params;
+    void search;
+    void replace;
     return (
       <a href={to} {...anchorProps}>
         {children}
@@ -91,6 +106,21 @@ const order: CheckoutOrder = {
   statusUpdatedAt: '2026-09-29T00:00:00.000Z',
   expiresAt: '2026-09-29T00:15:00.000Z',
 };
+const recentOrder: OrderSummary = {
+  orderId: order.orderId,
+  orderCode: order.orderCode,
+  source: 'CUSTOMER',
+  place: { placeId, name: place.name },
+  status: 'PENDING',
+  fulfillmentType: 'TAKEAWAY',
+  customerName: order.customerName,
+  diningTableName: null,
+  subtotal: order.subtotal,
+  createdAt: order.createdAt,
+  statusUpdatedAt: order.statusUpdatedAt,
+  expiresAt: order.expiresAt,
+  createdBy: null,
+};
 const auth = {
   isAuthenticated: true,
   isInitialLoading: false,
@@ -123,9 +153,15 @@ const renderCheckout = () => {
 };
 
 beforeEach(() => {
+  sessionStorage.clear();
+  navigate.mockReset();
   vi.spyOn(placesService, 'getPublic').mockResolvedValue(place);
   vi.spyOn(cartService, 'get').mockResolvedValue(cart);
-  vi.stubGlobal('crypto', { randomUUID: vi.fn(() => 'checkout-attempt-1') });
+  const subtle = globalThis.crypto.subtle;
+  vi.stubGlobal('crypto', {
+    subtle,
+    randomUUID: vi.fn(() => '123e4567-e89b-42d3-a456-426614174003'),
+  });
 });
 
 afterEach(() => {
@@ -147,7 +183,7 @@ describe('customer checkout page', () => {
     expect(screen.getByText(/does not provide an authoritative subtotal/i)).toBeTruthy();
   });
 
-  it('submits the exact TAKEAWAY payload once and renders confirmed success', async () => {
+  it('submits the exact TAKEAWAY payload once and navigates to authoritative success detail', async () => {
     let resolveCheckout: (value: CheckoutOrder) => void = () => undefined;
     const checkout = vi.spyOn(ordersService, 'checkout').mockImplementation(
       () =>
@@ -169,32 +205,105 @@ describe('customer checkout page', () => {
         customerName: 'Dian Erdiana',
         customerNote: null,
       },
-      'checkout-attempt-1',
+      'checkout:123e4567-e89b-42d3-a456-426614174003',
     );
 
     resolveCheckout(order);
-    expect(await screen.findByText('TNG-20260929-ABCDEFGH')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'View order' })).toBeTruthy();
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith({
+        to: '/orders/$orderId',
+        params: { orderId: order.orderId },
+        search: { placed: true, place: place.slug },
+        replace: true,
+      }),
+    );
+    expect(sessionStorage.length).toBe(0);
   });
 
-  it('retains safe inputs and blocks blind resubmission after an uncertain outcome', async () => {
-    vi.spyOn(ordersService, 'checkout').mockRejectedValue({
-      error: true,
-      message: 'Socket closed',
-      code: 'NETWORK_ERROR',
-      isNetworkError: true,
+  it('retains inputs, requires history recovery, and retries deliberately with the same key', async () => {
+    const checkout = vi
+      .spyOn(ordersService, 'checkout')
+      .mockRejectedValueOnce({
+        error: true,
+        message: 'Socket closed',
+        code: 'NETWORK_ERROR',
+        isNetworkError: true,
+      })
+      .mockResolvedValueOnce(order);
+    vi.spyOn(ordersService, 'list').mockResolvedValue({
+      orders: [recentOrder],
+      meta: { page: 1, limit: 5, totalItems: 1, totalPages: 1 },
     });
     renderCheckout();
     const note = (await screen.findByLabelText('Order note (optional)')) as HTMLTextAreaElement;
     await userEvent.type(note, 'Please pack separately');
     fireEvent.submit(note.closest('form')!);
 
-    expect(await screen.findByText('Order status is uncertain')).toBeTruthy();
+    expect(await screen.findByText('Check whether your order was received')).toBeTruthy();
     expect(note.value).toBe('Please pack separately');
-    expect(screen.getByRole('link', { name: 'Check My orders' })).toBeTruthy();
+    const retry = screen.getByRole('button', { name: 'Retry the same order details' }) as HTMLButtonElement;
+    expect(retry.disabled).toBe(true);
     screen
       .getAllByRole('button', { name: 'Place takeaway order' })
       .forEach((button) => expect((button as HTMLButtonElement).disabled).toBe(true));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Check recent orders' }));
+    expect(await screen.findByText(order.orderCode)).toBeTruthy();
+    expect(screen.getByText(/possible matches only/i)).toBeTruthy();
+    expect(retry.disabled).toBe(false);
+
+    await userEvent.click(retry);
+    await waitFor(() => expect(checkout).toHaveBeenCalledTimes(2));
+    expect(checkout.mock.calls[1]?.[1]).toBe(checkout.mock.calls[0]?.[1]);
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
+  });
+
+  it('restores an interrupted request even when the authoritative cart is now empty', async () => {
+    const created = await createOrReuseCheckoutAttempt({
+      userId: auth.user.userId,
+      input: {
+        placeId,
+        fulfillmentType: 'TAKEAWAY',
+        customerName: 'Restored customer',
+        customerNote: 'Restored note',
+      },
+    });
+    transitionCheckoutAttempt(created.attempt, CHECKOUT_ATTEMPT_STATE.SUBMITTING);
+    vi.mocked(cartService.get).mockResolvedValueOnce({
+      ...cart,
+      cartId: null,
+      distinctItemCount: 0,
+      aggregateQuantity: 0,
+      items: [],
+    });
+
+    renderCheckout();
+
+    expect(await screen.findByText('Check whether your order was received')).toBeTruthy();
+    await waitFor(() =>
+      expect((screen.getByLabelText('Customer name') as HTMLInputElement).value).toBe('Restored customer'),
+    );
+    expect((screen.getByLabelText('Order note (optional)') as HTMLTextAreaElement).value).toBe('Restored note');
+    expect(screen.queryByText('Your cart is empty')).toBeNull();
+  });
+
+  it('blocks a reused request key until the customer explicitly starts again', async () => {
+    vi.spyOn(ordersService, 'checkout').mockRejectedValue({
+      error: true,
+      message: 'Request key was already used for different details',
+      code: 'IDEMPOTENCY_KEY_REUSED',
+      httpStatus: 409,
+      isNetworkError: false,
+    });
+    renderCheckout();
+    const name = (await screen.findByLabelText('Customer name')) as HTMLInputElement;
+    fireEvent.submit(name.closest('form')!);
+
+    expect(await screen.findByText('Start a new checkout attempt')).toBeTruthy();
+    expect(name.disabled).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Start a new attempt' }));
+    await waitFor(() => expect(name.disabled).toBe(false));
+    expect(screen.queryByText('Start a new checkout attempt')).toBeNull();
   });
 
   it('associates validation feedback and focuses the first invalid field', async () => {
