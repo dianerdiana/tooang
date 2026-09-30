@@ -38,3 +38,5 @@ export const orderDetailQueryOptions = (scope: OrderDetailScope, orderId: string
 
 export const placeOrderDetailQueryOptions = (placeId: string, orderId: string | null) =>
   orderDetailQueryOptions({ kind: 'place', placeId }, orderId);
+
+export const ownOrderDetailQueryOptions = (orderId: string | null) => orderDetailQueryOptions({ kind: 'own' }, orderId);

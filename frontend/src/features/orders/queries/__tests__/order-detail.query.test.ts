@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { orderDetailKeys, orderDetailQueryKey, placeOrderDetailQueryOptions } from '../order-detail.query';
+import {
+  orderDetailKeys,
+  orderDetailQueryKey,
+  ownOrderDetailQueryOptions,
+  placeOrderDetailQueryOptions,
+} from '../order-detail.query';
 import { placeOrderListKey, platformOrderListKey } from '../order-transition.mutation';
 
 describe('operational order detail query keys', () => {
@@ -27,6 +32,10 @@ describe('operational order detail query keys', () => {
     expect(orderDetailQueryKey({ kind: 'platform' }, 'order-1')).not.toEqual(
       orderDetailQueryKey({ kind: 'place', placeId: 'place-a' }, 'order-1'),
     );
+  });
+
+  it('provides an isolated own-order detail query', () => {
+    expect(ownOrderDetailQueryOptions('order-1').queryKey).toEqual(['orders', 'detail', 'own', 'order-1']);
   });
 
   it('targets every list variant for one place when refreshing', () => {

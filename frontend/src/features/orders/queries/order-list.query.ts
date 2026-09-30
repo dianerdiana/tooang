@@ -10,7 +10,7 @@ const normalizedParams = (scope: OrderListScope | null, params: OrderListParams)
   limit: params.limit ?? 20,
   ...(params.status ? { status: params.status } : {}),
   ...(params.fulfillmentType ? { fulfillmentType: params.fulfillmentType } : {}),
-  ...(scope?.kind === 'platform' && params.placeId ? { placeId: params.placeId } : {}),
+  ...(scope?.kind !== 'place' && params.placeId ? { placeId: params.placeId } : {}),
 });
 
 export const orderListQueryKey = (scope: OrderListScope | null, params: OrderListParams) =>
@@ -34,3 +34,5 @@ export const orderListQueryOptions = (scope: OrderListScope | null, params: Orde
     refetchInterval: ORDER_REFRESH_INTERVAL,
     refetchOnWindowFocus: true,
   });
+
+export const ownOrderListQueryOptions = (params: OrderListParams) => orderListQueryOptions({ kind: 'own' }, params);

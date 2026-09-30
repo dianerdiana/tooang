@@ -11,6 +11,7 @@ import { isApplicationError } from '@/utils/api-error.util';
 import { checkoutInputSchema, idempotencyKeySchema } from '../schemas/checkout.schema';
 import { ordersService } from '../services/orders.service';
 import type { CheckoutMutationVariables, CheckoutOrder } from '../types/order.type';
+import { fingerprintCheckoutInput } from '../utils/checkout-attempt';
 
 import { orderDetailKeys } from './order-detail.query';
 import { ownOrderListKey } from './order-transition.mutation';
@@ -72,17 +73,29 @@ type CheckoutRequest = (variables: CheckoutMutationVariables) => Promise<Checkou
 export const createCheckoutRequestGate = (request: CheckoutRequest): CheckoutRequest => {
   const inFlight = new Map<string, Promise<CheckoutOrder>>();
 
-  return (variables) => {
+  return async (variables) => {
     const input = checkoutInputSchema.parse(variables.input);
-    const idempotencyKey = idempotencyKeySchema.parse(variables.idempotencyKey);
-    const fingerprint = `${idempotencyKey}:${JSON.stringify(input)}`;
-    const pending = inFlight.get(fingerprint);
+    const idempotencyKey = idempotencyKeySchema.parse(variables.attempt.idempotencyKey);
+    const actualFingerprint = await fingerprintCheckoutInput(input);
+    if (actualFingerprint !== variables.attempt.fingerprint) {
+      throw {
+        error: true,
+        message: 'Checkout attempt does not match the validated request',
+        code: 'CHECKOUT_ATTEMPT_MISMATCH',
+        isNetworkError: false,
+      };
+    }
+    const requestIdentity = `${idempotencyKey}:${actualFingerprint}`;
+    const pending = inFlight.get(requestIdentity);
     if (pending) return pending;
 
-    const promise = request({ input, idempotencyKey }).finally(() => {
-      if (inFlight.get(fingerprint) === promise) inFlight.delete(fingerprint);
+    const promise = request({
+      input,
+      attempt: { idempotencyKey, fingerprint: actualFingerprint },
+    }).finally(() => {
+      if (inFlight.get(requestIdentity) === promise) inFlight.delete(requestIdentity);
     });
-    inFlight.set(fingerprint, promise);
+    inFlight.set(requestIdentity, promise);
     return promise;
   };
 };
@@ -90,8 +103,8 @@ export const createCheckoutRequestGate = (request: CheckoutRequest): CheckoutReq
 export const useCheckoutMutation = (placeId: string, placeSlug: string) => {
   const client = useQueryClient();
   const requestRef = useRef<CheckoutRequest | null>(null);
-  requestRef.current ??= createCheckoutRequestGate(({ input, idempotencyKey }) =>
-    ordersService.checkout(input, idempotencyKey),
+  requestRef.current ??= createCheckoutRequestGate(({ input, attempt }) =>
+    ordersService.checkout(input, attempt.idempotencyKey),
   );
 
   return useMutation({

@@ -5,6 +5,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { cartKeys } from '@/features/cart/queries/cart.query';
 import { placesKeys } from '@/features/places/queries/places.key';
 
+import { fingerprintCheckoutInput } from '../../utils/checkout-attempt';
 import {
   applyCheckoutSuccess,
   createCheckoutRequestGate,
@@ -45,14 +46,17 @@ describe('checkout mutation lifecycle', () => {
       )
       .mockResolvedValueOnce(order);
     const gated = createCheckoutRequestGate(request);
-    const first = gated({ input, idempotencyKey: 'attempt-1' });
-    const duplicate = gated({ input: { ...input }, idempotencyKey: 'attempt-1' });
-    const changed = gated({ input: { ...input, customerName: 'Budi' }, idempotencyKey: 'attempt-1' });
+    const fingerprint = await fingerprintCheckoutInput(input);
+    const attempt = { idempotencyKey: 'attempt-1', fingerprint };
+    const first = gated({ input, attempt });
+    const duplicate = gated({ input: { ...input }, attempt });
+    const changed = gated({ input: { ...input, customerName: 'Budi' }, attempt });
 
-    expect(first).toBe(duplicate);
-    expect(request).toHaveBeenCalledTimes(2);
+    await expect(changed).rejects.toMatchObject({ code: 'CHECKOUT_ATTEMPT_MISMATCH' });
+    expect(request).toHaveBeenCalledTimes(1);
     resolveRequest(order);
-    await Promise.all([first, changed]);
+    await Promise.all([first, duplicate]);
+    expect(request).toHaveBeenCalledTimes(1);
   });
 
   it('empties only the confirmed cart and refreshes own order caches', async () => {
