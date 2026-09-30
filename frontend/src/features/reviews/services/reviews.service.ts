@@ -6,26 +6,47 @@ import { unwrapApiResponse, unwrapPaginatedApiResponse } from '@/utils/api-respo
 import type { ApiPaginatedResponse, ApiResponse } from '@/types/api-response.type';
 
 import {
+  createReviewSchema,
   normalizePublicPlaceReviewListParams,
   normalizePublicReviewPlaceId,
   normalizeReviewModerationParams,
 } from '../schemas/reviews.schema';
 import type {
+  CreateReviewInput,
   MenuItemModerationReview,
+  MenuItemReviewCreateResponse,
   ModeratedReview,
   OwnMenuItemReview,
   OwnPlaceReview,
   PlaceModerationReview,
+  PlaceReviewCreateResponse,
   PublicMenuItemReviewListResult,
   PublicPlaceReview,
   PublicPlaceReviewListParams,
   PublicPlaceReviewListResult,
   PublicReviewPaginationMeta,
   PublicReviewSummary,
+  ReviewCreateOutcome,
   ReviewModerationListParams,
   ReviewModerationListResult,
   ReviewUpdateInput,
 } from '../types/reviews.type';
+
+const createReview = async <TResponse extends { review: PublicPlaceReview }>(
+  endpoint: string,
+  input: CreateReviewInput,
+): Promise<ReviewCreateOutcome<TResponse['review']>> => {
+  try {
+    const normalizedInput = createReviewSchema.parse(input);
+    const response = await api.post<CreateReviewInput, ApiResponse<TResponse>>(endpoint, normalizedInput);
+    return {
+      review: unwrapApiResponse(response.data).review,
+      outcome: response.status === 200 ? 'restored' : 'created',
+    };
+  } catch (error) {
+    throw toApiError(error);
+  }
+};
 
 const list = async <TReview>(endpoint: string, params: ReviewModerationListParams) => {
   try {
@@ -49,6 +70,20 @@ const moderate = async (endpoint: string): Promise<ModeratedReview> => {
 };
 
 export const reviewsService = {
+  createPlaceReview(placeId: string, input: CreateReviewInput) {
+    return createReview<PlaceReviewCreateResponse>(
+      `/places/${encodeURIComponent(normalizePublicReviewPlaceId(placeId))}/reviews`,
+      input,
+    );
+  },
+
+  createMenuItemReview(placeId: string, menuItemId: string, input: CreateReviewInput) {
+    return createReview<MenuItemReviewCreateResponse>(
+      `/places/${encodeURIComponent(normalizePublicReviewPlaceId(placeId))}/menu-items/${encodeURIComponent(normalizePublicReviewPlaceId(menuItemId))}/reviews`,
+      input,
+    );
+  },
+
   async listPublicMenuItemReviews(
     placeId: string,
     menuItemId: string,

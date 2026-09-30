@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const apiMock = vi.hoisted(() => ({ get: vi.fn(), delete: vi.fn(), patch: vi.fn() }));
+const apiMock = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), delete: vi.fn(), patch: vi.fn() }));
 vi.mock('@/configs/api-config', () => ({ api: apiMock }));
 
 import { reviewsService } from '../reviews.service';
@@ -115,6 +115,52 @@ describe('reviewsService public place reviews', () => {
     await expect(reviewsService.listPublicPlaceReviews(placeId, {})).rejects.toMatchObject({
       message: 'Place unavailable',
       code: 'NOT_FOUND',
+      isNetworkError: false,
+    });
+  });
+});
+
+describe('reviewsService review creation', () => {
+  const placeId = '5D2B73E0-84F0-4F8C-A3E8-733E7B8312AE';
+  const itemId = '8F95E179-A74F-46E0-AEA8-E796A297C667';
+  const input = { orderId: '123e4567-e89b-42d3-a456-426614174000', rating: 5, comment: 'Excellent' };
+  const review = {
+    reviewId: 'review-1',
+    rating: 5,
+    comment: 'Excellent',
+    reviewer: { userId: 'user-1', fullName: 'Ayu' },
+    createdAt: '2026-09-30T00:00:00.000Z',
+    updatedAt: '2026-09-30T00:00:00.000Z',
+  };
+
+  beforeEach(() => apiMock.post.mockReset());
+
+  it('posts exact place and item targets and distinguishes create from restore status', async () => {
+    apiMock.post
+      .mockResolvedValueOnce({ status: 201, data: { error: false, message: 'Created', data: { review } } })
+      .mockResolvedValueOnce({ status: 200, data: { error: false, message: 'Restored', data: { review } } });
+
+    await expect(reviewsService.createPlaceReview(placeId, input)).resolves.toEqual({ review, outcome: 'created' });
+    await expect(reviewsService.createMenuItemReview(placeId, itemId, input)).resolves.toEqual({
+      review,
+      outcome: 'restored',
+    });
+    expect(apiMock.post).toHaveBeenNthCalledWith(1, '/places/5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae/reviews', input);
+    expect(apiMock.post).toHaveBeenNthCalledWith(
+      2,
+      '/places/5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae/menu-items/8f95e179-a74f-46e0-aea8-e796a297c667/reviews',
+      input,
+    );
+  });
+
+  it('normalizes create errors', async () => {
+    apiMock.post.mockRejectedValueOnce({
+      error: true,
+      message: 'Already exists',
+      code: 'REVIEW_ALREADY_EXISTS',
+    });
+    await expect(reviewsService.createPlaceReview(placeId, input)).rejects.toMatchObject({
+      code: 'REVIEW_ALREADY_EXISTS',
       isNetworkError: false,
     });
   });
