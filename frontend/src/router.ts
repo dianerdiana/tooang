@@ -30,6 +30,7 @@ const defaultRouterContext: RouterContext = {
 export const router = createRouter({
   routeTree,
   context: defaultRouterContext,
+  scrollRestoration: true,
 });
 
 declare module '@tanstack/react-router' {

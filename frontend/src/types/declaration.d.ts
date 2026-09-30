@@ -17,3 +17,8 @@ declare module '@tanstack/react-query' {
     defaultError: ApplicationError;
   }
 }
+declare module '@tanstack/history' {
+  interface HistoryState {
+    fromCustomerOrders?: boolean;
+  }
+}
