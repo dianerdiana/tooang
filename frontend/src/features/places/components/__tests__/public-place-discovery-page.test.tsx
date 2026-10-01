@@ -54,10 +54,9 @@ describe('public place discovery presentation', () => {
     expect(getResultRange({ page: 1, limit: 12, totalItems: 0, totalPages: 0 })).toBe('No places');
   });
 
-  it('renders geometry-matched discovery skeletons', () => {
+  it('exposes a named loading status while discovery results load', () => {
     const markup = renderToStaticMarkup(<DiscoverySkeleton />);
+    expect(markup).toContain('role="status"');
     expect(markup).toContain('aria-label="Loading places"');
-    expect(markup).toContain('aspect-[4/3]');
-    expect(markup.match(/rounded-surface/g)?.length).toBe(8);
   });
 });

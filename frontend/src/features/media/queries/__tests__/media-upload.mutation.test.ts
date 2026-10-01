@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ create: vi.fn(), upload: vi.fn(), complete: vi.fn() }));
-vi.mock('../services/media.service', () => ({
+vi.mock('../../services/media.service', () => ({
   mediaService: { createUploadIntent: mocks.create, completeUploadIntent: mocks.complete },
 }));
-vi.mock('../integrations/imagekit-upload', () => ({ uploadToImageKit: mocks.upload }));
+vi.mock('../../integrations/imagekit-upload', () => ({ uploadToImageKit: mocks.upload }));
 
 import { MEDIA_TARGET, type MediaUploadAuthorization } from '../../types/media.type';
 import { executeMediaUpload } from '../media-upload.mutation';
