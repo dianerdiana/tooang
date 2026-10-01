@@ -151,6 +151,12 @@ Test Vitest berfokus pada behavior dan mencakup:
 - shared loading/error/empty states dan dashboard route recovery;
 - schema, service contract, mapper, dan API error normalization.
 
+Vitest tetap memakai environment `node` secara default. Gunakan test Node untuk schema, mapper, service contract, query key, dan static rendering yang tidak memerlukan browser. Test yang berinteraksi dengan focus, keyboard, form, router, sheet/dialog, storage, atau live region harus diawali `// @vitest-environment jsdom` dan dirender melalui `src/test/customer-test-utils.tsx`.
+
+Harness DOM memasang Theme, Query, Auth, Ability, dan memory Router dengan urutan yang sama seperti aplikasi. Setiap test wajib memberikan sesi, theme, dan initial route secara eksplisit; fixture domain juga harus mengisi seluruh field kontrak tanpa default tersembunyi. Mock service feature dengan helper di `src/test/mock-boundaries.ts`; request yang lolos ke shared API client akan gagal segera agar test tidak pernah memakai jaringan nyata. Assertion interaksi harus memakai accessible role, name, state, focus, dan hasil yang terlihat, bukan class CSS atau state internal component.
+
+Setup bersama membersihkan DOM, query cache, storage, timer, dan mock setelah setiap test. Fake timer harus diaktifkan hanya di test yang memerlukannya; harness menghubungkan `userEvent` ke timer tersebut dan selalu mengembalikan timer nyata saat cleanup.
+
 Quality gates sebelum merge:
 
 ```powershell
