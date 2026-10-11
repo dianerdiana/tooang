@@ -28,7 +28,7 @@ describe('cartService', () => {
 
     await expect(cartService.get(placeId.toUpperCase())).resolves.toEqual(emptyCart);
     await cartService.add(placeId, { menuItemId, quantity: 2, note: '  Mild  ' });
-    await cartService.update(placeId, menuItemId, { quantity: 0 });
+    await expect(cartService.update(placeId, menuItemId, { quantity: 0 })).resolves.toEqual(emptyCart);
     await cartService.remove(placeId, menuItemId);
 
     expect(apiMock.get).toHaveBeenCalledWith(`/me/carts/${placeId}`);
