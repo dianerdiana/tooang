@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useQuery } from '@tanstack/react-query';
@@ -111,5 +113,44 @@ describe('menu item cart controls', () => {
     expect(screen.getByText('2')).toBeTruthy();
     expect(client.getQueryState(cartKeys.place(placeId))?.isInvalidated).toBe(true);
   });
+
+  it('uses complete server carts for increment and decrement without contaminating another place', async () => {
+    const otherPlaceId = '42219512-b86b-4b05-8816-f8ee7f52fc65';
+    const otherCart: Cart = {
+      ...emptyCart,
+      placeId: otherPlaceId,
+    };
+    const update = vi
+      .spyOn(cartService, 'update')
+      .mockResolvedValueOnce(cartWithQuantity(3))
+      .mockResolvedValueOnce(cartWithQuantity(2));
+    const client = renderHarness(cartWithQuantity(2));
+    client.setQueryData(cartKeys.place(otherPlaceId), otherCart);
+
+    await userEvent.click(screen.getByRole('button', { name: /increase iced tea quantity/i }));
+    await waitFor(() => expect(screen.getByText('3')).toBeVisible());
+    expect(update).toHaveBeenNthCalledWith(1, placeId, menuItemId, { quantity: 3 });
+
+    await userEvent.click(screen.getByRole('button', { name: /decrease iced tea quantity/i }));
+    await waitFor(() => expect(screen.getByText('2')).toBeVisible());
+    expect(update).toHaveBeenNthCalledWith(2, placeId, menuItemId, { quantity: 2 });
+    expect(client.getQueryData(cartKeys.place(otherPlaceId))).toEqual(otherCart);
+  });
+
+  it('keeps the confirmed empty cart and exposes an unavailable-item failure', async () => {
+    vi.spyOn(cartService, 'add').mockRejectedValueOnce({
+      error: true,
+      message: 'Menu item is unavailable',
+      code: 'MENU_ITEM_UNAVAILABLE',
+      httpStatus: 409,
+      isNetworkError: false,
+    });
+    const client = renderHarness(emptyCart);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add to cart' }));
+
+    expect(await screen.findByText('Item unavailable')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Add to cart' })).toBeEnabled();
+    expect(client.getQueryData(cartKeys.place(placeId))).toEqual(emptyCart);
+  });
 });
-// @vitest-environment jsdom
