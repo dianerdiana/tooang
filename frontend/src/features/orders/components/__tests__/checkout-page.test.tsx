@@ -6,8 +6,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import { cartKeys } from '@/features/cart/queries/cart.query';
 import { cartService } from '@/features/cart/services/cart.service';
 import type { Cart } from '@/features/cart/types/cart.type';
+import { diningTablesService } from '@/features/dining-tables/services/dining-tables.service';
 import { placesService } from '@/features/places/services/places.service';
 
 import { AuthContext, type AuthContextType } from '@/utils/context/auth-context';
@@ -50,6 +52,7 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 const placeId = '5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae';
+const otherPlaceId = '42219512-b86b-4b05-8816-f8ee7f52fc65';
 const menuItemId = '123e4567-e89b-42d3-a456-426614174000';
 const place = {
   id: placeId,
@@ -90,6 +93,18 @@ const cart: Cart = {
     },
   ],
   removedItems: [],
+};
+const emptyCart: Cart = {
+  cartId: null,
+  placeId,
+  distinctItemCount: 0,
+  aggregateQuantity: 0,
+  items: [],
+  removedItems: [],
+};
+const otherCart: Cart = {
+  ...emptyCart,
+  placeId: otherPlaceId,
 };
 const order: CheckoutOrder = {
   orderId: 'f9f78164-06bf-46e0-9574-dc1a2db937ef',
@@ -172,6 +187,7 @@ afterEach(() => {
 
 describe('customer checkout page', () => {
   it('renders the current review and a visibly gated DINE_IN option without fetching management tables', async () => {
+    const listTables = vi.spyOn(diningTablesService, 'list').mockResolvedValue([]);
     renderCheckout();
 
     expect(await screen.findByRole('heading', { name: 'Warung Kita' })).toBeTruthy();
@@ -181,6 +197,8 @@ describe('customer checkout page', () => {
     expect((screen.getByRole('radio', { name: /^Dine in/ }) as HTMLInputElement).disabled).toBe(true);
     expect(screen.getByText('Table selection is not available for customer checkout yet.')).toBeTruthy();
     expect(screen.getByText(/does not provide an authoritative subtotal/i)).toBeTruthy();
+    expect(screen.getByLabelText('Checkout submission')).toBeTruthy();
+    expect(listTables).not.toHaveBeenCalled();
   });
 
   it('submits the exact TAKEAWAY payload once and navigates to authoritative success detail', async () => {
@@ -191,13 +209,19 @@ describe('customer checkout page', () => {
           resolveCheckout = resolve;
         }),
     );
-    renderCheckout();
+    vi.mocked(cartService.get).mockResolvedValueOnce(cart).mockResolvedValueOnce(emptyCart);
+    const client = renderCheckout();
+    client.setQueryData(cartKeys.place(otherPlaceId), otherCart);
     await screen.findByRole('heading', { name: 'Warung Kita' });
     const form = screen.getAllByRole('button', { name: 'Place takeaway order' })[0].closest('form')!;
 
     fireEvent.submit(form);
     fireEvent.submit(form);
     await waitFor(() => expect(checkout).toHaveBeenCalledTimes(1));
+    expect(form.getAttribute('aria-busy')).toBe('true');
+    screen
+      .getAllByRole('button', { name: /Placing order/ })
+      .forEach((button) => expect((button as HTMLButtonElement).disabled).toBe(true));
     expect(checkout).toHaveBeenCalledWith(
       {
         placeId,
@@ -217,6 +241,8 @@ describe('customer checkout page', () => {
         replace: true,
       }),
     );
+    await waitFor(() => expect(client.getQueryData(cartKeys.place(placeId))).toEqual(emptyCart));
+    expect(client.getQueryData(cartKeys.place(otherPlaceId))).toEqual(otherCart);
     expect(sessionStorage.length).toBe(0);
   });
 
@@ -243,9 +269,11 @@ describe('customer checkout page', () => {
     expect(note.value).toBe('Please pack separately');
     const retry = screen.getByRole('button', { name: 'Retry the same order details' }) as HTMLButtonElement;
     expect(retry.disabled).toBe(true);
-    screen
-      .getAllByRole('button', { name: 'Place takeaway order' })
-      .forEach((button) => expect((button as HTMLButtonElement).disabled).toBe(true));
+    await waitFor(() => {
+      screen
+        .getAllByRole('button', { name: 'Place takeaway order' })
+        .forEach((button) => expect((button as HTMLButtonElement).disabled).toBe(true));
+    });
 
     await userEvent.click(screen.getByRole('button', { name: 'Check recent orders' }));
     expect(await screen.findByText(order.orderCode)).toBeTruthy();
@@ -287,14 +315,20 @@ describe('customer checkout page', () => {
     expect(screen.queryByText('Your cart is empty')).toBeNull();
   });
 
-  it('blocks a reused request key until the customer explicitly starts again', async () => {
-    vi.spyOn(ordersService, 'checkout').mockRejectedValue({
-      error: true,
-      message: 'Request key was already used for different details',
-      code: 'IDEMPOTENCY_KEY_REUSED',
-      httpStatus: 409,
-      isNetworkError: false,
-    });
+  it('blocks a reused request key until the customer explicitly starts again with a fresh key', async () => {
+    const firstKeyId = '123e4567-e89b-42d3-a456-426614174003';
+    const replacementKeyId = '123e4567-e89b-42d3-a456-426614174004';
+    vi.mocked(globalThis.crypto.randomUUID).mockReturnValueOnce(firstKeyId).mockReturnValueOnce(replacementKeyId);
+    const checkout = vi
+      .spyOn(ordersService, 'checkout')
+      .mockRejectedValueOnce({
+        error: true,
+        message: 'Request key was already used for different details',
+        code: 'IDEMPOTENCY_KEY_REUSED',
+        httpStatus: 409,
+        isNetworkError: false,
+      })
+      .mockResolvedValueOnce(order);
     renderCheckout();
     const name = (await screen.findByLabelText('Customer name')) as HTMLInputElement;
     fireEvent.submit(name.closest('form')!);
@@ -304,6 +338,45 @@ describe('customer checkout page', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Start a new attempt' }));
     await waitFor(() => expect(name.disabled).toBe(false));
     expect(screen.queryByText('Start a new checkout attempt')).toBeNull();
+
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Budi');
+    fireEvent.submit(name.closest('form')!);
+
+    await waitFor(() => expect(checkout).toHaveBeenCalledTimes(2));
+    expect(checkout.mock.calls[0]?.[1]).toBe(`checkout:${firstKeyId}`);
+    expect(checkout.mock.calls[1]).toEqual([
+      {
+        placeId,
+        fulfillmentType: 'TAKEAWAY',
+        customerName: 'Budi',
+        customerNote: null,
+      },
+      `checkout:${replacementKeyId}`,
+    ]);
+    await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
+  });
+
+  it.each([
+    ['PLACE_CLOSED', 'This place is closed'],
+    ['CART_EMPTY', 'Cart is empty'],
+    ['CHECKOUT_CONCURRENT_MODIFICATION', 'Cart changed during checkout'],
+  ])('surfaces the stable %s conflict and keeps the form recoverable', async (code, title) => {
+    vi.spyOn(ordersService, 'checkout').mockRejectedValue({
+      error: true,
+      message: 'Internal conflict detail',
+      code,
+      httpStatus: 409,
+      isNetworkError: false,
+    });
+    renderCheckout();
+    const name = await screen.findByLabelText('Customer name');
+
+    fireEvent.submit(name.closest('form')!);
+
+    expect(await screen.findByText(title)).toBeVisible();
+    expect(name).toBeEnabled();
+    expect(screen.queryByText('Internal conflict detail')).toBeNull();
   });
 
   it('associates validation feedback and focuses the first invalid field', async () => {
