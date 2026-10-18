@@ -69,7 +69,7 @@ export function createTestQueryClient() {
 }
 
 function createComponentRouteTree(component: ReactElement, routePath = '/') {
-  const rootRoute = createRootRouteWithContext<RouterContext>()({ component: Outlet });
+  const rootRoute = createRootRouteWithContext<RouterContext>()({ component: Outlet, notFoundComponent: () => null });
   const testRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: routePath,
