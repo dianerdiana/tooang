@@ -63,5 +63,8 @@ describe('public menu item cart draft recovery', () => {
     );
     expect(screen.getByRole('button', { name: 'Add 2 to cart' })).toBeTruthy();
     expect(add).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /^Review / })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Submit review' })).toBeNull();
+    expect(screen.getByRole('dialog').querySelector('form')).toBeNull();
   });
 });
