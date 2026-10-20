@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { reviewsService } from '@/features/reviews/services/reviews.service';
@@ -123,6 +123,8 @@ describe('customer order detail page', () => {
     expect(await screen.findByText(order.orderCode)).toBeTruthy();
     expect(screen.queryByText('Order received')).toBeNull();
     expect(screen.getByText('Your order')).toBeTruthy();
+    expect(screen.queryByText('Review this order')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Review / })).toBeNull();
   });
 
   it('uses history when returning to a marked customer order list', async () => {
@@ -156,6 +158,37 @@ describe('customer order detail page', () => {
     expect(screen.queryByRole('button', { name: 'Cancel order' })).toBeNull();
   });
 
+  it('omits a blank optional cancellation reason and blocks duplicate confirmation', async () => {
+    const cancelled = {
+      ...order,
+      status: 'CANCELLED' as const,
+      cancelledAt: '2026-09-29T05:05:00.000Z',
+    };
+    let resolveCancellation!: (value: OrderDetail) => void;
+    vi.spyOn(ordersService, 'getOwn').mockResolvedValueOnce(order).mockResolvedValue(cancelled);
+    const transition = vi.spyOn(ordersService, 'transitionOwn').mockReturnValue(
+      new Promise((resolve) => {
+        resolveCancellation = resolve;
+      }),
+    );
+    renderPage(false);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel order' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await userEvent.type(within(dialog).getByLabelText('Reason (optional)'), '   ');
+    const confirm = within(dialog).getByRole('button', { name: 'Cancel order' });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(transition).toHaveBeenCalledOnce());
+    expect(transition).toHaveBeenCalledWith(order.orderId, undefined);
+    expect(within(dialog).getByRole('button', { name: /Cancelling/ })).toBeDisabled();
+
+    resolveCancellation(cancelled);
+    expect(await screen.findByLabelText('Order status: Cancelled')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Cancel order' })).toBeNull();
+  });
+
   it('hides cancellation and refreshes when a displayed pending order is already expired', async () => {
     const expiredPending = { ...order, expiresAt: '2020-09-29T05:15:00.000Z' };
     const getOwn = vi.spyOn(ordersService, 'getOwn').mockResolvedValue(expiredPending);
@@ -185,6 +218,27 @@ describe('customer order detail page', () => {
     expect(await screen.findByText('Order status changed')).toBeTruthy();
     expect(await screen.findByLabelText('Order status: Ready')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Cancel order' })).toBeNull();
+  });
+
+  it('replaces an expired cancellation conflict with the authoritative expired order', async () => {
+    const expired = { ...order, status: 'EXPIRED' as const, statusUpdatedAt: order.expiresAt };
+    vi.spyOn(ordersService, 'getOwn').mockResolvedValueOnce(order).mockResolvedValue(expired);
+    vi.spyOn(ordersService, 'transitionOwn').mockRejectedValue({
+      error: true,
+      message: 'Internal expiry detail',
+      code: 'ORDER_PENDING_EXPIRED',
+      httpStatus: 409,
+      isNetworkError: false,
+    });
+    renderPage(false);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel order' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel order' }));
+
+    expect(await screen.findByLabelText('Order status: Expired')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Cancel order' })).toBeNull();
+    expect(screen.queryByText('Internal expiry detail')).toBeNull();
   });
 
   it('offers sign-in recovery when the session expires during cancellation', async () => {
@@ -239,13 +293,51 @@ describe('customer order detail page', () => {
       ...order,
       status: 'COMPLETED',
       completedAt: '2026-09-29T05:30:00.000Z',
+      items: [
+        order.items[0],
+        {
+          ...order.items[0],
+          menuItemId: '123e4567-e89b-42d3-a456-426614174004',
+          itemName: 'Iced Tea Snapshot',
+          itemType: 'DRINK',
+        },
+      ],
     });
     renderPage(false);
 
     expect(await screen.findByText('Review this order')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Review Warung Kita' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Review Nasi Goreng Snapshot' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Review Iced Tea Snapshot' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Cancel order' })).toBeNull();
+  });
+
+  it('focuses the rating when a review is submitted without a selection', async () => {
+    vi.spyOn(reviewsService, 'listOwnPlaceReviews').mockResolvedValue({
+      reviews: [],
+      meta: { page: 1, limit: 100, totalItems: 0, totalPages: 0 },
+    });
+    vi.spyOn(reviewsService, 'listOwnMenuItemReviews').mockResolvedValue({
+      reviews: [],
+      meta: { page: 1, limit: 100, totalItems: 0, totalPages: 0 },
+    });
+    vi.spyOn(ordersService, 'getOwn').mockResolvedValue({
+      ...order,
+      status: 'COMPLETED',
+      completedAt: '2026-09-29T05:30:00.000Z',
+    });
+    const create = vi.spyOn(reviewsService, 'createPlaceReview');
+    renderPage(false);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Review Warung Kita' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Submit review' }));
+
+    expect(within(dialog).getByRole('radiogroup', { name: 'Rating' })).toHaveAttribute('aria-invalid', 'true');
+    await waitFor(() =>
+      expect(document.activeElement).toBe(within(dialog).getByRole('radio', { name: '1 out of 5 stars' })),
+    );
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('submits exact completed-order review context and announces a restored review', async () => {
@@ -286,6 +378,48 @@ describe('customer order detail page', () => {
       }),
     );
     expect(await screen.findByText(/restored and updated/i)).toBeTruthy();
+  });
+
+  it('submits a review for an eligible purchased menu item', async () => {
+    vi.spyOn(reviewsService, 'listOwnPlaceReviews').mockResolvedValue({
+      reviews: [],
+      meta: { page: 1, limit: 100, totalItems: 0, totalPages: 0 },
+    });
+    vi.spyOn(reviewsService, 'listOwnMenuItemReviews').mockResolvedValue({
+      reviews: [],
+      meta: { page: 1, limit: 100, totalItems: 0, totalPages: 0 },
+    });
+    vi.spyOn(ordersService, 'getOwn').mockResolvedValue({
+      ...order,
+      status: 'COMPLETED',
+      completedAt: '2026-09-29T05:30:00.000Z',
+    });
+    const create = vi.spyOn(reviewsService, 'createMenuItemReview').mockResolvedValue({
+      outcome: 'created',
+      review: {
+        reviewId: 'review-item-1',
+        rating: 4,
+        comment: null,
+        reviewer: { userId: 'user-1', fullName: 'Ayu' },
+        createdAt: '2026-09-29T06:00:00.000Z',
+        updatedAt: '2026-09-29T06:00:00.000Z',
+      },
+    });
+    renderPage(false);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Review Nasi Goreng Snapshot' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('radio', { name: '4 out of 5 stars' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Submit review' }));
+
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith(order.place.placeId, order.items[0].menuItemId, {
+        orderId: order.orderId,
+        rating: 4,
+        comment: null,
+      }),
+    );
+    expect(await screen.findByText(/review for Nasi Goreng Snapshot was submitted/i)).toBeTruthy();
   });
 
   it('deduplicates item actions and preserves the draft on an authoritative duplicate conflict', async () => {
@@ -331,6 +465,45 @@ describe('customer order detail page', () => {
     );
     expect(await within(dialog).findByText('Review already submitted')).toBeTruthy();
     expect((comment as HTMLTextAreaElement).value).toBe('Keep this draft');
+  });
+
+  it.each([
+    ['REVIEW_ORDER_NOT_COMPLETED', 'Review not available yet'],
+    ['REVIEW_ORDER_PLACE_MISMATCH', 'Review unavailable'],
+    ['REVIEW_ITEM_NOT_IN_ORDER', 'Item review unavailable'],
+  ])('keeps the review draft and presents the safe %s conflict', async (code, title) => {
+    vi.spyOn(reviewsService, 'listOwnPlaceReviews').mockResolvedValue({
+      reviews: [],
+      meta: { page: 1, limit: 100, totalItems: 0, totalPages: 0 },
+    });
+    vi.spyOn(reviewsService, 'listOwnMenuItemReviews').mockResolvedValue({
+      reviews: [],
+      meta: { page: 1, limit: 100, totalItems: 0, totalPages: 0 },
+    });
+    vi.spyOn(ordersService, 'getOwn').mockResolvedValue({
+      ...order,
+      status: 'COMPLETED',
+      completedAt: '2026-09-29T05:30:00.000Z',
+    });
+    vi.spyOn(reviewsService, 'createMenuItemReview').mockRejectedValue({
+      error: true,
+      message: 'Private eligibility detail',
+      code,
+      httpStatus: 409,
+      isNetworkError: false,
+    });
+    renderPage(false);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Review Nasi Goreng Snapshot' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('radio', { name: '3 out of 5 stars' }));
+    const comment = within(dialog).getByLabelText('Comment (optional)');
+    await userEvent.type(comment, 'Keep this safe draft');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Submit review' }));
+
+    expect(await within(dialog).findByText(title)).toBeTruthy();
+    expect((comment as HTMLTextAreaElement).value).toBe('Keep this safe draft');
+    expect(within(dialog).queryByText('Private eligibility detail')).toBeNull();
   });
 
   it('shows a neutral ownership error without exposing another order', async () => {

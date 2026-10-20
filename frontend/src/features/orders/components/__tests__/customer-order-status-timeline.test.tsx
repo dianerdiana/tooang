@@ -1,7 +1,10 @@
+import { renderToStaticMarkup } from 'react-dom/server';
+
 import { describe, expect, it } from 'vitest';
 
 import type { OrderDetail, OrderStatus } from '../../types/order.type';
 import { buildCustomerOrderTimeline } from '../customer-order-status-timeline';
+import { OrderStatusBadge, orderStatusPresentation } from '../order-status-badge';
 
 const detail = (status: OrderStatus): OrderDetail => ({
   orderId: 'order-1',
@@ -27,6 +30,20 @@ const detail = (status: OrderStatus): OrderDetail => ({
 });
 
 describe('customer order status timeline', () => {
+  it.each([
+    ['PENDING', 'Pending'],
+    ['CONFIRMED', 'Confirmed'],
+    ['PREPARING', 'Preparing'],
+    ['READY', 'Ready'],
+    ['COMPLETED', 'Completed'],
+    ['CANCELLED', 'Cancelled'],
+    ['EXPIRED', 'Expired'],
+  ] as const)('renders the documented %s customer label', (status, label) => {
+    const markup = renderToStaticMarkup(<OrderStatusBadge status={status} />);
+    expect(orderStatusPresentation[status].label).toBe(label);
+    expect(markup).toContain(`aria-label="Order status: ${label}"`);
+  });
+
   it.each([
     ['PENDING', ['placed', 'pending'], 'pending'],
     ['CONFIRMED', ['placed', 'confirmed', 'preparing', 'ready', 'completed'], 'confirmed'],
