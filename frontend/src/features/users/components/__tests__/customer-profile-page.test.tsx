@@ -115,6 +115,7 @@ describe('customer profile page', () => {
   it('hides dashboard entry without effective dashboard capability and updates theme', async () => {
     renderPage({
       ...user,
+      platformRole: PlatformRole.SUPER_ADMIN,
       permissions: [PERMISSION.PROFILE_UPDATE, PERMISSION.ACCOUNT_DELETION_REQUEST],
     });
 
