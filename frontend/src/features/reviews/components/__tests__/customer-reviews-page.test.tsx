@@ -56,10 +56,15 @@ describe('customer reviews page', () => {
   });
 
   it('edits through the shared star form with exact public cache context', async () => {
-    vi.spyOn(reviewsService, 'listOwnPlaceReviews').mockResolvedValue({
-      reviews: [placeReview],
-      meta: { page: 1, limit: 20, totalItems: 1, totalPages: 1 },
-    });
+    vi.spyOn(reviewsService, 'listOwnPlaceReviews')
+      .mockResolvedValueOnce({
+        reviews: [placeReview],
+        meta: { page: 1, limit: 20, totalItems: 1, totalPages: 1 },
+      })
+      .mockResolvedValue({
+        reviews: [{ ...placeReview, rating: 5, comment: 'Updated feedback' }],
+        meta: { page: 1, limit: 20, totalItems: 1, totalPages: 1 },
+      });
     const update = vi.spyOn(reviewsService, 'updateOwnReview').mockResolvedValue({});
     renderPage();
 
@@ -77,19 +82,31 @@ describe('customer reviews page', () => {
         comment: 'Updated feedback',
       }),
     );
+    expect(await screen.findByText('Updated feedback')).toBeTruthy();
+    expect(screen.getByLabelText('5 out of 5 stars')).toBeTruthy();
   });
 
-  it('uses a named destructive confirmation without implying order deletion', async () => {
-    vi.spyOn(reviewsService, 'listOwnPlaceReviews').mockResolvedValue({
-      reviews: [placeReview],
-      meta: { page: 1, limit: 20, totalItems: 1, totalPages: 1 },
-    });
-    vi.spyOn(reviewsService, 'deleteOwnReview').mockResolvedValue({});
+  it('deletes through a named confirmation without implying order deletion', async () => {
+    vi.spyOn(reviewsService, 'listOwnPlaceReviews')
+      .mockResolvedValueOnce({
+        reviews: [placeReview],
+        meta: { page: 1, limit: 20, totalItems: 1, totalPages: 1 },
+      })
+      .mockResolvedValue({
+        reviews: [],
+        meta: { page: 1, limit: 20, totalItems: 0, totalPages: 0 },
+      });
+    const remove = vi.spyOn(reviewsService, 'deleteOwnReview').mockResolvedValue({});
     renderPage();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Delete' }));
     const dialog = await screen.findByRole('alertdialog');
     expect(within(dialog).getByText('Delete review for Warung Kita?')).toBeTruthy();
     expect(within(dialog).getByText(/order history and purchase record will not be removed/i)).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBe(document.activeElement);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete review' }));
+
+    await waitFor(() => expect(remove).toHaveBeenCalledWith('place', placeReview.reviewId));
+    expect(await screen.findByText('No reviews yet')).toBeTruthy();
   });
 });

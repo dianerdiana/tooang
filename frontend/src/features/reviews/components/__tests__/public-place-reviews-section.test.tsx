@@ -47,6 +47,9 @@ describe('public place review presentation', () => {
     expect(markup).toContain('First line\n&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(markup).not.toContain('review-secret-id');
     expect(markup).not.toContain('user-secret-id');
+    expect(markup).not.toContain('<form');
+    expect(markup).not.toContain('Submit review');
+    expect(markup).not.toContain('Edit review');
   });
 
   it('preserves backend order while deduplicating repeated page rows', () => {
