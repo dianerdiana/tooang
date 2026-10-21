@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { Link } from '@tanstack/react-router';
 import { Loader2Icon } from 'lucide-react';
@@ -43,6 +43,7 @@ function CustomerOrderCancellation({
 }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const submittingRef = useRef(false);
   const reasonLength = unicodeLength(reason);
   const reasonInvalid = reasonLength > CANCELLATION_REASON_MAX_LENGTH;
   const errorPresentation = error ? getCancellationErrorPresentation(error) : null;
@@ -54,11 +55,16 @@ function CustomerOrderCancellation({
   };
 
   const submit = async () => {
-    if (reasonInvalid || isPending) return;
-    const succeeded = await onConfirm(reason.trim() || undefined);
-    if (succeeded) {
-      setOpen(false);
-      setReason('');
+    if (reasonInvalid || isPending || submittingRef.current) return;
+    submittingRef.current = true;
+    try {
+      const succeeded = await onConfirm(reason.trim() || undefined);
+      if (succeeded) {
+        setOpen(false);
+        setReason('');
+      }
+    } finally {
+      submittingRef.current = false;
     }
   };
 
