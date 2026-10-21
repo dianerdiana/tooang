@@ -174,4 +174,21 @@ describe('own review mutation cache invalidation', () => {
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['reviews', 'own'] });
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['reviews', 'moderation'] });
   });
+
+  it('refreshes own and public place reviews without touching item or moderation caches', async () => {
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, 'invalidateQueries').mockResolvedValue();
+    await invalidateOwnReviewContext(client, {
+      tab: 'place',
+      reviewId: 'review-2',
+      placeId,
+      orderId,
+    });
+    expect(invalidate.mock.calls.map(([filter]) => filter?.queryKey)).toEqual([
+      ['reviews', 'own', 'place'],
+      ['reviews', 'public', 'place', placeId],
+    ]);
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['reviews', 'public', 'menu-item'] });
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['reviews', 'moderation'] });
+  });
 });
