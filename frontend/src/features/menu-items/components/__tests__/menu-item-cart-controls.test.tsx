@@ -22,6 +22,7 @@ const emptyCart: Cart = {
   placeId,
   distinctItemCount: 0,
   aggregateQuantity: 0,
+  subtotal: 0,
   items: [],
   removedItems: [],
 };
@@ -31,6 +32,7 @@ const cartWithQuantity = (quantity: number): Cart => ({
   placeId,
   distinctItemCount: 1,
   aggregateQuantity: quantity,
+  subtotal: 12_500 * quantity,
   items: [
     {
       menuItemId,
@@ -40,6 +42,7 @@ const cartWithQuantity = (quantity: number): Cart => ({
       unitPrice: 12_500,
       quantity,
       note: null,
+      lineTotal: 12_500 * quantity,
     },
   ],
   removedItems: [],

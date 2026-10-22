@@ -26,6 +26,7 @@ import { formatCurrency } from '@/utils/format-currency';
 import { useAuth } from '@/utils/hooks/use-auth';
 
 import { useCheckoutMutation } from '../queries/checkout.mutation';
+import { checkoutOptionsQueryOptions } from '../queries/checkout-options.query';
 import { ownOrderListQueryOptions } from '../queries/order-list.query';
 import {
   CHECKOUT_CUSTOMER_NAME_MAX_LENGTH,
@@ -35,7 +36,7 @@ import {
   checkoutFormSchema,
   checkoutInputSchema,
 } from '../schemas/checkout.schema';
-import type { CheckoutInput, OrderSummary } from '../types/order.type';
+import type { CheckoutInput, CheckoutOptions, FulfillmentType, OrderSummary } from '../types/order.type';
 import {
   canonicalizeCheckoutInput,
   CHECKOUT_ATTEMPT_STATE,
@@ -121,13 +122,19 @@ function OrderReview({ cart }: { cart: Cart }) {
                 <p className='mt-1 wrap-break-word text-sm text-muted-foreground'>Item note: {item.note}</p>
               )}
             </div>
-            <p className='text-sm font-medium tabular-nums'>{formatCurrency(item.unitPrice)} each</p>
+            <div className='text-right'>
+              <p className='text-sm font-medium tabular-nums'>{formatCurrency(item.lineTotal)}</p>
+              <p className='text-xs text-muted-foreground'>{formatCurrency(item.unitPrice)} each</p>
+            </div>
           </li>
         ))}
       </ul>
-      <p className='mt-4 border-t pt-4 text-sm text-muted-foreground'>
-        The cart API does not provide an authoritative subtotal. Your final subtotal is confirmed only after the order
-        is placed.
+      <div className='mt-4 flex items-center justify-between gap-4 border-t pt-4'>
+        <span className='font-semibold'>Current subtotal</span>
+        <span className='text-lg font-bold tabular-nums'>{formatCurrency(cart.subtotal)}</span>
+      </div>
+      <p className='mt-2 text-xs text-muted-foreground'>
+        The server confirms eligibility and totals again on submission.
       </p>
     </section>
   );
@@ -136,18 +143,24 @@ function OrderReview({ cart }: { cart: Cart }) {
 function ResolvedCheckoutPage({ place }: { place: PublicPlaceDetail }) {
   const { user } = useAuth();
   const cartQuery = useQuery(cartQueryOptions(place.id));
+  const checkoutOptionsQuery = useQuery(checkoutOptionsQueryOptions(place.id));
 
-  if (cartQuery.isPending) return <CheckoutSkeleton />;
+  if (cartQuery.isPending || checkoutOptionsQuery.isPending) return <CheckoutSkeleton />;
   if (cartQuery.isError && !cartQuery.data) {
     return <CheckoutLoadError error={cartQuery.error} retry={() => void cartQuery.refetch()} />;
   }
+  if (checkoutOptionsQuery.isError && !checkoutOptionsQuery.data) {
+    return <CheckoutLoadError error={checkoutOptionsQuery.error} retry={() => void checkoutOptionsQuery.refetch()} />;
+  }
   if (!cartQuery.data) return null;
+  if (!checkoutOptionsQuery.data) return null;
   if (!user) return null;
 
   return (
     <CheckoutForm
       place={place}
       cart={cartQuery.data}
+      options={checkoutOptionsQuery.data}
       refetchCart={() => void cartQuery.refetch()}
       defaultName={user.fullName}
       userId={user.userId}
@@ -158,12 +171,14 @@ function ResolvedCheckoutPage({ place }: { place: PublicPlaceDetail }) {
 function CheckoutForm({
   place,
   cart,
+  options,
   refetchCart,
   defaultName,
   userId,
 }: {
   place: PublicPlaceDetail;
   cart: Cart;
+  options: CheckoutOptions;
   refetchCart: () => void;
   defaultName: string;
   userId: string;
@@ -179,6 +194,8 @@ function CheckoutForm({
   const [recentOrders, setRecentOrders] = useState<OrderSummary[]>([]);
   const [historyError, setHistoryError] = useState<unknown>();
   const [checkingHistory, setCheckingHistory] = useState(false);
+  const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType>('TAKEAWAY');
+  const [tableId, setTableId] = useState('');
 
   const runAttempt = async (current: CheckoutAttempt) => {
     if (current.expiresAt <= Date.now()) {
@@ -230,12 +247,14 @@ function CheckoutForm({
     validators: { onSubmit: checkoutFormSchema },
     onSubmit: async ({ value }) => {
       setSubmissionError(undefined);
-      const input = checkoutInputSchema.parse({
+      const common = {
         placeId: place.id,
-        fulfillmentType: 'TAKEAWAY',
         customerName: value.customerName,
         customerNote: value.customerNote,
-      }) as CheckoutInput;
+      };
+      const input = checkoutInputSchema.parse(
+        fulfillmentType === 'DINE_IN' ? { ...common, fulfillmentType, tableId } : { ...common, fulfillmentType },
+      ) as CheckoutInput;
       try {
         if (attempt) {
           if (canonicalizeCheckoutInput(input) !== canonicalizeCheckoutInput(attempt.input)) return;
@@ -268,20 +287,33 @@ function CheckoutForm({
     if (attempt === undefined || restoredFormRef.current) return;
     restoredFormRef.current = true;
     if (!attempt) return;
-    form.reset({
-      customerName: attempt.input.customerName,
-      customerNote: attempt.input.customerNote ?? '',
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      form.reset({
+        customerName: attempt.input.customerName,
+        customerNote: attempt.input.customerNote ?? '',
+      });
+      setFulfillmentType(attempt.input.fulfillmentType);
+      setTableId(attempt.input.fulfillmentType === 'DINE_IN' ? attempt.input.tableId : '');
     });
+    return () => {
+      active = false;
+    };
   }, [attempt, form]);
 
   if (attempt === undefined) return <CheckoutSkeleton />;
 
-  const currentInput = checkoutInputSchema.safeParse({
+  const currentCommon = {
     placeId: place.id,
-    fulfillmentType: 'TAKEAWAY',
     customerName: form.state.values.customerName,
     customerNote: form.state.values.customerNote,
-  });
+  };
+  const currentInput = checkoutInputSchema.safeParse(
+    fulfillmentType === 'DINE_IN'
+      ? { ...currentCommon, fulfillmentType, tableId }
+      : { ...currentCommon, fulfillmentType },
+  );
   const detailsChanged = Boolean(
     attempt &&
     currentInput.success &&
@@ -380,6 +412,7 @@ function CheckoutForm({
             isSubmitting ||
             mutation.isPending ||
             knownAvailabilityBlocker ||
+            (fulfillmentType === 'DINE_IN' && !tableId) ||
             uncertain ||
             blocked ||
             detailsChanged
@@ -389,6 +422,8 @@ function CheckoutForm({
             <>
               <Loader2Icon className='animate-spin motion-reduce:animate-none' aria-hidden /> Placing order…
             </>
+          ) : fulfillmentType === 'DINE_IN' ? (
+            'Place dine-in order'
           ) : (
             'Place takeaway order'
           )}
@@ -599,8 +634,11 @@ function CheckoutForm({
                   type='radio'
                   name='fulfillmentType'
                   value='TAKEAWAY'
-                  checked
-                  readOnly
+                  checked={fulfillmentType === 'TAKEAWAY'}
+                  onChange={() => {
+                    setFulfillmentType('TAKEAWAY');
+                    setSubmissionError(undefined);
+                  }}
                   className='mt-1 size-5 accent-primary'
                 />
                 <span>
@@ -608,18 +646,60 @@ function CheckoutForm({
                   <span className='mt-1 block text-sm text-muted-foreground'>Collect this order from the place.</span>
                 </span>
               </label>
-              <label className='flex min-h-20 cursor-not-allowed items-start gap-3 rounded-lg border bg-surface-disabled p-4 text-disabled-foreground'>
-                <input type='radio' name='fulfillmentType' value='DINE_IN' disabled className='mt-1 size-5' />
+              <label
+                className={`flex min-h-20 items-start gap-3 rounded-lg border-2 p-4 ${
+                  options.fulfillmentTypes.includes('DINE_IN')
+                    ? fulfillmentType === 'DINE_IN'
+                      ? 'cursor-pointer border-primary bg-primary/5'
+                      : 'cursor-pointer border-border bg-surface'
+                    : 'cursor-not-allowed border-border bg-surface-disabled text-disabled-foreground'
+                }`}
+              >
+                <input
+                  type='radio'
+                  name='fulfillmentType'
+                  value='DINE_IN'
+                  checked={fulfillmentType === 'DINE_IN'}
+                  disabled={!options.fulfillmentTypes.includes('DINE_IN')}
+                  onChange={() => {
+                    setFulfillmentType('DINE_IN');
+                    setTableId((current) => current || options.diningTables[0]?.tableId || '');
+                    setSubmissionError(undefined);
+                  }}
+                  className='mt-1 size-5 accent-primary'
+                />
                 <span>
                   <span className='flex items-center gap-2 font-semibold'>
                     <UtensilsIcon className='size-4' aria-hidden /> Dine in
                   </span>
-                  <span className='mt-1 block text-sm'>
-                    Table selection is not available for customer checkout yet.
-                  </span>
+                  <span className='mt-1 block text-sm'>Order for an active table at this place.</span>
                 </span>
               </label>
             </div>
+            {fulfillmentType === 'DINE_IN' && (
+              <div className='mt-4'>
+                <label htmlFor='checkout-table' className='text-sm font-medium'>
+                  Table
+                </label>
+                <select
+                  id='checkout-table'
+                  value={tableId}
+                  onChange={(event) => {
+                    setTableId(event.target.value);
+                    setSubmissionError(undefined);
+                  }}
+                  disabled={mutation.isPending || uncertain || blocked}
+                  className='mt-2 min-h-12 w-full rounded-md border border-input bg-form px-3 text-sm text-form-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-surface-disabled'
+                >
+                  <option value=''>Select a table</option>
+                  {options.diningTables.map((table) => (
+                    <option key={table.tableId} value={table.tableId}>
+                      {table.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </section>
 
           <section className='rounded-surface border bg-surface p-4 sm:p-5' aria-labelledby='customer-details-title'>
@@ -708,14 +788,26 @@ function CheckoutForm({
           <dl className='mt-4 space-y-3 text-sm'>
             <div className='flex justify-between gap-4'>
               <dt className='text-muted-foreground'>Fulfillment</dt>
-              <dd className='font-medium'>Takeaway</dd>
+              <dd className='font-medium'>{fulfillmentType === 'DINE_IN' ? 'Dine in' : 'Takeaway'}</dd>
             </div>
             <div className='flex justify-between gap-4'>
               <dt className='text-muted-foreground'>Items</dt>
               <dd className='font-medium tabular-nums'>{cart.aggregateQuantity}</dd>
             </div>
+            {fulfillmentType === 'DINE_IN' && (
+              <div className='flex justify-between gap-4'>
+                <dt className='text-muted-foreground'>Table</dt>
+                <dd className='font-medium'>
+                  {options.diningTables.find((table) => table.tableId === tableId)?.name || 'Select a table'}
+                </dd>
+              </div>
+            )}
+            <div className='flex justify-between gap-4 border-t pt-3'>
+              <dt className='font-medium'>Subtotal</dt>
+              <dd className='font-semibold tabular-nums'>{formatCurrency(cart.subtotal)}</dd>
+            </div>
           </dl>
-          <p className='mt-4 border-t pt-4 text-xs text-muted-foreground'>Final subtotal is confirmed by the server.</p>
+          <p className='mt-4 text-xs text-muted-foreground'>The server confirms this total again on submission.</p>
           <div className='mt-5'>{submitButton()}</div>
         </aside>
 
@@ -725,10 +817,8 @@ function CheckoutForm({
           reserveClassName='lg:hidden'
         >
           <div className='min-w-0 flex-1'>
-            <p className='font-semibold tabular-nums'>
-              {cart.aggregateQuantity} {cart.aggregateQuantity === 1 ? 'item' : 'items'}
-            </p>
-            <p className='text-xs text-muted-foreground'>Final total confirmed on submission</p>
+            <p className='font-semibold tabular-nums'>{formatCurrency(cart.subtotal)}</p>
+            <p className='text-xs text-muted-foreground'>Current server subtotal</p>
           </div>
           {submitButton(true)}
         </StickyMobileActionBar>

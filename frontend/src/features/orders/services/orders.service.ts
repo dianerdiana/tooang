@@ -5,9 +5,15 @@ import { unwrapApiResponse, unwrapPaginatedApiResponse } from '@/utils/api-respo
 
 import type { ApiPaginatedResponse, ApiResponse } from '@/types/api-response.type';
 
-import { checkoutInputSchema, idempotencyKeySchema } from '../schemas/checkout.schema';
+import {
+  checkoutInputSchema,
+  checkoutOptionsSchema,
+  idempotencyKeySchema,
+  orderVerificationAccessSchema,
+} from '../schemas/checkout.schema';
 import type {
   CheckoutInput,
+  CheckoutOptions,
   CheckoutOrder,
   CreateManualOrderInput,
   ManualOrderOptions,
@@ -17,6 +23,7 @@ import type {
   OrderListResult,
   OrderListScope,
   OrderSummary,
+  OrderVerificationAccess,
   PublicOrderVerification,
 } from '../types/order.type';
 
@@ -69,6 +76,28 @@ export const ordersService = {
         { headers: { 'Idempotency-Key': validatedKey } },
       );
       return unwrapApiResponse(response.data).order;
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
+  async getCheckoutOptions(placeId: string): Promise<CheckoutOptions> {
+    try {
+      const response = await api.get<ApiResponse<{ options: CheckoutOptions }>>(
+        `/places/${encodeURIComponent(placeId)}/checkout-options`,
+      );
+      return checkoutOptionsSchema.parse(unwrapApiResponse(response.data).options);
+    } catch (error) {
+      throw toApiError(error);
+    }
+  },
+
+  async getOwnVerification(orderId: string): Promise<OrderVerificationAccess> {
+    try {
+      const response = await api.get<ApiResponse<{ verification: OrderVerificationAccess }>>(
+        `/me/orders/${encodeURIComponent(orderId)}/verification`,
+      );
+      return orderVerificationAccessSchema.parse(unwrapApiResponse(response.data).verification);
     } catch (error) {
       throw toApiError(error);
     }

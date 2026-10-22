@@ -38,6 +38,22 @@ export class OrderQueriesService {
     return orderDetailResponse(order);
   }
 
+  async getOwnVerification(actor: AuthenticatedActor, orderId: string) {
+    const [{ now }] = await this.repository.databaseNow();
+    const verification = await this.repository.findOwnVerificationToken(actor.id, orderId, now);
+    if (!verification) throw new NotFoundException('Order verification not found');
+    return { token: verification.verificationToken };
+  }
+
+  async getCheckoutOptions(placeId: string) {
+    const place = await this.repository.getCustomerCheckoutOptions(placeId);
+    if (!place) throw new NotFoundException('Place not found');
+    return {
+      fulfillmentTypes: place.diningTables.length > 0 ? ['TAKEAWAY', 'DINE_IN'] : ['TAKEAWAY'],
+      diningTables: place.diningTables.map((table) => ({ tableId: table.id, name: table.name })),
+    };
+  }
+
   async listForPlace(actor: AuthenticatedActor, placeId: string, input: ListPlaceOrdersInput) {
     const scope = await this.placeScope(actor, placeId);
     return this.listResponse(await this.repository.listForPlace(placeId, scope, input), input);

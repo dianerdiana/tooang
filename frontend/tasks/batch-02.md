@@ -1949,6 +1949,65 @@ Acceptance criteria:
 
 Dependencies: Tasks 01–43.
 
+### Batch 2 Handoff — 2026-10-22
+
+#### Release decision
+
+**RELEASE BLOCKED.** The implemented frontend remains contract-faithful for the supported Batch 2 surface, but Batch 2 cannot be declared complete while backend Gates 1–3 remain unresolved. Full live-stack manual acceptance was also unavailable because the configured local database was not ready.
+
+No frontend workaround was introduced for a blocked contract. TAKEAWAY remains the only customer checkout fulfillment choice, customer order surfaces expose no verification token/link/QR, and cart/checkout surfaces do not present a client-calculated subtotal as authoritative.
+
+#### Contract and architecture audit
+
+| Audit area                                     | Result                          | Evidence / outcome                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public places, menus, and reviews              | PASS                            | Services use the documented public endpoints and supported pagination/filter fields. Public menu sends type/category only; no free-text item search or management endpoint is used.                                                                                                                                                      |
+| Cart and checkout                              | PASS with Gate 1/3 blockers     | Cart requests use authenticated `/me/carts/:placeId`; mutation responses replace only the matching place cache. Checkout sends the strict body plus `Idempotency-Key`, excludes client prices/totals/payment/phone/user ID, and keeps DINE_IN disabled.                                                                                  |
+| Own orders, cancellation, profile, and reviews | PASS                            | Own endpoints, supported filters, permission assumptions, status transitions, review eligibility, and safe 401/403/404/409 presentations match the implemented backend contracts.                                                                                                                                                        |
+| Public verification                            | PASS with Gate 2 blocker        | `/order-verifications/:token` remains public and read-only. The frontend projects exactly the seven public fields and neutralizes not-found/rate-limit/internal details. No production surface reads or renders `verificationToken`.                                                                                                     |
+| Route and feature boundaries                   | PASS                            | Public routes have no auth guard; protected customer routes share the customer auth boundary and safe return-intent recovery. Route files compose feature pages, and feature services own HTTP calls.                                                                                                                                    |
+| Transport and errors                           | PASS                            | Tooang API calls use the shared JWT transport. The only direct Axios use is the documented backend-authorized ImageKit upload adapter. Customer errors use controlled application copy rather than raw transport/internal values.                                                                                                        |
+| Query/cache behavior                           | PASS                            | Cart, menu, order, review, dining-table, and management keys retain owner/place/platform scope. Mutations update or invalidate only affected scopes. Logout, terminal refresh failure, cross-tab token removal, and accepted account deletion clear private queries and stored checkout/action intent.                                   |
+| Batch 1 regression boundary                    | AUTOMATED PASS / MANUAL BLOCKED | Management route, permission, service, and operation tests pass. Live OWNER/CASHIER/platform-admin journeys could not run without a ready database. Stable dashboard infrastructure was not rebuilt.                                                                                                                                     |
+| Prohibited inconsistency scan                  | PASS                            | Production source contains Tooang branding and Plus Jakarta Sans; Poppins/prototype assets remain only in the explicitly non-shipping `templates/` reference directory. No Swiper migration, raw feature palette utilities, unsupported commerce features, management checkout workaround, or private verification disclosure was found. |
+| Generated routes                               | PASS                            | `routeTree.gen.ts` was not manually edited during Task 44.                                                                                                                                                                                                                                                                               |
+
+#### Backend gate status
+
+| Gate                                     | Status on 2026-10-22          | Release impact                                                                                                                                                         | Owner / required resolution                                                                                                                   |
+| ---------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 — Customer DINE_IN table discovery     | **BLOCKED**                   | Full DINE_IN acceptance cannot pass. The management dining-table collection still requires `table.read`; ordinary customers have no safe active-table option contract. | Backend/API owner: implement and document a customer-scoped option source, permission behavior, safe fields, and errors.                      |
+| 2 — Customer verification QR/link source | **BLOCKED**                   | Customer QR/link delivery cannot ship. Checkout and own-order serializers still omit the opaque verification token by design.                                          | Backend/API and privacy owner: approve and implement an owner-safe verification-link contract without weakening public disclosure boundaries. |
+| 3 — Cart totals                          | **BLOCKED — contract defect** | Cart and pre-submit checkout cannot show an authoritative subtotal. The API specification promises `lineTotal`/`subtotal`, but `CartsService` still omits both.        | Backend/API owner: align implementation, tests, and specification; frontend can model totals only after the response actually supplies them.  |
+
+#### Manual and runtime evidence
+
+| Check                                                                         | Result                        | Evidence / blocker                                                                                                                                                                                                                                                                     |
+| ----------------------------------------------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Production preview                                                            | PASS                          | Vite production preview served `/` with HTTP 200. The production build emitted route-level chunks; the main entry was 372.91 kB (119.00 kB gzip) and CSS was 81.98 kB (14.70 kB gzip).                                                                                                 |
+| Backend startup                                                               | BLOCKED                       | Nest compiled with zero TypeScript errors and listened on port 3001, but Prisma queries failed. `/api/v1/health/ready` returned `503 SERVICE_NOT_READY`; public `/places` returned 500.                                                                                                |
+| Authentication boundary smoke check                                           | PASS within unavailable stack | With no bearer token, `/me/orders`, `/me/carts/:placeId`, and management `/places/:placeId/dining-tables` returned 401. This confirms those protected boundaries were not accidentally public.                                                                                         |
+| Anonymous public journey                                                      | BLOCKED                       | Public data could not be loaded because the local database was unavailable. Verification also returned 503 while readiness was down.                                                                                                                                                   |
+| USER/OWNER/CASHIER/platform-admin journeys                                    | BLOCKED                       | Representative accounts and domain fixtures could not be created against the unavailable database.                                                                                                                                                                                     |
+| 320/390/768/1024/desktop visual checks                                        | BLOCKED                       | This execution session exposed no controllable browser surface. Existing DOM tests cover landmarks, accessible names, focus/confirmation outcomes, responsive component variants, reduced-motion rules, and protected journeys, but they do not replace the required live visual pass. |
+| Keyboard, 200% zoom, screen-reader, contrast, touch-target, light/dark checks | BLOCKED                       | Requires a working browser plus live or controlled fixture data; no manual pass is claimed.                                                                                                                                                                                            |
+
+Before release, restore a healthy local/QA database, seed non-production role and order fixtures through supported flows, rerun the complete manual journey/viewport matrix, and attach the results here. The missing live evidence is not waived.
+
+#### Automated quality gates
+
+Commands are run sequentially from `frontend` to avoid resource contention between Vitest workers and the production build.
+
+| Command                  | Result                      |
+| ------------------------ | --------------------------- |
+| `npm.cmd run lint`       | PASS                        |
+| `npm.cmd run check`      | PASS                        |
+| `npm.cmd run type-check` | PASS                        |
+| `npm.cmd run test`       | PASS — 120 files, 707 tests |
+| `npm.cmd run build`      | PASS                        |
+
+Task 44 therefore preserves the supported frontend release candidate without marking Batch 2 complete. Release remains blocked by Backend Gates 1–3 and by the outstanding live manual acceptance pass.
+
 ---
 
 ## Recommended Execution Sequence

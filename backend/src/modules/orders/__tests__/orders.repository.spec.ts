@@ -83,4 +83,25 @@ describe('OrdersRepository lifecycle predicates', () => {
     expect(args.select).not.toHaveProperty('verificationToken');
     expect(args.select).not.toHaveProperty('customerName');
   });
+
+  it('scopes private verification selection to owner and selects only the token', async () => {
+    const findFirst = jest.fn<() => Promise<null>>().mockResolvedValue(null);
+    const repository = new OrdersRepository({ order: { findFirst } } as never);
+    await repository.findOwnVerificationToken(
+      'actor-id',
+      'order-id',
+      new Date('2026-09-15T00:00:00Z'),
+    );
+    const args = findFirst.mock.calls[0][0] as {
+      where: { id: string; userId: string; verificationDisabledAt: null; OR: unknown[] };
+      select: Record<string, unknown>;
+    };
+    expect(args.where).toMatchObject({
+      id: 'order-id',
+      userId: 'actor-id',
+      verificationDisabledAt: null,
+    });
+    expect(args.where.OR).toHaveLength(4);
+    expect(args.select).toEqual({ verificationToken: true });
+  });
 });

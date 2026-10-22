@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useRouter } from '@tanstack/react-router';
 import { RefreshCwIcon } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import { formatCurrency } from '@/utils/format-currency';
 
 import { ownOrderDetailQueryOptions } from '../queries/order-detail.query';
 import { useOwnOrderCancellationMutation } from '../queries/order-transition.mutation';
+import { orderVerificationAccessQueryOptions } from '../queries/order-verification-access.query';
 import { FULFILLMENT_TYPE, ORDER_STATUS, type OrderDetail } from '../types/order.type';
 
 import { CustomerOrderCancellation } from './customer-order-cancellation';
@@ -71,6 +73,42 @@ function DetailField({ label, children }: { label: string; children: React.React
       <dt className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>{label}</dt>
       <dd className='wrap-break-word text-sm'>{children}</dd>
     </div>
+  );
+}
+
+function CustomerVerificationAccess({ orderId, orderCode }: { orderId: string; orderCode: string }) {
+  const query = useQuery(orderVerificationAccessQueryOptions(orderId));
+
+  if (query.isPending) return <Skeleton className='h-64 rounded-surface' />;
+  if (query.isError || !query.data) {
+    return (
+      <section className='rounded-surface border bg-surface p-5'>
+        <h2 className='text-lg font-semibold'>Order verification</h2>
+        <p className='mt-2 text-sm text-muted-foreground'>Verification access is no longer available for this order.</p>
+      </section>
+    );
+  }
+
+  const path = `/verify/${encodeURIComponent(query.data.token)}`;
+  const verificationUrl = new URL(path, window.location.origin).toString();
+
+  return (
+    <section className='rounded-surface border bg-surface p-5' aria-labelledby='customer-verification-title'>
+      <h2 id='customer-verification-title' className='text-lg font-semibold'>
+        Order verification
+      </h2>
+      <p className='mt-2 text-sm text-muted-foreground'>
+        Show this code or share the link so the order can be checked.
+      </p>
+      <div className='mt-4 flex justify-center rounded-lg bg-white p-4'>
+        <QRCodeSVG value={verificationUrl} size={176} title={`Verification QR for order ${orderCode}`} />
+      </div>
+      <Button asChild variant='outline' className='mt-4 w-full'>
+        <Link to='/verify/$token' params={{ token: query.data.token }}>
+          Open verification page
+        </Link>
+      </Button>
+    </section>
   );
 }
 
@@ -284,6 +322,7 @@ function OrderDetailContent({
         </div>
 
         <aside className='space-y-5'>
+          <CustomerVerificationAccess orderId={order.orderId} orderCode={order.orderCode} />
           <section className='rounded-surface border bg-surface p-5' aria-labelledby='customer-snapshot-title'>
             <h2 id='customer-snapshot-title' className='text-lg font-semibold'>
               Order information

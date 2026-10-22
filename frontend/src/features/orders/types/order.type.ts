@@ -110,6 +110,13 @@ export type CheckoutOrder = {
   expiresAt: string;
 };
 
+export type CheckoutOptions = {
+  fulfillmentTypes: FulfillmentType[];
+  diningTables: Array<{ tableId: string; name: string }>;
+};
+
+export type OrderVerificationAccess = { token: string };
+
 export type CheckoutMutationVariables = {
   input: CheckoutInput;
   attempt: {

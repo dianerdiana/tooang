@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, HttpStatus, Patch, Post, Res } from '@nestjs/common';
+import { Controller, Get, Header, HttpCode, HttpStatus, Patch, Post, Res } from '@nestjs/common';
 
 import type { Response } from 'express';
 
@@ -73,6 +73,20 @@ export class OrdersController {
   ) {
     const order = await this.queries.getOwn(actor, params.orderId);
     return HttpResponse.success({ message: 'Order retrieved', data: { order } });
+  }
+
+  @Get(':orderId/verification')
+  @Header('Cache-Control', 'private, no-store')
+  @RequirePermissions(PERMISSION.ORDER_READ)
+  async getVerification(
+    @CurrentActor() actor: AuthenticatedActor,
+    @ZodParam(orderIdParamSchema) params: OrderIdParam,
+  ) {
+    const verification = await this.queries.getOwnVerification(actor, params.orderId);
+    return HttpResponse.success({
+      message: 'Order verification access retrieved',
+      data: { verification },
+    });
   }
 
   @Patch(':orderId/status')

@@ -147,6 +147,21 @@ export class PlaceOrdersController {
   }
 }
 
+@Controller('places/:placeId/checkout-options')
+export class CustomerCheckoutOptionsController {
+  constructor(private readonly queries: OrderQueriesService) {}
+
+  @Get()
+  @RequirePermissions(PERMISSION.ORDER_CHECKOUT)
+  async get(@ZodParam(placeOrderParamSchema.pick({ placeId: true })) params: { placeId: string }) {
+    const options = await this.queries.getCheckoutOptions(params.placeId);
+    return HttpResponse.success({
+      message: 'Checkout options retrieved',
+      data: { options },
+    });
+  }
+}
+
 @Controller('orders')
 export class GlobalOrdersController {
   constructor(private readonly queries: OrderQueriesService) {}

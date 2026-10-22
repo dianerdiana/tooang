@@ -72,6 +72,7 @@ const emptyCart: Cart = {
   placeId,
   distinctItemCount: 0,
   aggregateQuantity: 0,
+  subtotal: 0,
   items: [],
   removedItems: [],
 };
@@ -81,6 +82,7 @@ const cartWithRestoredDraft: Cart = {
   placeId,
   distinctItemCount: 1,
   aggregateQuantity: 2,
+  subtotal: item.price * 2,
   items: [
     {
       menuItemId,
@@ -90,6 +92,7 @@ const cartWithRestoredDraft: Cart = {
       unitPrice: item.price,
       quantity: 2,
       note: 'No ice',
+      lineTotal: item.price * 2,
     },
   ],
   removedItems: [],

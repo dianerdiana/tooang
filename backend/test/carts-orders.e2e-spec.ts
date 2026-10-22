@@ -112,6 +112,18 @@ describeDatabase('Carts and checkout API (PostgreSQL E2E)', () => {
 
   it('increments cart quantities, reads current prices, and checks out exactly once', async () => {
     const authorization = `Bearer ${accessToken}`;
+    const options = await request(server)
+      .get(`/api/v1/places/${placeId}/checkout-options`)
+      .set('Authorization', authorization)
+      .expect(200);
+    expect(options.body).toMatchObject({
+      data: {
+        options: {
+          fulfillmentTypes: ['TAKEAWAY', 'DINE_IN'],
+          diningTables: [{ tableId, name: 'Table 7' }],
+        },
+      },
+    });
     await request(server)
       .post(`/api/v1/me/carts/${placeId}/items`)
       .set('Authorization', authorization)
@@ -126,7 +138,10 @@ describeDatabase('Carts and checkout API (PostgreSQL E2E)', () => {
     expect(incrementedBody.data.cart).toMatchObject({
       distinctItemCount: 1,
       aggregateQuantity: 5,
-      items: [{ menuItemId, quantity: 5, note: 'Less salt', unitPrice: 15000.25 }],
+      subtotal: 75001.25,
+      items: [
+        { menuItemId, quantity: 5, note: 'Less salt', unitPrice: 15000.25, lineTotal: 75001.25 },
+      ],
     });
 
     await prisma.menuItem.update({ where: { id: menuItemId }, data: { price: '16000.50' } });
@@ -134,8 +149,12 @@ describeDatabase('Carts and checkout API (PostgreSQL E2E)', () => {
       .get(`/api/v1/me/carts/${placeId}`)
       .set('Authorization', authorization)
       .expect(200);
-    const currentBody = current.body as { data: { cart: { items: unknown[] } } };
-    expect(currentBody.data.cart.items[0]).toMatchObject({ unitPrice: 16000.5 });
+    const currentBody = current.body as { data: { cart: { subtotal: number; items: unknown[] } } };
+    expect(currentBody.data.cart).toMatchObject({ subtotal: 80002.5 });
+    expect(currentBody.data.cart.items[0]).toMatchObject({
+      unitPrice: 16000.5,
+      lineTotal: 80002.5,
+    });
 
     const key = `checkout-${suffix}`;
     const rawBody = {
@@ -233,6 +252,7 @@ describeDatabase('Carts and checkout API (PostgreSQL E2E)', () => {
     expect(reconciledBody.data.cart).toMatchObject({
       distinctItemCount: 0,
       aggregateQuantity: 0,
+      subtotal: 0,
       removedItems: [{ menuItemId, reason: 'ITEM_UNAVAILABLE' }],
     });
     expect(await prisma.cartItem.count({ where: { cart: { userId, placeId } } })).toBe(0);

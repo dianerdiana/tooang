@@ -62,6 +62,39 @@ describe('OrderQueriesService', () => {
     await expect(service.getOwn(user, 'order-id')).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('returns verification access only from an owned eligible order', async () => {
+    const token = 'A'.repeat(43);
+    const repository = {
+      databaseNow: jest
+        .fn<() => Promise<unknown>>()
+        .mockResolvedValue([{ now: new Date('2026-09-15T00:00:00Z') }]),
+      findOwnVerificationToken: jest
+        .fn<() => Promise<unknown>>()
+        .mockResolvedValueOnce({ verificationToken: token })
+        .mockResolvedValueOnce(null),
+    };
+    const service = new OrderQueriesService(repository as never, {} as never);
+
+    await expect(service.getOwnVerification(user, 'order-id')).resolves.toEqual({ token });
+    expect(repository.findOwnVerificationToken.mock.calls[0]?.[0]).toBe(user.id);
+    await expect(service.getOwnVerification(user, 'foreign-order')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('returns only customer-safe active checkout options', async () => {
+    const repository = {
+      getCustomerCheckoutOptions: jest.fn<() => Promise<unknown>>().mockResolvedValue({
+        diningTables: [{ id: 'table-id', name: 'Table 1' }],
+      }),
+    };
+    const service = new OrderQueriesService(repository as never, {} as never);
+    await expect(service.getCheckoutOptions('place-id')).resolves.toEqual({
+      fulfillmentTypes: ['TAKEAWAY', 'DINE_IN'],
+      diningTables: [{ tableId: 'table-id', name: 'Table 1' }],
+    });
+  });
+
   it('serializes Decimal snapshots without leaking repository-only fields', async () => {
     const order = {
       id: 'order-id',

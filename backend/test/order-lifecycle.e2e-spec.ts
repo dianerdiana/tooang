@@ -186,6 +186,19 @@ describeDatabase('Order retrieval and lifecycle API (PostgreSQL E2E)', () => {
     expect(ownBody.data.order).toMatchObject({ orderId: order.id, subtotal: 12500 });
     expect(JSON.stringify(own.body)).not.toContain(order.verificationToken);
 
+    const verification = await request(server)
+      .get(`/api/v1/me/orders/${order.id}/verification`)
+      .set('Authorization', `Bearer ${customerToken}`)
+      .expect(200);
+    expect(verification.body).toMatchObject({
+      data: { verification: { token: order.verificationToken } },
+    });
+    expect(verification.headers['cache-control']).toBe('private, no-store');
+    await request(server)
+      .get(`/api/v1/me/orders/${order.id}/verification`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(404);
+
     const ownList = await request(server)
       .get(`/api/v1/me/orders?status=PENDING&placeId=${placeId}&limit=1`)
       .set('Authorization', `Bearer ${customerToken}`)

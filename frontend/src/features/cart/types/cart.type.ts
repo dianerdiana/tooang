@@ -15,6 +15,7 @@ export type CartItem = {
   unitPrice: number;
   quantity: number;
   note: string | null;
+  lineTotal: number;
 };
 
 export type RemovedCartItem = {
@@ -27,6 +28,7 @@ export type Cart = {
   placeId: string;
   distinctItemCount: number;
   aggregateQuantity: number;
+  subtotal: number;
   items: CartItem[];
   removedItems: RemovedCartItem[];
 };

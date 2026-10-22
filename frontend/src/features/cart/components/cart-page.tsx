@@ -161,8 +161,10 @@ function CartLineItem({ cart, item }: { cart: Cart; item: CartItem }) {
           </h2>
         </div>
         <div className='shrink-0 text-right'>
-          <p className='font-semibold tabular-nums'>{formatCurrency(item.unitPrice)}</p>
-          <p className='text-xs text-muted-foreground'>Current unit price</p>
+          <p className='font-semibold tabular-nums'>{formatCurrency(item.lineTotal)}</p>
+          <p className='text-xs text-muted-foreground'>
+            {item.quantity} Ã— {formatCurrency(item.unitPrice)}
+          </p>
         </div>
       </div>
 
@@ -260,10 +262,10 @@ function CheckoutAction({ place, cart, mobile = false }: { place: PublicPlaceDet
   const content = (
     <>
       <div className='min-w-0 flex-1'>
-        <p className='font-semibold tabular-nums'>
-          {cart.aggregateQuantity} {cart.aggregateQuantity === 1 ? 'item' : 'items'}
+        <p className='font-semibold tabular-nums'>{formatCurrency(cart.subtotal)}</p>
+        <p className='text-xs text-muted-foreground'>
+          {cart.aggregateQuantity} {cart.aggregateQuantity === 1 ? 'item' : 'items'} Â· {reason}
         </p>
-        <p className='text-xs text-muted-foreground'>{reason}</p>
       </div>
       {canCheckout ? (
         <Button asChild className='min-h-12 shrink-0'>
@@ -293,9 +295,7 @@ function CheckoutAction({ place, cart, mobile = false }: { place: PublicPlaceDet
     >
       <h2 className='text-lg font-semibold'>Cart summary</h2>
       <div className='mt-4 flex flex-col items-stretch gap-4'>{content}</div>
-      <p className='mt-4 border-t pt-4 text-xs text-muted-foreground'>
-        No subtotal is shown because the cart API does not currently return an authoritative total.
-      </p>
+      <p className='mt-4 border-t pt-4 text-xs text-muted-foreground'>Current subtotal supplied by the server.</p>
     </aside>
   );
 }

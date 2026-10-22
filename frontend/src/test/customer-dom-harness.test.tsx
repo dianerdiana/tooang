@@ -44,6 +44,7 @@ const emptyCart: Cart = {
   placeId,
   distinctItemCount: 0,
   aggregateQuantity: 0,
+  subtotal: 0,
   items: [],
   removedItems: [],
 };
@@ -128,6 +129,7 @@ describe('customer DOM harness', () => {
       cartId: 'f086826f-a7d8-4bc7-97ea-568b7037a5db',
       distinctItemCount: 1,
       aggregateQuantity: 1,
+      subtotal: 12_500,
       items: [
         {
           menuItemId,
@@ -137,6 +139,7 @@ describe('customer DOM harness', () => {
           unitPrice: 12_500,
           quantity: 1,
           note: 'No ice',
+          lineTotal: 12_500,
         },
       ],
       removedItems: [],

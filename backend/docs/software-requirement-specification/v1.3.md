@@ -346,6 +346,7 @@ Public read operations do not require authenticated permissions. The matrix is a
 - SRS-TBL-009: TAKEAWAY checkout shall not retain a dining-table reference or table snapshot.
 - SRS-TBL-010: An order created for DINE_IN shall snapshot the dining-table display identifier/name used at checkout so that later table renaming does not modify order history.
 - SRS-TBL-011: Deactivation or deletion of a dining table shall not modify retained order snapshots or invalidate historical orders.
+- SRS-TBL-012: An authenticated customer with `order.checkout` shall retrieve only active table IDs/names through a checkout-options contract without receiving management `table.read`.
 
 ### 5.6 Categories and menu items
 
@@ -393,6 +394,7 @@ Public read operations do not require authenticated permissions. The matrix is a
 - SRS-CART-009: A cart may be retained while ordering is disabled or a place is closed, but it shall not be checked out.
 - SRS-CART-010: A cart shall contain no more than 50 distinct menu items.
 - SRS-CART-011: Quantity shall not exceed 99 for any one cart item, and the sum of quantities across the cart shall not exceed 200.
+- SRS-CART-012: Every cart response shall include server-calculated item `lineTotal` values and a cart `subtotal` derived from current eligible items.
 
 ### 5.9 Checkout and order creation
 
@@ -458,8 +460,9 @@ EXPIRED   -> terminal
 - SRS-STS-023: Public verification shall not disclose customer identity/contact data, dining-table data, order items, notes, prices, internal IDs, or any token.
 - SRS-STS-024: A CASHIER, OWNER, ADMIN, or SUPER_ADMIN shall have an authenticated session with effective `order.read`/transition permissions and the applicable place scope before retrieving operational details or changing status.
 - SRS-STS-025: Public verification shall be read-only. Operational details and order mutations shall use authenticated endpoints and shall re-check current permission, scope, and order state.
-- SRS-STS-026: A public verification token shall be unguessable, shall not appear in logs or response bodies, and shall cease to be publicly usable 30 days after the order enters a terminal state.
+- SRS-STS-026: A public verification token shall be unguessable, shall not appear in logs or ordinary order responses, and shall cease to be publicly usable 30 days after the order enters a terminal state.
 - SRS-STS-027: An expired, unknown, disabled, or retention-expired public verification token shall return the same non-disclosing not-found response.
+- SRS-STS-028: A dedicated no-store endpoint may disclose a usable verification token only to the authenticated owning customer; foreign, disabled, and retention-expired access shall return hidden not-found.
 
 ### 5.11 Audit logging
 

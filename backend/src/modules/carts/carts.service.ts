@@ -129,12 +129,9 @@ export class CartsService {
     );
     const invalidIds = new Set(invalid.map(({ cartItemId }) => cartItemId));
     const items = cart.items.filter((item) => !invalidIds.has(item.id));
-    return {
-      cartId: cart.id,
-      placeId,
-      distinctItemCount: items.length,
-      aggregateQuantity: items.reduce((total, item) => total + item.quantity, 0),
-      items: items.map((item) => ({
+    const responseItems = items.map((item) => {
+      const lineTotal = item.menuItem.price.mul(item.quantity);
+      return {
         menuItemId: item.menuItemId,
         name: item.menuItem.name,
         type: item.menuItem.type,
@@ -142,7 +139,21 @@ export class CartsService {
         unitPrice: item.menuItem.price.toNumber(),
         quantity: item.quantity,
         note: item.note,
-      })),
+        lineTotal: lineTotal.toNumber(),
+      };
+    });
+    return {
+      cartId: cart.id,
+      placeId,
+      distinctItemCount: items.length,
+      aggregateQuantity: items.reduce((total, item) => total + item.quantity, 0),
+      subtotal: items
+        .reduce(
+          (total, item) => total.add(item.menuItem.price.mul(item.quantity)),
+          new Prisma.Decimal(0),
+        )
+        .toNumber(),
+      items: responseItems,
       removedItems: invalid.map(({ menuItemId, reason }) => ({ menuItemId, reason })),
     };
   }
@@ -153,6 +164,7 @@ export class CartsService {
       placeId,
       distinctItemCount: 0,
       aggregateQuantity: 0,
+      subtotal: 0,
       items: [],
       removedItems: [],
     };

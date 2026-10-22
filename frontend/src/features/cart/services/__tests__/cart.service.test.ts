@@ -12,6 +12,7 @@ const emptyCart = {
   placeId,
   distinctItemCount: 0,
   aggregateQuantity: 0,
+  subtotal: 0,
   items: [],
   removedItems: [],
 };

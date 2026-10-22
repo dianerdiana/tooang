@@ -6,6 +6,7 @@ import { PlacesModule } from '@/modules/places/places.module';
 
 import { ManualOrdersService } from './manual-orders.service';
 import {
+  CustomerCheckoutOptionsController,
   GlobalOrdersController,
   OrderVerificationsController,
   PlaceOrdersController,
@@ -24,6 +25,7 @@ import { OrdersService } from './orders.service';
   imports: [AuditModule, AuthModule, PlacesModule],
   controllers: [
     OrdersController,
+    CustomerCheckoutOptionsController,
     PlaceOrdersController,
     GlobalOrdersController,
     OrderVerificationsController,

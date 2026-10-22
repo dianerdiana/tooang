@@ -15,6 +15,7 @@ const item = {
   unitPrice: 12_500.5,
   quantity: 2,
   note: 'Less ice',
+  lineTotal: 25_001,
 };
 
 describe('cart schemas', () => {
@@ -38,7 +39,7 @@ describe('cart schemas', () => {
     expect(updateCartItemSchema.safeParse({ quantity: 1, userId: placeId }).success).toBe(false);
   });
 
-  it('models empty and reconciled carts while stripping gated totals', () => {
+  it('models empty and reconciled carts with authoritative totals', () => {
     expect(
       cartSchema.parse({
         cartId: null,
@@ -54,6 +55,7 @@ describe('cart schemas', () => {
       placeId,
       distinctItemCount: 0,
       aggregateQuantity: 0,
+      subtotal: 0,
       items: [],
       removedItems: [],
     });
@@ -63,7 +65,8 @@ describe('cart schemas', () => {
       placeId,
       distinctItemCount: 1,
       aggregateQuantity: 2,
-      items: [{ ...item, lineTotal: 25_001 }],
+      subtotal: 25_001,
+      items: [item],
       removedItems: [
         { menuItemId, reason: 'ITEM_DELETED' },
         { menuItemId, reason: 'ITEM_UNAVAILABLE' },
@@ -79,8 +82,8 @@ describe('cart schemas', () => {
       'CATEGORY_DELETED',
       'CATEGORY_INACTIVE',
     ]);
-    expect(parsed).not.toHaveProperty('subtotal');
-    expect(parsed.items[0]).not.toHaveProperty('lineTotal');
+    expect(parsed.subtotal).toBe(25_001);
+    expect(parsed.items[0]?.lineTotal).toBe(25_001);
   });
 
   it('rejects inconsistent counts and server-side cart limit violations', () => {

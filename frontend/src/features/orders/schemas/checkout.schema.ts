@@ -68,3 +68,12 @@ export const checkoutFormSchema = z
     customerNote: checkoutFormNoteSchema,
   })
   .strict();
+
+export const checkoutOptionsSchema = z
+  .object({
+    fulfillmentTypes: z.array(z.enum(['DINE_IN', 'TAKEAWAY'])).min(1),
+    diningTables: z.array(z.object({ tableId: checkoutUuidSchema, name: z.string().trim().min(1).max(30) }).strict()),
+  })
+  .strict();
+
+export const orderVerificationAccessSchema = z.object({ token: z.string().min(32).max(128) }).strict();

@@ -138,6 +138,7 @@ EXPIRED   -> terminal
 
 - `orderCode` is used for human communication and cashier lookups; do not use a short code as the sole proof of authorization.
 - A QR code should contain a URL that uses `verificationToken`, not `Order.id`, `userId`, or personal information.
+- Only the authenticated owning customer may retrieve that token through the dedicated own-order verification endpoint; ordinary order serializers and all management responses must omit it.
 - The token-verification endpoint must display only the minimum data required by the cashier.
 - Tokens must be compared exactly, must not be logged in full, and must not be sent to analytics services.
 - A cashier or OWNER may process an order only after ownership of the place has been verified from their session; possession of the QR code alone does not grant mutation permissions.
@@ -155,7 +156,7 @@ EXPIRED   -> terminal
 ## 12. Error Handling and Auditing
 
 - Use `400` for invalid input, `401` for invalid tokens, `403` for global role-based restrictions, `404` for missing resources or resources owned by another tenant, and `409` for state or unique-constraint conflicts.
-- Do not return stack traces, password hashes, verification tokens, or internal Prisma details to clients.
+- Do not return stack traces, password hashes, verification tokens outside the dedicated owner-only verification response, or internal Prisma details to clients.
 - Log sensitive actions: role changes, OWNER assignments, ordering-setting changes, review moderation, and order-status changes.
 - Audit logs must include, at minimum, the actor, action, target, timestamp, and safe before/after values. Do not store passwords, tokens, or secrets.
 

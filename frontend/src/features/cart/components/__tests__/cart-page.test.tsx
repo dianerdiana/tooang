@@ -27,6 +27,7 @@ const cartWithItem = (note: string | null = null): Cart => ({
   placeId,
   distinctItemCount: 1,
   aggregateQuantity: 1,
+  subtotal: 12_500,
   items: [
     {
       menuItemId,
@@ -36,6 +37,7 @@ const cartWithItem = (note: string | null = null): Cart => ({
       unitPrice: 12_500,
       quantity: 1,
       note,
+      lineTotal: 12_500,
     },
   ],
   removedItems: [],
@@ -46,6 +48,7 @@ const emptyCart: Cart = {
   placeId,
   distinctItemCount: 0,
   aggregateQuantity: 0,
+  subtotal: 0,
   items: [],
   removedItems: [],
 };
@@ -122,7 +125,7 @@ describe('cart page presentation', () => {
     expect(markup).toContain('category is currently inactive');
   });
 
-  it('keeps checkout disabled for empty, closed, and ordering-off states without inventing totals', () => {
+  it('keeps checkout disabled for empty, closed, and ordering-off states while showing server totals', () => {
     const markup = renderToStaticMarkup(
       <>
         <CartAvailabilityAlerts place={place} />
@@ -133,22 +136,19 @@ describe('cart page presentation', () => {
     expect(markup).toContain('Online ordering is unavailable');
     expect(markup).toContain('Checkout unavailable');
     expect(markup).toContain('0 items');
-    expect(markup).toContain('does not currently return an authoritative total');
-    expect(markup).not.toContain('Subtotal');
+    expect(markup).toContain('Current subtotal supplied by the server');
   });
 
-  it('renders current unit price, note editing, quantity, and an explicit remove action', () => {
+  it('renders line totals, unit-price arithmetic, note editing, quantity, and remove action', () => {
     const markup = renderToStaticMarkup(
       <QueryClientProvider client={new QueryClient()}>
         <CartLineItem cart={cartWithItem()} item={cartWithItem().items[0]} />
       </QueryClientProvider>,
     );
     expect(markup).toContain('Iced tea');
-    expect(markup).toContain('Current unit price');
+    expect(markup).toContain('12.500');
     expect(markup).toContain('Item note (optional)');
     expect(markup).toContain('Remove');
-    expect(markup).not.toContain('lineTotal');
-    expect(markup).not.toContain('Subtotal');
   });
 
   it('uses the complete mutation response for note edits and explicit removal', async () => {

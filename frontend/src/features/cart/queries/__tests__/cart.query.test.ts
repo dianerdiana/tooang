@@ -14,6 +14,7 @@ const cart = (placeId: string, quantity = 0) => ({
   placeId,
   distinctItemCount: 0,
   aggregateQuantity: quantity,
+  subtotal: 0,
   items: [],
   removedItems: [],
 });

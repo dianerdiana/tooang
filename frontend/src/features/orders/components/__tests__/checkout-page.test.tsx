@@ -54,6 +54,7 @@ vi.mock('@tanstack/react-router', () => ({
 const placeId = '5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae';
 const otherPlaceId = '42219512-b86b-4b05-8816-f8ee7f52fc65';
 const menuItemId = '123e4567-e89b-42d3-a456-426614174000';
+const tableId = '7ba2ba71-0e8b-45b5-9ed0-36c866c531a8';
 const place = {
   id: placeId,
   name: 'Warung Kita',
@@ -81,6 +82,7 @@ const cart: Cart = {
   placeId,
   distinctItemCount: 1,
   aggregateQuantity: 2,
+  subtotal: 25_000,
   items: [
     {
       menuItemId,
@@ -90,6 +92,7 @@ const cart: Cart = {
       unitPrice: 12_500,
       quantity: 2,
       note: 'No ice',
+      lineTotal: 25_000,
     },
   ],
   removedItems: [],
@@ -99,6 +102,7 @@ const emptyCart: Cart = {
   placeId,
   distinctItemCount: 0,
   aggregateQuantity: 0,
+  subtotal: 0,
   items: [],
   removedItems: [],
 };
@@ -172,6 +176,10 @@ beforeEach(() => {
   navigate.mockReset();
   vi.spyOn(placesService, 'getPublic').mockResolvedValue(place);
   vi.spyOn(cartService, 'get').mockResolvedValue(cart);
+  vi.spyOn(ordersService, 'getCheckoutOptions').mockResolvedValue({
+    fulfillmentTypes: ['TAKEAWAY', 'DINE_IN'],
+    diningTables: [{ tableId, name: 'Table 1' }],
+  });
   const subtle = globalThis.crypto.subtle;
   vi.stubGlobal('crypto', {
     subtle,
@@ -186,7 +194,7 @@ afterEach(() => {
 });
 
 describe('customer checkout page', () => {
-  it('renders the current review and a visibly gated DINE_IN option without fetching management tables', async () => {
+  it('renders authoritative totals and customer-safe DINE_IN options without fetching management tables', async () => {
     const listTables = vi.spyOn(diningTablesService, 'list').mockResolvedValue([]);
     renderCheckout();
 
@@ -194,9 +202,8 @@ describe('customer checkout page', () => {
     expect(screen.getByText('Iced tea')).toBeTruthy();
     expect(screen.getByText(/Rp\s*12\.500 each/)).toBeTruthy();
     expect((screen.getByRole('radio', { name: /^Takeaway/ }) as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByRole('radio', { name: /^Dine in/ }) as HTMLInputElement).disabled).toBe(true);
-    expect(screen.getByText('Table selection is not available for customer checkout yet.')).toBeTruthy();
-    expect(screen.getByText(/does not provide an authoritative subtotal/i)).toBeTruthy();
+    expect((screen.getByRole('radio', { name: /^Dine in/ }) as HTMLInputElement).disabled).toBe(false);
+    expect(screen.getAllByText(/Rp\s*25\.000/).length).toBeGreaterThan(0);
     expect(screen.getByLabelText('Checkout submission')).toBeTruthy();
     expect(listTables).not.toHaveBeenCalled();
   });
@@ -244,6 +251,27 @@ describe('customer checkout page', () => {
     await waitFor(() => expect(client.getQueryData(cartKeys.place(placeId))).toEqual(emptyCart));
     expect(client.getQueryData(cartKeys.place(otherPlaceId))).toEqual(otherCart);
     expect(sessionStorage.length).toBe(0);
+  });
+
+  it('submits a customer-safe DINE_IN payload with the selected active table', async () => {
+    const checkout = vi.spyOn(ordersService, 'checkout').mockResolvedValue({
+      ...order,
+      fulfillmentType: 'DINE_IN',
+      diningTable: { tableId, name: 'Table 1' },
+    });
+    renderCheckout();
+
+    await userEvent.click(await screen.findByRole('radio', { name: /^Dine in/ }));
+    expect((screen.getByLabelText('Table') as HTMLSelectElement).value).toBe(tableId);
+    fireEvent.submit(screen.getByLabelText('Customer name').closest('form')!);
+
+    await waitFor(() => expect(checkout).toHaveBeenCalledTimes(1));
+    expect(checkout.mock.calls[0]?.[0]).toMatchObject({
+      placeId,
+      fulfillmentType: 'DINE_IN',
+      tableId,
+      customerName: 'Dian Erdiana',
+    });
   });
 
   it('retains inputs, requires history recovery, and retries deliberately with the same key', async () => {
@@ -302,6 +330,7 @@ describe('customer checkout page', () => {
       cartId: null,
       distinctItemCount: 0,
       aggregateQuantity: 0,
+      subtotal: 0,
       items: [],
     });
 
@@ -408,6 +437,7 @@ describe('customer checkout page', () => {
       cartId: null,
       distinctItemCount: 0,
       aggregateQuantity: 0,
+      subtotal: 0,
       items: [],
     });
     renderCheckout();

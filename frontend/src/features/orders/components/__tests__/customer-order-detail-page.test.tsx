@@ -113,7 +113,20 @@ describe('customer order detail page', () => {
     expect(screen.getByRole('link', { name: 'View order details' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'My orders' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Return to menu' })).toBeTruthy();
-    expect(document.body.textContent).not.toMatch(/verification|payment|qr code/i);
+    expect(document.body.textContent).not.toMatch(/payment/i);
+  });
+
+  it('renders reload-safe owner verification access without adding it to order detail data', async () => {
+    const token = 'A'.repeat(43);
+    vi.spyOn(ordersService, 'getOwn').mockResolvedValue(order);
+    const getVerification = vi.spyOn(ordersService, 'getOwnVerification').mockResolvedValue({ token });
+    renderPage(false);
+
+    expect(await screen.findByRole('heading', { name: 'Order verification' })).toBeTruthy();
+    expect(getVerification).toHaveBeenCalledWith(order.orderId);
+    expect(screen.getByText(`Verification QR for order ${order.orderCode}`)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Open verification page' })).toBeTruthy();
+    expect(JSON.stringify(order)).not.toContain(token);
   });
 
   it('uses a neutral direct-access presentation without a checkout announcement', async () => {

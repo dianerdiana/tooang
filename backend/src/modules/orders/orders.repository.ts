@@ -238,6 +238,24 @@ export class OrdersRepository {
     });
   }
 
+  getCustomerCheckoutOptions(placeId: string) {
+    return this.prisma.place.findFirst({
+      where: {
+        id: placeId,
+        deletedAt: null,
+        isPublished: true,
+        isOrderingEnabled: true,
+      },
+      select: {
+        diningTables: {
+          where: { deletedAt: null, isActive: true },
+          select: { id: true, name: true },
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        },
+      },
+    });
+  }
+
   async lockManualOrderState(
     placeId: string,
     menuItemIds: string[],
@@ -353,6 +371,24 @@ export class OrdersRepository {
     return db.order.findFirst({
       where: { id: orderId, userId },
       select: ORDER_DETAIL_SELECT,
+    });
+  }
+
+  findOwnVerificationToken(userId: string, orderId: string, now: Date) {
+    const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60_000);
+    return this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId,
+        verificationDisabledAt: null,
+        OR: [
+          { status: { in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'] } },
+          { status: 'COMPLETED', completedAt: { gt: cutoff } },
+          { status: 'CANCELLED', cancelledAt: { gt: cutoff } },
+          { status: 'EXPIRED', statusUpdatedAt: { gt: cutoff } },
+        ],
+      },
+      select: { verificationToken: true },
     });
   }
 

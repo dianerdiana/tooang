@@ -98,6 +98,37 @@ describe('ordersService', () => {
     expect(apiMock.get).toHaveBeenCalledWith('/orders/order%2F1');
   });
 
+  it('loads customer-safe checkout options and owner-only verification access', async () => {
+    const placeId = '5d2b73e0-84f0-4f8c-a3e8-733e7b8312ae';
+    const orderId = 'f9f78164-06bf-46e0-9574-dc1a2db937ef';
+    const tableId = '7ba2ba71-0e8b-45b5-9ed0-36c866c531a8';
+    const token = 'A'.repeat(43);
+    apiMock.get
+      .mockResolvedValueOnce({
+        data: {
+          error: false,
+          message: 'Checkout options retrieved',
+          data: {
+            options: { fulfillmentTypes: ['TAKEAWAY', 'DINE_IN'], diningTables: [{ tableId, name: 'Table 1' }] },
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          error: false,
+          message: 'Order verification access retrieved',
+          data: { verification: { token } },
+        },
+      });
+
+    await expect(ordersService.getCheckoutOptions(placeId)).resolves.toMatchObject({
+      diningTables: [{ tableId, name: 'Table 1' }],
+    });
+    await expect(ordersService.getOwnVerification(orderId)).resolves.toEqual({ token });
+    expect(apiMock.get).toHaveBeenNthCalledWith(1, `/places/${placeId}/checkout-options`);
+    expect(apiMock.get).toHaveBeenNthCalledWith(2, `/me/orders/${orderId}/verification`);
+  });
+
   it('gets public verification from the exact case-sensitive token path and projects only safe fields', async () => {
     const token = `${'A'.repeat(42)}_`;
     const orderVerification = {

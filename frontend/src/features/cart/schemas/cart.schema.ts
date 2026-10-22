@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const unicodeLength = (value: string) => Array.from(value).length;
+const normalizeMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
 export const CART_MAX_DISTINCT_ITEMS = 50;
 export const CART_MAX_AGGREGATE_QUANTITY = 200;
@@ -49,6 +50,7 @@ const cartItemSchema = z.object({
   unitPrice: z.number().finite().nonnegative(),
   quantity: z.number().int().min(1).max(CART_MAX_ITEM_QUANTITY),
   note: cartNoteSchema,
+  lineTotal: z.number().finite().nonnegative(),
 });
 
 const removedCartItemSchema = z.object({
@@ -62,6 +64,7 @@ export const cartSchema = z
     placeId: cartUuidSchema,
     distinctItemCount: z.number().int().min(0).max(CART_MAX_DISTINCT_ITEMS),
     aggregateQuantity: z.number().int().min(0).max(CART_MAX_AGGREGATE_QUANTITY),
+    subtotal: z.number().finite().nonnegative(),
     items: z.array(cartItemSchema).max(CART_MAX_DISTINCT_ITEMS),
     removedItems: z.array(removedCartItemSchema).max(CART_MAX_DISTINCT_ITEMS),
   })
@@ -76,6 +79,19 @@ export const cartSchema = z
     if (cart.aggregateQuantity !== aggregate) {
       context.addIssue({ code: 'custom', path: ['aggregateQuantity'], message: 'Cart quantity is inconsistent' });
     }
+    const subtotal = normalizeMoney(cart.items.reduce((total, item) => total + item.lineTotal, 0));
+    if (normalizeMoney(cart.subtotal) !== subtotal) {
+      context.addIssue({ code: 'custom', path: ['subtotal'], message: 'Cart subtotal is inconsistent' });
+    }
+    cart.items.forEach((item, index) => {
+      if (normalizeMoney(item.lineTotal) !== normalizeMoney(item.unitPrice * item.quantity)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['items', index, 'lineTotal'],
+          message: 'Line total is inconsistent',
+        });
+      }
+    });
   });
 
 export const parseCart = (value: unknown, expectedPlaceId?: string) => {

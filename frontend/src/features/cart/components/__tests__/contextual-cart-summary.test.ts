@@ -11,6 +11,7 @@ const cart: Cart = {
   placeId: placeA,
   distinctItemCount: 2,
   aggregateQuantity: 4,
+  subtotal: 0,
   items: [],
   removedItems: [],
 };
