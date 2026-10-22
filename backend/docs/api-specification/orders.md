@@ -56,6 +56,8 @@ List queries use `page=1`, `limit=20` (maximum 100), optional `status` and `fulf
 
 Responses expose safe order/item snapshots but never verification tokens, idempotency rows, internal user IDs, or private lifecycle data. Own routes never broaden beyond ownership. Foreign ownership, revoked membership, and cross-place identifiers return hidden `404`; global collection access without a global grant returns `403`.
 
+`GET /api/v1/me/orders/:orderId/verification` is the sole owner-only verification-token disclosure. It requires own `order.read`, returns `data.verification.token`, sends `Cache-Control: private, no-store`, and returns hidden `404` for foreign, disabled, or retention-expired verification. Tokens remain excluded from checkout, order list/detail, place, and global serializers and must remain redacted from logs and errors.
+
 ## Status transitions
 
 - `PATCH /api/v1/me/orders/:orderId/status` accepts only `{ "status": "CANCELLED", "cancellationReason"?: string | null }` and requires own `order.cancel`.

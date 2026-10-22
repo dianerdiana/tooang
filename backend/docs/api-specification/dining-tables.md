@@ -16,4 +16,8 @@ CASHIER reads include active, non-deleted tables only. OWNER and global ADMIN/SU
 
 The collection is currently unpaginated. Unlike the fixed seven-day hours collection, table count is not intrinsically bounded; pagination is an open SRS-API-004 implementation gap. Soft deletion preserves historical `Order.diningTableName` snapshots.
 
+## Customer checkout options
+
+`GET /api/v1/places/:placeId/checkout-options` requires an active bearer-token principal with `order.checkout`; it does not grant or require management `table.read`. For a published, ordering-enabled, non-deleted place it returns `data.options.fulfillmentTypes` and active, non-deleted `diningTables` containing only `{ tableId, name }`. `DINE_IN` is advertised only when at least one such table exists. Missing or unavailable places return hidden `404`, and checkout revalidates the selected table and all place state.
+
 Traceability: SRS-TBL-001–011, SRS-API-003/004/006/007/009, SRS-AUTHZ-004/008–011, and SRS-DATA-006.
