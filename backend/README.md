@@ -84,7 +84,7 @@ backend/
 
 Install the following before setting up the project:
 
-- Node.js: `TODO: specify the supported version` (Node.js 20 LTS or newer is recommended for NestJS 11)
+- Node.js: `TODO: specify the supported version` (Node.js 20 LTS or newer is recommended for NestJS 11; `npm run test:e2e:local` requires Node.js 20.6 or newer for `--env-file`)
 - npm: `TODO: specify the supported version`
 - PostgreSQL: `TODO: specify the supported version`
 - Git
@@ -355,6 +355,7 @@ Detailed request and response contracts are available in the [API specification]
 | `npm run test:watch`  | Run unit tests in watch mode.                       |
 | `npm run test:cov`    | Run unit tests and produce a coverage report.       |
 | `npm run test:e2e`    | Run end-to-end tests.                               |
+| `npm run test:e2e:local` | Run end-to-end tests with variables loaded from `.env`. |
 | `npm run test:debug`  | Run Jest in Node.js debug mode.                     |
 | `npm run prisma:seed` | Seed the optional initial super-administrator.      |
 
@@ -379,6 +380,36 @@ npm run test:cov
 ```
 
 Database E2E tests require `TEST_DATABASE_URL` and intentionally skip when it is absent. Backend CI provisions PostgreSQL, applies migrations, and runs these suites without skipping.
+
+### Running database E2E tests locally
+
+Jest does not read `.env`. Each E2E file decides whether to skip when it is loaded, from `process.env.TEST_DATABASE_URL` only, so a value that exists only in `.env` still produces skipped suites under `npm run test:e2e`.
+
+1. Create a dedicated, disposable PostgreSQL database for tests, for example `createdb backend_test`. Never point `TEST_DATABASE_URL` at the development database: the suites create and delete rows, and some suites delete every `auth_rate_limit_buckets` row.
+2. Set `TEST_DATABASE_URL` in `.env` (see `.env.example`).
+3. Apply the migrations to the test database. The Prisma CLI reads `DATABASE_URL`, and an existing shell variable takes precedence over `.env`:
+
+   ```powershell
+   # PowerShell
+   $env:DATABASE_URL = "<TEST_DATABASE_URL>"
+   npx prisma migrate deploy --config prisma7.config.ts
+   Remove-Item Env:DATABASE_URL
+   ```
+
+   ```bash
+   # bash
+   DATABASE_URL="<TEST_DATABASE_URL>" npx prisma migrate deploy --config prisma7.config.ts
+   ```
+
+4. Run the suites:
+
+   ```bash
+   npm run test:e2e:local -- --runInBand
+   ```
+
+   Alternatively, export `TEST_DATABASE_URL` in the shell and run `npm run test:e2e`.
+
+`test:e2e:local` loads `.env` with Node's `--env-file`; variables already set in the shell win over the file. The suites set their own `DATABASE_URL`, `NODE_ENV`, JWT, bcrypt, and rate-limit values, but other `.env` values (for example `IMAGEKIT_*` in suites that do not override `IMAGEKIT_ENABLED`) are still visible to the application under test.
 
 ## Code Quality
 
