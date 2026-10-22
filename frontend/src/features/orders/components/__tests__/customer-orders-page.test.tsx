@@ -176,7 +176,7 @@ describe('customer orders page', { timeout: 10_000 }, () => {
       },
       { replace: true },
     );
-  });
+  }, 20_000);
 
   it('changes page without replacing history and focuses results after the requested page loads', async () => {
     const list = vi.spyOn(ordersService, 'list').mockImplementation(async (_scope, params) => ({

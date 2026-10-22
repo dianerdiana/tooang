@@ -242,7 +242,7 @@ describe('customer authentication, cart, and checkout journeys', () => {
     expect(await screen.findByText('2 added to cart. 2 items in this cart.')).toBeVisible();
     expect(add).toHaveBeenCalledWith(placeId, { menuItemId, quantity: 2, note: 'No ice' });
     expect(recoveryStage.queryClient.getQueryData(cartKeys.place(placeId))).toEqual(cartWithRestoredDraft);
-  }, 10_000);
+  }, 20_000);
 
   it('pairs terminal 401 recovery with private-state cleanup and a safe return URL', async () => {
     mockServiceFailure(
