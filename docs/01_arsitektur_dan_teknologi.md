@@ -2,6 +2,8 @@
 
 Dokumen ini merupakan ekstraksi evidence teknis dari repository Tooang. Status yang digunakan adalah `IMPLEMENTED`, `DOCUMENTED`, `DOCUMENTATION / IMPLEMENTATION GAP`, dan `NOT FOUND IN REPOSITORY`. Istilah _tenant_ pada dokumen ini merujuk pada entitas `Place`, karena implementasi mengikat membership dan mayoritas resource operasional ke `placeId`.
 
+> Dalam konteks penelitian ini, `Place` diperlakukan sebagai tenant berdasarkan struktur membership dan resource scoping yang ditemukan dalam repository.
+
 ## 1. Ringkasan Arsitektur
 
 ### `IMPLEMENTED`

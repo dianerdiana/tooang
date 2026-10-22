@@ -12,8 +12,8 @@ Dokumen ini membedakan dua hal secara ketat:
 Hasil eksekusi berasal dari sumber berbeda yang tidak boleh dicampur:
 
 1. **Verification record di repository.** Tercatat pada audit implementasi bertanggal 2026-09-17 (`DOCUMENTED`).
-2. **Eksekusi lokal unit test saat penyusunan dokumen.** Dijalankan pada 2026-10-22 terhadap commit `7fcf3d2` (backend Jest dan frontend Vitest).
-3. **Eksekusi lokal E2E dengan PostgreSQL lokal.** Dijalankan pada 2026-10-22 melalui `npm run test:e2e:local` dengan `TEST_DATABASE_URL` dari `backend/.env` pengguna.
+2. **Eksekusi lokal unit test saat penyusunan dokumen.** Dijalankan pada 2026-10-22 terhadap source code commit `7fcf3d2` (backend Jest dan frontend Vitest).
+3. **Eksekusi lokal E2E dengan PostgreSQL lokal.** Dijalankan pada 2026-10-22 melalui `npm run test:e2e:local` dengan `TEST_DATABASE_URL` dari `backend/.env` pengguna. Script tersebut belum ada pada `7fcf3d2`; script ditambahkan pada working tree saat penyusunan dokumen dan kemudian di-commit pada `931d54c` (lihat §8.2).
 
 Detail lingkungan sumber 2 dan 3 ada di §8.2. Hasil keduanya adalah observasi penyusun, bukan artefak yang tersimpan di repository.
 
@@ -34,13 +34,15 @@ Seluruh suite E2E backend dibungkus `describeDatabase`, yang menjadi `describe.s
 
 Jest tidak memuat `backend/.env`, sehingga `TEST_DATABASE_URL` yang hanya ditulis di `.env` tidak terbaca oleh `npm run test:e2e`. Untuk eksekusi lokal, repository menyediakan script `test:e2e:local` yang memuat `.env` melalui `node --env-file=.env`. Langkah menyiapkan database test (database terpisah dan migration) didokumentasikan di README backend. Script `test:e2e` yang dipakai CI tidak berubah.
 
+Catatan provenance: script `test:e2e:local`, bagian README "Running database E2E tests locally", dan contoh `TEST_DATABASE_URL` di `.env.example` ditambahkan secara sengaja pada commit `931d54c`, yaitu commit yang sama dengan penambahan dokumen ini. Ketiganya bukan bagian dari baseline `7fcf3d2` dan tidak mengubah source code aplikasi maupun konfigurasi CI.
+
 Source:
 
 - `backend/package.json:16-21`
 - `backend/package.json:76-101`
 - `backend/README.md:384-412`
 - `backend/.env.example:11-13`
-- `backend/test/jest-e2e.json:1-19`
+- `backend/test/jest-e2e.json:1-18`
 - `frontend/package.json:10`
 - `frontend/vitest.config.ts:11-19`
 - `.github/workflows/backend-ci.yml:1-49`
@@ -72,7 +74,7 @@ Source:
 
 - `backend/package.json:16-21`
 - `backend/package.json:54-74`
-- `backend/test/jest-e2e.json:1-19`
+- `backend/test/jest-e2e.json:1-18`
 - `frontend/package.json:10`
 - `frontend/package.json:43-71`
 - `frontend/vitest.config.ts:1-20`
@@ -180,7 +182,7 @@ Source:
 
 - `backend/src/modules/*/__tests__/*.schema.spec.ts`
 - `backend/src/modules/observability/__tests__/`
-- `backend/src/modules/auth/__tests__/auth-rate-limit.guard.spec.ts:36-60`
+- `backend/src/modules/auth/__tests__/auth-rate-limit.guard.spec.ts:36-52`
 
 ### `NOT FOUND IN REPOSITORY`
 
@@ -207,7 +209,7 @@ Kolom **Result**: `PASSED (local)` berarti test termasuk run unit test lokal 202
 | AUTH-06 | Login dengan email tidak dikenal memakai dummy bcrypt verification                           | Visitor                | —      | Verifikasi dummy dijalankan                                               | Assertion terpenuhi  | PASSED (local)   | `backend/src/modules/auth/__tests__/auth-hardening.spec.ts:26-43` |
 | AUTH-07 | Reuse refresh token yang sudah dirotasi                                                      | User terautentikasi    | —      | Seluruh family direvoke                                                   | Assertion terpenuhi  | PASSED (local)   | `backend/src/modules/auth/__tests__/auth.service.spec.ts:64`      |
 | AUTH-08 | Parent session dikonsumsi sebelum replacement dibuat dan ditautkan                            | User terautentikasi    | —      | Urutan rotasi benar                                                       | Assertion terpenuhi  | PASSED (local)   | `backend/src/modules/auth/__tests__/auth-hardening.spec.ts:101`   |
-| AUTH-09 | Rate limit verifikasi publik memakai scope IP; lookup order-code memakai actor + IP dan `Retry-After` | Visitor / staff | —      | Scope rate limit sesuai policy                                            | Assertion terpenuhi  | PASSED (local)   | `backend/src/modules/auth/__tests__/auth-rate-limit.guard.spec.ts:36-60` |
+| AUTH-09 | Rate limit verifikasi publik memakai scope IP; lookup order-code memakai actor + IP dan `Retry-After` | Visitor / staff | —      | Scope rate limit sesuai policy                                            | Assertion terpenuhi  | PASSED (local)   | `backend/src/modules/auth/__tests__/auth-rate-limit.guard.spec.ts:36-52` |
 | AUTH-10 | Alur cookie authentication dan profil user saat ini                                           | User                   | —      | Login, refresh, `/me` berhasil                                            | Assertion terpenuhi | PASSED (local E2E) | `backend/test/auth-users.e2e-spec.ts:121-195`                   |
 | AUTH-11 | Refresh token yang sama dikirim bersamaan                                                    | User                   | —      | Seluruh family direvoke                                                   | Assertion terpenuhi | PASSED (local E2E) | `backend/test/auth-users.e2e-spec.ts:197-222`                   |
 | AUTH-12 | Setelah deletion request, access dan refresh token lama diblokir                              | User                   | —      | Token lama ditolak                                                        | Assertion terpenuhi | PASSED (local E2E) | `backend/test/auth-users.e2e-spec.ts:224-253`                   |
@@ -389,7 +391,7 @@ Bagian ini bukan artefak repository. Isinya adalah output runner yang dijalankan
 | Atribut                 | Nilai                                                                                               |
 | ----------------------- | --------------------------------------------------------------------------------------------------- |
 | Tanggal                 | 2026-10-22                                                                                          |
-| Commit                  | `7fcf3d2`; working tree hanya memuat file dokumen yang di-stage (`docs/`, `prompt/`), tanpa perubahan kode |
+| Commit                  | Source code `7fcf3d2`. Working tree memuat file dokumen (`docs/`, `prompt/`) serta perubahan non-kode pada `backend/package.json` (script `test:e2e:local`), `backend/README.md`, dan `backend/.env.example`; perubahan tersebut kemudian di-commit pada `931d54c`. Tidak ada perubahan pada `backend/src`, `frontend/src`, Prisma schema, migration, atau workflow CI |
 | OS                      | Windows 11 Pro                                                                                      |
 | Node.js / npm           | v24.11.1 / 11.6.2 (CI memakai Node.js 22)                                                           |
 | `TEST_DATABASE_URL`     | Unit test: tidak di-set. E2E: dimuat dari `backend/.env` melalui `test:e2e:local`.                  |
@@ -470,6 +472,18 @@ Jumlah skenario per fokus yang tercatat di §4–§7 dokumen ini:
 | **Total**                         | **100**  | **74**                | **26**             | **0**  |
 
 Tabel ini menghitung baris skenario yang dipilih untuk dokumen ini, bukan seluruh kasus test di repository.
+
+Baris skenario tidak identik dengan kasus test independen. Beberapa baris merujuk bagian berbeda dari satu `it` yang sama, sehingga 100 baris skenario berasal dari **89 `it` unik**. Status baris-baris tersebut adalah status `it` induknya secara keseluruhan:
+
+| `it` induk                                                        | Baris skenario                                 |
+| ----------------------------------------------------------------- | ---------------------------------------------- |
+| `backend/test/auth-users.e2e-spec.ts:255-490`                     | AUTH-13, RBAC-10, UNA-04, MT-12, BR-03         |
+| `backend/test/order-lifecycle.e2e-spec.ts:179-235`                | UNA-05, MT-03, MT-11, OWN-07                   |
+| `backend/test/order-lifecycle.e2e-spec.ts:236-275`                | RBAC-16, XT-05, BR-11                          |
+| `backend/src/modules/places/__tests__/place-access.service.spec.ts:49-71` | MT-01, MT-06                           |
+| `backend/test/place-access.repository.e2e-spec.ts:70-99`          | MT-02, MT-10                                   |
+
+Pemetaan dilakukan dengan mencocokkan baris awal setiap `Source` ke deklarasi `it(...)` terdekat di atasnya. Untuk baris yang memuat lebih dari satu sumber (BR-04, BR-06), hanya sumber pertama yang dihitung.
 
 ## 10. Failed Tests / Known Issues
 
@@ -564,7 +578,7 @@ Source:
 - `backend/package.json:76-101` — konfigurasi Jest unit.
 - `backend/README.md:384-412` — langkah menjalankan E2E lokal (database test terpisah, migration, script).
 - `backend/.env.example:11-13` — contoh `TEST_DATABASE_URL`.
-- `backend/test/jest-e2e.json:1-19` — konfigurasi Jest E2E.
+- `backend/test/jest-e2e.json:1-18` — konfigurasi Jest E2E.
 - `frontend/package.json:10` — script test frontend.
 - `frontend/vitest.config.ts:1-20` — konfigurasi Vitest.
 - `.github/workflows/backend-ci.yml:1-49` — CI backend dengan PostgreSQL 16.
@@ -583,7 +597,7 @@ Source:
 - `backend/src/modules/auth/__tests__/auth-principal.service.spec.ts:26`
 - `backend/src/modules/auth/__tests__/auth.service.spec.ts:17-64`
 - `backend/src/modules/auth/__tests__/auth-hardening.spec.ts:15-101`
-- `backend/src/modules/auth/__tests__/auth-rate-limit.guard.spec.ts:36-60`
+- `backend/src/modules/auth/__tests__/auth-rate-limit.guard.spec.ts:36-52`
 - `backend/src/modules/places/__tests__/place-access.service.spec.ts:23-145`
 - `backend/src/modules/places/__tests__/place-members.service.spec.ts:31-117`
 - `backend/src/modules/places/__tests__/dining-tables.service.spec.ts:20-54`

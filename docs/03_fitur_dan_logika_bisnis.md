@@ -141,13 +141,14 @@ Source:
 | Aspek                  | Evidence                                                                                                                                                                                                                       |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Purpose/Scope          | Akses baca publik. Endpoint ditandai `@Public()` sehingga melewati `JwtAuthGuard`.                                                                                                                                             |
-| Allowed Operations     | `GET places`, `GET places/:slug`, `GET places/:placeId/menu`, `GET places/:placeId/reviews`, `GET places/:placeId/menu-items/:menuItemId/reviews`, `GET order-verifications/:token`, `GET health/ready`, serta `POST auth/register`, `auth/login`, `auth/refresh`, `auth/logout`. |
+| Allowed Operations     | `GET places`, `GET places/:slug`, `GET places/:placeId/menu`, `GET places/:placeId/reviews`, `GET places/:placeId/menu-items/:menuItemId/reviews`, `GET order-verifications/:token`, `GET health/ready`, legacy root `GET /` (belum dinormalisasi; tercatat sebagai gap F-01 di `04_skenario_dan_hasil_pengujian.md` §10), serta `POST auth/register`, `auth/login`, `auth/refresh`, `auth/logout`. |
 | Denied Operations      | Semua endpoint lain memerlukan access token karena `JwtAuthGuard` terpasang global.                                                                                                                                             |
 | Applicable Tenant      | Place yang `isPublished: true` dan `deletedAt: null` untuk discovery dan menu publik.                                                                                                                                           |
 | Applicable Resources   | Place terpublikasi, menu publik yang eligible, review yang terlihat, respons verifikasi order minimal.                                                                                                                          |
 
 Source:
 
+- `backend/src/app.controller.ts:11-12`
 - `backend/src/modules/places/places.controller.ts:36-37`
 - `backend/src/modules/places/places.controller.ts:71-72`
 - `backend/src/modules/menus/menus.controller.ts:162-167`
