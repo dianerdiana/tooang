@@ -25,6 +25,8 @@ jobs:
     defaults:
       run:
         working-directory: backend
+        # Explicit bash enables pipefail so `| tee` does not mask test failures.
+        shell: bash
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tooang_test
       TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tooang_test
@@ -44,6 +46,49 @@ jobs:
       - run: npm ci
       - run: npx prisma generate --config prisma7.config.ts
       - run: npx prisma migrate deploy --config prisma7.config.ts
-      - run: npm test -- --runInBand
+      - run: mkdir -p evidence
+      - name: Unit tests
+        env:
+          JEST_JUNIT_OUTPUT_DIR: evidence
+          JEST_JUNIT_OUTPUT_NAME: junit-unit.xml
+        run: >-
+          npm test -- --runInBand
+          --reporters=default --reporters=jest-junit
+          --coverage --coverageDirectory="$PWD/evidence/coverage-unit"
+          --coverageReporters=text-summary --coverageReporters=json-summary --coverageReporters=lcov
+          2>&1 | tee evidence/unit.log
       - run: npm run build
-      - run: npm run test:e2e -- --runInBand
+      - name: E2E tests
+        env:
+          JEST_JUNIT_OUTPUT_DIR: evidence
+          JEST_JUNIT_OUTPUT_NAME: junit-e2e.xml
+        run: >-
+          npm run test:e2e -- --runInBand
+          --reporters=default --reporters=jest-junit
+          2>&1 | tee evidence/e2e.log
+      - name: Collect metadata and checksums
+        if: always()
+        run: |
+          mkdir -p evidence
+          {
+            echo "repository: $GITHUB_REPOSITORY"
+            echo "commit: $GITHUB_SHA"
+            echo "ref: $GITHUB_REF"
+            echo "event: $GITHUB_EVENT_NAME"
+            echo "run_url: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "run_attempt: $GITHUB_RUN_ATTEMPT"
+            echo "job_status: ${{ job.status }}"
+            echo "date_utc: $(date -u +%FT%TZ)"
+            echo "runner: $RUNNER_OS $RUNNER_ARCH / ${ImageOS:-unknown} ${ImageVersion:-unknown}"
+            echo "node: $(node -v)"
+            echo "npm: $(npm -v)"
+            echo "postgres: $(psql "$DATABASE_URL" -tAc 'SHOW server_version' 2>/dev/null || echo unknown)"
+          } > evidence/metadata.txt
+          find evidence -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > evidence/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-evidence-${{ github.sha }}-${{ github.run_attempt }}
+          path: backend/evidence/
+          retention-days: 90
+          if-no-files-found: error
