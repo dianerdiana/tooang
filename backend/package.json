@@ -21,7 +21,8 @@
     "test:e2e:local": "node --env-file=.env --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
     "type-check": "tsc -p tsconfig.json --noEmit",
     "prisma:seed": "prisma db seed --config prisma7.config.ts",
-    "prisma:seed:test": "tsx prisma/seed-test.ts"
+    "prisma:seed:test": "tsx prisma/seed-test.ts",
+    "prisma:seed:cross-tenant": "tsx prisma/seed-cross-tenant.ts"
   },
   "dependencies": {
     "@imagekit/nodejs": "^7.11.0",

@@ -1,0 +1,4052 @@
+{
+  "info": {
+    "_postman_id": "36a2b3d1-1925-4ab9-8298-889498b5b7fd",
+    "name": "Tooang - Cross Tenant Isolation (Menu, Meja, Place)",
+    "description": "HTTP tests proving tenant isolation for places, menus (categories + items), and dining tables.\n\nPrerequisites:\n1. Backend running (default baseUrl http://localhost:3001/api/v1).\n2. Fixtures loaded: `CONFIRM_TEST_SEED=1 SEED_TEST_PASSWORD=<pwd> npm run prisma:seed:cross-tenant` (backend/).\n3. Environment variable `fixturePassword` equals SEED_TEST_PASSWORD.\n\nRun the folders in order (Collection Runner or `newman run`). Folder 05 verifies that no cross-tenant write took effect.\nRe-run the seed to restore the baseline before each full evidence run.\n\nExpected denial contract: foreign-tenant place/child resources -> 404 NOT_FOUND (no existence disclosure); global-only listing -> 403 FORBIDDEN.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Setup: Login",
+      "description": "Logs in each fixture account and stores the access token in the environment. Tokens are reused while still valid.",
+      "item": [
+        {
+          "name": "Login Owner A (OWNER Place A)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Reuse a still-valid token so repeated runs stay under the login rate limit (10 per 15 minutes).",
+                  "const token = pm.environment.get('ownerAToken');",
+                  "const expiresAt = Number(pm.environment.get('ownerATokenExpiresAt') || 0);",
+                  "if (token && expiresAt - Date.now() > 60000 && pm.execution && pm.execution.skipRequest) {",
+                  "  console.log('Reusing cached token for Owner A (OWNER Place A)');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Access token issued', () => pm.expect(body.data.accessToken).to.be.a('string').and.not.empty);",
+                  "pm.environment.set('ownerAToken', body.data.accessToken);",
+                  "pm.environment.set('ownerATokenExpiresAt', String(Date.now() + body.data.expiresIn * 1000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{ownerAEmail}}\",\n  \"password\": \"{{fixturePassword}}\",\n  \"rememberMe\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login Cashier A (CASHIER Place A)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Reuse a still-valid token so repeated runs stay under the login rate limit (10 per 15 minutes).",
+                  "const token = pm.environment.get('cashierAToken');",
+                  "const expiresAt = Number(pm.environment.get('cashierATokenExpiresAt') || 0);",
+                  "if (token && expiresAt - Date.now() > 60000 && pm.execution && pm.execution.skipRequest) {",
+                  "  console.log('Reusing cached token for Cashier A (CASHIER Place A)');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Access token issued', () => pm.expect(body.data.accessToken).to.be.a('string').and.not.empty);",
+                  "pm.environment.set('cashierAToken', body.data.accessToken);",
+                  "pm.environment.set('cashierATokenExpiresAt', String(Date.now() + body.data.expiresIn * 1000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{cashierAEmail}}\",\n  \"password\": \"{{fixturePassword}}\",\n  \"rememberMe\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login Owner B (OWNER Place B + Draft B)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Reuse a still-valid token so repeated runs stay under the login rate limit (10 per 15 minutes).",
+                  "const token = pm.environment.get('ownerBToken');",
+                  "const expiresAt = Number(pm.environment.get('ownerBTokenExpiresAt') || 0);",
+                  "if (token && expiresAt - Date.now() > 60000 && pm.execution && pm.execution.skipRequest) {",
+                  "  console.log('Reusing cached token for Owner B (OWNER Place B + Draft B)');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Access token issued', () => pm.expect(body.data.accessToken).to.be.a('string').and.not.empty);",
+                  "pm.environment.set('ownerBToken', body.data.accessToken);",
+                  "pm.environment.set('ownerBTokenExpiresAt', String(Date.now() + body.data.expiresIn * 1000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{ownerBEmail}}\",\n  \"password\": \"{{fixturePassword}}\",\n  \"rememberMe\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login Cashier B (CASHIER Place B)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Reuse a still-valid token so repeated runs stay under the login rate limit (10 per 15 minutes).",
+                  "const token = pm.environment.get('cashierBToken');",
+                  "const expiresAt = Number(pm.environment.get('cashierBTokenExpiresAt') || 0);",
+                  "if (token && expiresAt - Date.now() > 60000 && pm.execution && pm.execution.skipRequest) {",
+                  "  console.log('Reusing cached token for Cashier B (CASHIER Place B)');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Access token issued', () => pm.expect(body.data.accessToken).to.be.a('string').and.not.empty);",
+                  "pm.environment.set('cashierBToken', body.data.accessToken);",
+                  "pm.environment.set('cashierBTokenExpiresAt', String(Date.now() + body.data.expiresIn * 1000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{cashierBEmail}}\",\n  \"password\": \"{{fixturePassword}}\",\n  \"rememberMe\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login Outsider (USER, no membership)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Reuse a still-valid token so repeated runs stay under the login rate limit (10 per 15 minutes).",
+                  "const token = pm.environment.get('outsiderToken');",
+                  "const expiresAt = Number(pm.environment.get('outsiderTokenExpiresAt') || 0);",
+                  "if (token && expiresAt - Date.now() > 60000 && pm.execution && pm.execution.skipRequest) {",
+                  "  console.log('Reusing cached token for Outsider (USER, no membership)');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Access token issued', () => pm.expect(body.data.accessToken).to.be.a('string').and.not.empty);",
+                  "pm.environment.set('outsiderToken', body.data.accessToken);",
+                  "pm.environment.set('outsiderTokenExpiresAt', String(Date.now() + body.data.expiresIn * 1000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{outsiderEmail}}\",\n  \"password\": \"{{fixturePassword}}\",\n  \"rememberMe\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login Admin (platform ADMIN)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Reuse a still-valid token so repeated runs stay under the login rate limit (10 per 15 minutes).",
+                  "const token = pm.environment.get('adminToken');",
+                  "const expiresAt = Number(pm.environment.get('adminTokenExpiresAt') || 0);",
+                  "if (token && expiresAt - Date.now() > 60000 && pm.execution && pm.execution.skipRequest) {",
+                  "  console.log('Reusing cached token for Admin (platform ADMIN)');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Access token issued', () => pm.expect(body.data.accessToken).to.be.a('string').and.not.empty);",
+                  "pm.environment.set('adminToken', body.data.accessToken);",
+                  "pm.environment.set('adminTokenExpiresAt', String(Date.now() + body.data.expiresIn * 1000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{fixturePassword}}\",\n  \"rememberMe\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 - Baseline: own-tenant access works",
+      "description": "Positive controls. Proves the tokens and endpoints work, so the 404s later are caused by tenant isolation and not by a broken route or token.",
+      "item": [
+        {
+          "name": "Owner A - GET own place (management)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Returns Place A', () => pm.expect(body.data.place.id).to.eql(pm.environment.get('placeAId')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeAId}}/management",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeAId}}",
+                "management"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner A - GET own menu categories (only Place A rows)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Every category belongs to Place A', () => {",
+                  "  pm.expect(body.data.categories).to.not.be.empty;",
+                  "  body.data.categories.forEach((c) => pm.expect(c.placeId).to.eql(pm.environment.get('placeAId')));",
+                  "});",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeAId}}/menu-categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeAId}}",
+                "menu-categories"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner A - GET own menu items (only Place A rows)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Every menu item belongs to Place A', () => {",
+                  "  pm.expect(body.data.items).to.not.be.empty;",
+                  "  body.data.items.forEach((i) => pm.expect(i.placeId).to.eql(pm.environment.get('placeAId')));",
+                  "});",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeAId}}/menu-items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeAId}}",
+                "menu-items"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner A - GET own dining tables (only Place A rows)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Every table belongs to Place A', () => {",
+                  "  pm.expect(body.data.tables).to.not.be.empty;",
+                  "  body.data.tables.forEach((t) => pm.expect(t.placeId).to.eql(pm.environment.get('placeAId')));",
+                  "});",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeAId}}/dining-tables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeAId}}",
+                "dining-tables"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cashier A - GET own dining tables",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{cashierAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeAId}}/dining-tables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeAId}}",
+                "dining-tables"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner B - GET own place (management)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Returns Place B', () => pm.expect(body.data.place.id).to.eql(pm.environment.get('placeBId')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerBToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}/management",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}",
+                "management"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin - GET Place B (global platform access)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Returns Place B', () => pm.expect(body.data.place.id).to.eql(pm.environment.get('placeBId')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}/management",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}",
+                "management"
+              ]
+            },
+            "description": "Platform ADMIN has global place.read; confirms Place B exists and is reachable for a global role."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Place: cross-tenant access is denied",
+      "description": "A member of Tenant A (or a non-member) targets Tenant B places. Every request must fail with 404 \"Place not found\" (no existence disclosure) and must not leak Tenant B data.",
+      "item": [
+        {
+          "name": "Owner A - GET Place B management -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code NOT_FOUND', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}/management",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}",
+                "management"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner A - PATCH Place B profile -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code NOT_FOUND', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hijacked by Tenant A\",\n  \"description\": \"Cross-tenant write attempt\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Owner A - PATCH Place B publishing (unpublish) -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code NOT_FOUND', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}/publishing",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}",
+                "publishing"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isPublished\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Owner A - PATCH Place B ordering (disable) -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code NOT_FOUND', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}/ordering",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}",
+                "ordering"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isOrderingEnabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Owner A - DELETE Place B -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code NOT_FOUND', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner A - GET Place B members -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code NOT_FOUND', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}",
+                "members"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner A - GET unpublished Draft B management -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code NOT_FOUND', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBDraftId}}/management",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBDraftId}}",
+                "management"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner A - PATCH publish Draft B -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code NOT_FOUND', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBDraftId}}/publishing",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBDraftId}}",
+                "publishing"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isPublished\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Owner A - GET global management list -> 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403 FORBIDDEN', () => pm.response.to.have.status(403));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code FORBIDDEN', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('FORBIDDEN');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Insufficient permissions\"', () => pm.expect(body.message).to.eql('Insufficient permissions'));",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/management",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "management"
+              ]
+            },
+            "description": "Listing every place is a global-only capability; an OWNER membership must not grant it."
+          }
+        },
+        {
+          "name": "Cashier A - GET Place B management -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code NOT_FOUND', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{cashierAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}/management",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}",
+                "management"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cashier A - GET Place B members -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code NOT_FOUND', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{cashierAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}",
+                "members"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner B - GET Place A management -> 404 (reverse direction)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code NOT_FOUND', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                  "pm.test('No Tenant A data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeAName\",\"categoryAName\",\"menuItemAName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerBToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeAId}}/management",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeAId}}",
+                "management"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner B - PATCH Place A profile -> 404 (reverse direction)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code NOT_FOUND', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                  "pm.test('No Tenant A data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeAName\",\"categoryAName\",\"menuItemAName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerBToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeAId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hijacked by Tenant B\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Outsider - GET Place B management -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code NOT_FOUND', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{outsiderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}/management",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}",
+                "management"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Public - GET unpublished Draft B by slug -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('Error envelope with code NOT_FOUND', () => {",
+                  "  pm.expect(body.error).to.eql(true);",
+                  "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                  "  pm.expect(body).to.not.have.property('data');",
+                  "});",
+                  "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                  "pm.test('No Tenant B data leaked in response', () => {",
+                  "  const text = pm.response.text();",
+                  "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                  "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBDraftSlug}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBDraftSlug}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Menu: cross-tenant access is denied",
+      "description": "Menu categories and menu items. Covers (a) direct access to Place B routes and (b) ID smuggling: Tenant A uses its OWN placeId with a Tenant B categoryId / menuItemId.",
+      "item": [
+        {
+          "name": "03a - Direct access to Place B menu",
+          "description": "",
+          "item": [
+            {
+              "name": "Owner A - GET Place B categories -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/menu-categories",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "menu-categories"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Owner A - GET Place B category by id -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/menu-categories/{{categoryBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "menu-categories",
+                    "{{categoryBId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Owner A - POST category into Place B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/menu-categories",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "menu-categories"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Injected by Tenant A\",\n  \"sortOrder\": 99,\n  \"isActive\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Owner A - PATCH Place B category -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/menu-categories/{{categoryBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "menu-categories",
+                    "{{categoryBId}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Renamed by Tenant A\",\n  \"isActive\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Owner A - DELETE Place B inactive category -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/menu-categories/{{categoryBInactiveId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "menu-categories",
+                    "{{categoryBInactiveId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Owner A - GET Place B menu items -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/menu-items",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "menu-items"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Owner A - GET Place B menu item by id -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/menu-items/{{menuItemBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "menu-items",
+                    "{{menuItemBId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Owner A - POST menu item into Place B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/menu-items",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "menu-items"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"categoryId\": \"{{categoryBId}}\",\n  \"name\": \"Injected item by Tenant A\",\n  \"type\": \"DRINK\",\n  \"price\": 1,\n  \"isAvailable\": true,\n  \"sortOrder\": 0\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Owner A - PATCH Place B menu item price -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/menu-items/{{menuItemBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "menu-items",
+                    "{{menuItemBId}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"price\": 1,\n  \"isAvailable\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Owner A - DELETE Place B menu item -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/menu-items/{{menuItemBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "menu-items",
+                    "{{menuItemBId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Cashier A - GET Place B menu items -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{cashierAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/menu-items",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "menu-items"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Owner B - GET Place A menu item -> 404 (reverse direction)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant A data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeAName\",\"categoryAName\",\"menuItemAName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerBToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/menu-items/{{menuItemAId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "menu-items",
+                    "{{menuItemAId}}"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "03b - ID smuggling via own placeId",
+          "description": "Owner A is a legitimate OWNER of Place A, so the place check passes. The child lookup must still be scoped to Place A, so Tenant B ids resolve to 404.",
+          "item": [
+            {
+              "name": "Owner A - GET Place A / category B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Menu category not found\"', () => pm.expect(body.message).to.eql('Menu category not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/menu-categories/{{categoryBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "menu-categories",
+                    "{{categoryBId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Owner A - PATCH Place A / category B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Menu category not found\"', () => pm.expect(body.message).to.eql('Menu category not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/menu-categories/{{categoryBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "menu-categories",
+                    "{{categoryBId}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Smuggled rename\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Owner A - DELETE Place A / inactive category B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Menu category not found\"', () => pm.expect(body.message).to.eql('Menu category not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/menu-categories/{{categoryBInactiveId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "menu-categories",
+                    "{{categoryBInactiveId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Owner A - GET Place A / menu item B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Menu item not found\"', () => pm.expect(body.message).to.eql('Menu item not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/menu-items/{{menuItemBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "menu-items",
+                    "{{menuItemBId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Owner A - PATCH Place A / menu item B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Menu item not found\"', () => pm.expect(body.message).to.eql('Menu item not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/menu-items/{{menuItemBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "menu-items",
+                    "{{menuItemBId}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"price\": 1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Owner A - DELETE Place A / menu item B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Menu item not found\"', () => pm.expect(body.message).to.eql('Menu item not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/menu-items/{{menuItemBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "menu-items",
+                    "{{menuItemBId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Owner A - POST item in Place A under category B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Menu category not found\"', () => pm.expect(body.message).to.eql('Menu category not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/menu-items",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "menu-items"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"categoryId\": \"{{categoryBId}}\",\n  \"name\": \"Item attached to foreign category\",\n  \"type\": \"FOOD\",\n  \"price\": 1000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Owner A - PATCH item A to move into category B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Menu category not found\"', () => pm.expect(body.message).to.eql('Menu category not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/menu-items/{{menuItemAId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "menu-items",
+                    "{{menuItemAId}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"categoryId\": \"{{categoryBId}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "03c - Filter leakage",
+          "description": "Query filters with foreign ids must return an empty result set, never Tenant B rows.",
+          "item": [
+            {
+              "name": "Owner A - list Place A items filtered by category B -> empty",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                      "pm.test('No items returned', () => {",
+                      "  pm.expect(body.data.items).to.eql([]);",
+                      "  pm.expect(body.meta.totalItems).to.eql(0);",
+                      "});",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/menu-items?categoryId={{categoryBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "menu-items"
+                  ],
+                  "query": [
+                    {
+                      "key": "categoryId",
+                      "value": "{{categoryBId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Public - Place A menu filtered by category B -> empty",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                      "pm.test('No categories returned', () => {",
+                      "  pm.expect(body.data.categories).to.eql([]);",
+                      "  pm.expect(body.meta.totalItems).to.eql(0);",
+                      "});",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/menu?categoryId={{categoryBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "menu"
+                  ],
+                  "query": [
+                    {
+                      "key": "categoryId",
+                      "value": "{{categoryBId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Public - Place B menu hides unavailable and inactive rows",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "const body = pm.response.json();",
+                      "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                      "pm.test('Only Place B available items are returned', () => {",
+                      "  const text = pm.response.text();",
+                      "  pm.expect(text).to.include(pm.environment.get('menuItemBName'));",
+                      "  pm.expect(text).to.not.include(pm.environment.get('menuItemBUnavailableName'));",
+                      "  pm.expect(text).to.not.include(pm.environment.get('categoryBInactiveName'));",
+                      "  pm.expect(text).to.not.include(pm.environment.get('menuItemAName'));",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/menu",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "menu"
+                  ]
+                },
+                "description": "Place B is public, but only its available items in active categories may be exposed."
+              }
+            },
+            {
+              "name": "Public - Draft B menu -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBDraftId}}/menu",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBDraftId}}",
+                    "menu"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - Dining tables: cross-tenant access is denied",
+      "description": "Dining tables (meja). Covers direct access to Place B routes, ID smuggling through Place A, and both OWNER and CASHIER roles.",
+      "item": [
+        {
+          "name": "04a - Direct access to Place B tables",
+          "description": "",
+          "item": [
+            {
+              "name": "Owner A - GET Place B tables -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/dining-tables",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "dining-tables"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Owner A - GET Place B table by id -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/dining-tables/{{tableBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "dining-tables",
+                    "{{tableBId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Owner A - POST table into Place B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/dining-tables",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "dining-tables"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Injected-A\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Owner A - PATCH Place B table -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/dining-tables/{{tableBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "dining-tables",
+                    "{{tableBId}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Hijacked\",\n  \"isActive\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Owner A - DELETE Place B table -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/dining-tables/{{tableBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "dining-tables",
+                    "{{tableBId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Cashier A - GET Place B tables -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{cashierAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/dining-tables",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "dining-tables"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Cashier A - GET Place B table by id -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{cashierAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/dining-tables/{{tableBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "dining-tables",
+                    "{{tableBId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Outsider - GET Place B tables -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{outsiderToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeBId}}/dining-tables",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeBId}}",
+                    "dining-tables"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Owner B - GET Place A tables -> 404 (reverse direction)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant A data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeAName\",\"categoryAName\",\"menuItemAName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerBToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/dining-tables",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "dining-tables"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Cashier B - GET Place A table by id -> 404 (reverse direction)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Place not found\"', () => pm.expect(body.message).to.eql('Place not found'));",
+                      "pm.test('No Tenant A data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeAName\",\"categoryAName\",\"menuItemAName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{cashierBToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/dining-tables/{{tableAId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "dining-tables",
+                    "{{tableAId}}"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "04b - ID smuggling via own placeId",
+          "description": "Owner/Cashier A pass the Place A check; the table lookup must still be scoped to Place A.",
+          "item": [
+            {
+              "name": "Owner A - GET Place A / table B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Dining table not found\"', () => pm.expect(body.message).to.eql('Dining table not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/dining-tables/{{tableBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "dining-tables",
+                    "{{tableBId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Owner A - PATCH Place A / table B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Dining table not found\"', () => pm.expect(body.message).to.eql('Dining table not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/dining-tables/{{tableBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "dining-tables",
+                    "{{tableBId}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"isActive\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Owner A - DELETE Place A / table B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Dining table not found\"', () => pm.expect(body.message).to.eql('Dining table not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{ownerAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/dining-tables/{{tableBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "dining-tables",
+                    "{{tableBId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Cashier A - GET Place A / table B -> 404",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status 404 NOT_FOUND', () => pm.response.to.have.status(404));",
+                      "const body = pm.response.json();",
+                      "pm.test('Error envelope with code NOT_FOUND', () => {",
+                      "  pm.expect(body.error).to.eql(true);",
+                      "  pm.expect(body.code).to.eql('NOT_FOUND');",
+                      "  pm.expect(body).to.not.have.property('data');",
+                      "});",
+                      "pm.test('Message is \"Dining table not found\"', () => pm.expect(body.message).to.eql('Dining table not found'));",
+                      "pm.test('No Tenant B data leaked in response', () => {",
+                      "  const text = pm.response.text();",
+                      "  [\"placeBName\",\"placeBDraftName\",\"categoryBName\",\"categoryBInactiveName\",\"menuItemBName\",\"menuItemBUnavailableName\",\"tableBName\",\"tableBInactiveName\"].forEach((key) => {",
+                      "    pm.expect(text, key).to.not.include(pm.environment.get(key));",
+                      "  });",
+                      "});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{cashierAToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/places/{{placeAId}}/dining-tables/{{tableBId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "places",
+                    "{{placeAId}}",
+                    "dining-tables",
+                    "{{tableBId}}"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 - Integrity: Tenant B data unchanged",
+      "description": "Run last. Owner B re-reads every Tenant B resource the previous folders tried to modify and checks it still matches the seed baseline.",
+      "item": [
+        {
+          "name": "Owner B - Place B unchanged",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "const place = body.data.place;",
+                  "pm.test('Name unchanged', () => pm.expect(place.name).to.eql(pm.environment.get('placeBName')));",
+                  "pm.test('Still published', () => pm.expect(place.isPublished).to.eql(true));",
+                  "pm.test('Ordering still enabled', () => pm.expect(place.isOrderingEnabled).to.eql(true));",
+                  "pm.test('Not deleted', () => pm.expect(place.deletedAt ?? null).to.eql(null));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerBToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}/management",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}",
+                "management"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner B - Draft B still unpublished",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Still unpublished', () => pm.expect(body.data.place.isPublished).to.eql(false));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerBToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBDraftId}}/management",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBDraftId}}",
+                "management"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner B - Place B categories unchanged",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "const names = body.data.categories.map((c) => c.name).sort();",
+                  "pm.test('Exactly the two seeded categories', () => {",
+                  "  pm.expect(names).to.eql([pm.environment.get('categoryBName'), pm.environment.get('categoryBInactiveName')].sort());",
+                  "});",
+                  "const coffee = body.data.categories.find((c) => c.categoryId === pm.environment.get('categoryBId'));",
+                  "pm.test('Category B still active', () => pm.expect(coffee.isActive).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerBToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}/menu-categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}",
+                "menu-categories"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner B - Place B menu items unchanged",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Exactly the two seeded items', () => pm.expect(body.data.items).to.have.lengthOf(2));",
+                  "const latte = body.data.items.find((i) => i.menuItemId === pm.environment.get('menuItemBId'));",
+                  "pm.test('Latte price unchanged', () => pm.expect(latte.price).to.eql(Number(pm.environment.get('menuItemBPrice'))));",
+                  "pm.test('Latte still available', () => pm.expect(latte.isAvailable).to.eql(true));",
+                  "pm.test('Latte still in category B', () => pm.expect(latte.categoryId).to.eql(pm.environment.get('categoryBId')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerBToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}/menu-items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}",
+                "menu-items"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner B - Place B tables unchanged",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Exactly the two seeded tables', () => pm.expect(body.data.tables).to.have.lengthOf(2));",
+                  "const b1 = body.data.tables.find((t) => t.tableId === pm.environment.get('tableBId'));",
+                  "pm.test('Table B-01 name unchanged', () => pm.expect(b1.name).to.eql(pm.environment.get('tableBName')));",
+                  "pm.test('Table B-01 still active', () => pm.expect(b1.isActive).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerBToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeBId}}/dining-tables",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeBId}}",
+                "dining-tables"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Owner A - Place A item A still in category A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Success envelope', () => pm.expect(body.error).to.eql(false));",
+                  "pm.test('Category unchanged', () => pm.expect(body.data.menuItem.categoryId).to.eql(pm.environment.get('categoryAId')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerAToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/places/{{placeAId}}/menu-items/{{menuItemAId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "places",
+                "{{placeAId}}",
+                "menu-items",
+                "{{menuItemAId}}"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Response is JSON', () => pm.response.to.be.json);",
+          "pm.test('No server error', () => pm.expect(pm.response.code).to.be.below(500));"
+        ]
+      }
+    }
+  ]
+}
