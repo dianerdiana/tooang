@@ -7,19 +7,27 @@ import { currentRequestId } from '@/common/observability/request-context';
 import { RequestContextMiddleware } from '../request-context.middleware';
 
 describe('RequestContextMiddleware', () => {
-  const setup = (supplied?: string) => {
-    const logger = { log: jest.fn() };
-    const metrics = { increment: jest.fn(), observe: jest.fn() };
+  const setup = (
+    supplied?: string,
+    overrides: {
+      route?: { path?: string };
+      baseUrl?: string;
+      statusCode?: number;
+      metrics?: { increment: jest.Mock; observe: jest.Mock };
+    } = {},
+  ) => {
+    const logger = { log: jest.fn(), warn: jest.fn() };
+    const metrics = overrides.metrics ?? { increment: jest.fn(), observe: jest.fn() };
     const middleware = new RequestContextMiddleware(logger as never, metrics);
     const response = Object.assign(new EventEmitter(), {
-      statusCode: 200,
+      statusCode: overrides.statusCode ?? 200,
       setHeader: jest.fn(),
     });
     const request = {
       headers: supplied === undefined ? {} : { 'x-request-id': supplied },
       method: 'GET',
-      route: { path: '/places/:placeId' },
-      baseUrl: '/api/v1',
+      route: 'route' in overrides ? overrides.route : { path: '/places/:placeId' },
+      baseUrl: overrides.baseUrl ?? '/api/v1',
     };
     let activeRequestId: string | undefined;
     middleware.use(request as never, response as never, () => {
@@ -47,5 +55,34 @@ describe('RequestContextMiddleware', () => {
     const result = setup(supplied);
     expect(result.activeRequestId).toMatch(/^[0-9a-f-]{36}$/u);
     expect(result.activeRequestId).not.toBe(supplied);
+  });
+
+  it('tags unmatched routes with a bounded placeholder instead of the empty baseUrl', () => {
+    const result = setup(undefined, { route: undefined, baseUrl: '', statusCode: 404 });
+    expect(result.logger.log).toHaveBeenCalledWith(
+      'HTTP request completed',
+      expect.objectContaining({ route: 'unmatched', status: 404 }),
+    );
+    expect(result.metrics.increment).toHaveBeenCalledWith(
+      'http_server_requests_total',
+      expect.objectContaining({ route: 'unmatched', statusClass: '4xx' }),
+    );
+  });
+
+  it('does not let a metrics rejection escape the finish listener', () => {
+    const metrics = {
+      increment: jest.fn(() => {
+        throw new Error('Operational metric tags must be bounded allowlisted values');
+      }),
+      observe: jest.fn(),
+    };
+    let result: ReturnType<typeof setup> | undefined;
+    expect(() => {
+      result = setup(undefined, { metrics });
+    }).not.toThrow();
+    expect(result?.logger.warn).toHaveBeenCalledWith(
+      'HTTP request metrics rejected',
+      expect.objectContaining({ event: 'http.request.metrics_rejected', errorCategory: 'Error' }),
+    );
   });
 });
