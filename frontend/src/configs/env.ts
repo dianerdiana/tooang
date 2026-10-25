@@ -31,7 +31,7 @@ export const buildApiBaseUrl = (serverUrl: string | undefined) => `${normalizeSe
 const baseServerUrl = normalizeServerOrigin(import.meta.env.VITE_BASE_SERVER_URL);
 
 export const env = {
-  nodeEnv: import.meta.env.MODE,
+  nodeEnv: import.meta.env.VITE_NODE_ENV,
   baseServerUrl,
   baseApiUrl: buildApiBaseUrl(baseServerUrl),
   baseImageUrl: `${baseServerUrl}/`,
