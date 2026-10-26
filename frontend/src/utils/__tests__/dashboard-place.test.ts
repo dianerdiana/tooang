@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { PlaceMemberRole } from '@/types/enums/user-role.enum';
 import type { PlaceMembership } from '@/types/user-data.type';
 
-import { parseDashboardSearch, resolveDashboardPlace, sortPlaceMemberships } from '../dashboard-place';
+import {
+  formatPlaceMemberRole,
+  parseDashboardSearch,
+  resolveDashboardPlace,
+  sortPlaceMemberships,
+} from '../dashboard-place';
 
 const membership = (placeId: string, name: string): PlaceMembership => ({
   placeId,
@@ -35,5 +40,10 @@ describe('dashboard place selection', () => {
 
   it('returns no selection when no active membership remains', () => {
     expect(resolveDashboardPlace([], 'stale_place')).toBeNull();
+  });
+
+  it('formats place membership roles as readable labels', () => {
+    expect(formatPlaceMemberRole(PlaceMemberRole.OWNER)).toBe('Owner');
+    expect(formatPlaceMemberRole('CASHIER')).toBe('Cashier');
   });
 });

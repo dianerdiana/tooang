@@ -3,7 +3,7 @@ import { Building2Icon } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { StatusBadge } from '@/components/ui/status-badge';
 
-import { sortPlaceMemberships } from '@/utils/dashboard-place';
+import { formatPlaceMemberRole, sortPlaceMemberships } from '@/utils/dashboard-place';
 
 import type { PlaceMembership } from '@/types/user-data.type';
 
@@ -19,7 +19,9 @@ function PlaceContext({ membership }: { membership: PlaceMembership }) {
     <div className='flex min-w-0 items-center gap-2'>
       <Building2Icon aria-hidden='true' className='size-4 shrink-0 text-primary' />
       <span className='truncate text-sm font-semibold'>{membership.place.name}</span>
-      <span className='hidden shrink-0 text-xs text-muted-foreground sm:inline'>{membership.role}</span>
+      <span className='hidden shrink-0 text-xs text-muted-foreground sm:inline'>
+        {formatPlaceMemberRole(membership.role)}
+      </span>
       <StatusBadge tone={membership.place.isPublished ? 'success' : 'neutral'} className='hidden lg:inline-flex'>
         {membership.place.isPublished ? 'Published' : 'Draft'}
       </StatusBadge>
@@ -63,7 +65,7 @@ function PlaceSwitcher({ memberships, selectedPlace, isPlatformContext, onPlaceC
             <span className='flex min-w-0 flex-col pr-2'>
               <span className='truncate font-medium'>{membership.place.name}</span>
               <span className='text-xs text-muted-foreground'>
-                {membership.role} · {membership.place.isPublished ? 'Published' : 'Draft'} ·{' '}
+                {formatPlaceMemberRole(membership.role)} · {membership.place.isPublished ? 'Published' : 'Draft'} ·{' '}
                 {membership.place.isOrderingEnabled ? 'Ordering on' : 'Ordering off'}
               </span>
             </span>

@@ -1,4 +1,14 @@
+import type { PlaceMemberRole } from '@/types/enums/user-role.enum';
 import type { PlaceMembership } from '@/types/user-data.type';
+
+type PlaceMemberRoleValue = `${PlaceMemberRole}`;
+
+export const PLACE_MEMBER_ROLE_LABEL: Record<PlaceMemberRoleValue, string> = {
+  OWNER: 'Owner',
+  CASHIER: 'Cashier',
+};
+
+export const formatPlaceMemberRole = (role: PlaceMemberRoleValue) => PLACE_MEMBER_ROLE_LABEL[role];
 
 export type DashboardSearch = {
   placeId?: string;
