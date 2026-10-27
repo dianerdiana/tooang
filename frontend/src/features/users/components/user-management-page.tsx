@@ -278,7 +278,7 @@ function PlatformRoleAction({
           if (role !== user.platformRole) setRequestedRole(role);
         }}
       >
-        <SelectTrigger className='w-40' aria-label={`Change platform role for ${user.fullName}`}>
+        <SelectTrigger size='sm' className='w-40' aria-label={`Change platform role for ${user.fullName}`}>
           <ShieldIcon aria-hidden />
           <SelectValue />
         </SelectTrigger>

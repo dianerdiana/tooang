@@ -179,7 +179,7 @@ function FilterFields({
           value={status ?? 'ALL'}
           onValueChange={(value) => onStatusChange(value === 'ALL' ? undefined : (value as OrderStatus))}
         >
-          <SelectTrigger id={`${idPrefix}-status`} className='h-11 w-full'>
+          <SelectTrigger id={`${idPrefix}-status`} className='w-full'>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -197,7 +197,7 @@ function FilterFields({
           value={fulfillmentType ?? 'ALL'}
           onValueChange={(value) => onFulfillmentChange(value === 'ALL' ? undefined : (value as FulfillmentType))}
         >
-          <SelectTrigger id={`${idPrefix}-fulfillment`} className='h-11 w-full'>
+          <SelectTrigger id={`${idPrefix}-fulfillment`} className='w-full'>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

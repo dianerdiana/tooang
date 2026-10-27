@@ -106,7 +106,7 @@ function DiscoveryFilters({
           value={type ?? 'ALL'}
           onValueChange={(value) => onTypeChange(value === 'ALL' ? undefined : (value as PlaceType))}
         >
-          <SelectTrigger id={`${idPrefix}-type`} className='h-12 w-full'>
+          <SelectTrigger id={`${idPrefix}-type`} className='w-full'>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

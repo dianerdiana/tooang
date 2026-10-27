@@ -69,7 +69,7 @@ function Pagination({
               onValueChange={(value) => onPageSizeChange(Number(value))}
               disabled={disabled}
             >
-              <SelectTrigger className='w-18' aria-label='Rows per page'>
+              <SelectTrigger size='sm' className='w-18' aria-label='Rows per page'>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent align='end'>
