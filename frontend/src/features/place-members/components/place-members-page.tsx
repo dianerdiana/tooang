@@ -16,8 +16,11 @@ import { Input } from '@/components/ui/input';
 import { ResponsiveDrawer } from '@/components/ui/responsive-drawer';
 import { StatusBadge } from '@/components/ui/status-badge';
 
+import type { UserSummary } from '@/features/users/types/users.type';
+
 import { canAtPlace } from '@/utils/auth/has-permission';
 import { getDashboardErrorPresentation, getDashboardErrorTone, getSafeMutationError } from '@/utils/dashboard-error';
+import { formatPlaceMemberRole } from '@/utils/dashboard-place';
 import { useAppAbility } from '@/utils/hooks/use-app-ability';
 
 import { PERMISSION } from '@/types/permission.type';
@@ -36,6 +39,8 @@ import {
   toOwnerAssignment,
 } from '../schemas/place-members.schema';
 import type { PlaceMember, PlaceMemberRole } from '../types/place-members.type';
+
+import { MemberUserPicker } from './member-user-picker';
 
 export type PlaceMemberPermissions = {
   canRead: boolean;
@@ -60,21 +65,27 @@ const firstMessage = (errors: unknown[]) => {
 const formatJoinedDate = (value: string) =>
   new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
 
-function AssignMemberDrawer({
+export function AssignMemberDrawer({
   placeId,
   role,
   open,
   onOpenChange,
+  members,
+  canSearchUsers,
 }: {
   placeId: string;
   role: 'OWNER' | 'CASHIER';
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  members: readonly PlaceMember[];
+  canSearchUsers: boolean;
 }) {
   const cashierMutation = useSetCashierMutation(placeId);
   const ownerMutation = useSetOwnerMutation(placeId);
   const mutation = role === 'OWNER' ? ownerMutation : cashierMutation;
+  const roleLabel = formatPlaceMemberRole(role);
   const [ownerAssignment, setOwnerAssignment] = useState<ReturnType<typeof toOwnerAssignment>>();
+  const [selectedUser, setSelectedUser] = useState<UserSummary>();
   const submitAssignment = async (
     assignment: ReturnType<typeof toCashierAssignment> | ReturnType<typeof toOwnerAssignment>,
   ) => {
@@ -82,6 +93,7 @@ function AssignMemberDrawer({
       const member = await mutation.mutateAsync(assignment as never);
       toast.success(`${member.user.fullName} is now ${role === 'OWNER' ? 'an owner' : 'a cashier'}.`);
       setOwnerAssignment(undefined);
+      setSelectedUser(undefined);
       form.reset();
       onOpenChange(false);
     } catch {
@@ -100,18 +112,31 @@ function AssignMemberDrawer({
     if (!next) {
       mutation.reset();
       setOwnerAssignment(undefined);
+      setSelectedUser(undefined);
       form.reset();
     }
     onOpenChange(next);
   };
+  const selectUser = (user: UserSummary | undefined) => {
+    mutation.reset();
+    setSelectedUser(user);
+    form.setFieldValue('userId', user?.userId ?? '');
+  };
+  const ownerTarget = selectedUser
+    ? `${selectedUser.fullName} (${selectedUser.email})`
+    : (ownerAssignment?.userId ?? 'this user');
 
   return (
     <ResponsiveDrawer
       open={open}
       onOpenChange={changeOpen}
       side='right'
-      title={role === 'OWNER' ? 'Assign owner' : 'Assign cashier'}
-      description={`Enter the public user ID. This assigns, reactivates, or changes the membership to ${role}.`}
+      title={`Assign ${roleLabel.toLowerCase()}`}
+      description={
+        canSearchUsers
+          ? `Search by name or email. This assigns, reactivates, or changes the membership to ${roleLabel}.`
+          : `Enter the public user ID. This assigns, reactivates, or changes the membership to ${roleLabel}.`
+      }
     >
       <form
         className='space-y-5'
@@ -122,30 +147,40 @@ function AssignMemberDrawer({
           void form.handleSubmit();
         }}
       >
-        <form.Field name='userId' validators={{ onBlur: publicUserIdSchema }}>
-          {(field) => (
-            <FormField error={field.state.meta.isTouched ? firstMessage(field.state.meta.errors) : undefined}>
-              <FormLabel>Public user ID</FormLabel>
-              <FormControl>
-                <Input
-                  autoFocus
-                  value={field.state.value}
-                  maxLength={100}
-                  disabled={mutation.isPending}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => {
-                    mutation.reset();
-                    field.handleChange(event.target.value);
-                  }}
-                  placeholder='User identifier'
-                />
-              </FormControl>
-              <FormMessage />
-            </FormField>
-          )}
-        </form.Field>
+        {canSearchUsers ? (
+          <MemberUserPicker
+            members={members}
+            role={role}
+            selectedUser={selectedUser}
+            onSelect={selectUser}
+            disabled={mutation.isPending}
+          />
+        ) : (
+          <form.Field name='userId' validators={{ onBlur: publicUserIdSchema }}>
+            {(field) => (
+              <FormField error={field.state.meta.isTouched ? firstMessage(field.state.meta.errors) : undefined}>
+                <FormLabel>Public user ID</FormLabel>
+                <FormControl>
+                  <Input
+                    autoFocus
+                    value={field.state.value}
+                    maxLength={100}
+                    disabled={mutation.isPending}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => {
+                      mutation.reset();
+                      field.handleChange(event.target.value);
+                    }}
+                    placeholder='User identifier'
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormField>
+            )}
+          </form.Field>
+        )}
         <div className='rounded-md border bg-muted/30 p-3 text-sm'>
-          <span className='font-medium'>Membership role:</span> {role}
+          <span className='font-medium'>Membership role:</span> {roleLabel}
         </div>
         {mutation.isError && (
           <p role='alert' className='text-sm text-destructive'>
@@ -178,7 +213,7 @@ function AssignMemberDrawer({
           open={ownerAssignment !== undefined}
           onOpenChange={(next) => !next && !mutation.isPending && setOwnerAssignment(undefined)}
           title='Assign OWNER membership?'
-          description={`This grants OWNER access to ${ownerAssignment?.userId ?? 'this user'}. The backend will verify authorization and invariants.`}
+          description={`This grants OWNER access to ${ownerTarget}. The backend will verify authorization and invariants.`}
           confirmLabel='Assign owner'
           isPending={mutation.isPending}
           onConfirm={() => ownerAssignment && void submitAssignment(ownerAssignment)}
@@ -223,7 +258,7 @@ export function MembersTable({
         header: 'Role',
         cell: ({ row }) => (
           <StatusBadge tone={row.original.role === 'OWNER' ? 'primary' : 'neutral'} showDot>
-            {row.original.role === 'OWNER' ? 'Owner' : 'Cashier'}
+            {formatPlaceMemberRole(row.original.role)}
           </StatusBadge>
         ),
       },
@@ -305,6 +340,8 @@ export function MembersTable({
 }
 
 export function MembersPanel({ placeId, permissions }: { placeId: string; permissions: PlaceMemberPermissions }) {
+  const ability = useAppAbility();
+  const canSearchUsers = ability.can(PERMISSION.USER_READ, 'Place');
   const query = useQuery({ ...placeMembersQueryOptions(placeId), enabled: permissions.canRead });
   const errorPresentation = getDashboardErrorPresentation(query.error);
   const revokeMutation = useRevokeCashierMutation(placeId);
@@ -403,6 +440,8 @@ export function MembersPanel({ placeId, permissions }: { placeId: string; permis
           role={assigningRole}
           open
           onOpenChange={(open) => !open && setAssigningRole(undefined)}
+          members={query.data ?? []}
+          canSearchUsers={canSearchUsers}
         />
       )}
     </SectionCard>
