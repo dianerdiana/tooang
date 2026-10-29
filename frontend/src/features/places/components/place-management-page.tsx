@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { BusinessHoursPanel } from '@/features/business-hours/components/business-hours-page';
 import { DiningTablesPanel } from '@/features/dining-tables/components/dining-tables-page';
@@ -572,6 +573,7 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
   const ability = useAppAbility();
   const query = useQuery(managementPlaceQueryOptions(placeId));
   const [isEditing, setIsEditing] = useState(false);
+  const [activeTab, setActiveTab] = useState('detail');
 
   if (query.isPending) {
     return (
@@ -631,6 +633,21 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
     canAssignOwner: canAtPlace(ability, place.id, PERMISSION.OWNER_ASSIGN),
     canRevokeOwner: canAtPlace(ability, place.id, PERMISSION.OWNER_REVOKE),
   };
+  const profileSection =
+    isEditing && canEdit ? (
+      <PlaceProfileForm
+        key={place.updatedAt}
+        place={place}
+        onCancel={() => setIsEditing(false)}
+        onSaved={() => setIsEditing(false)}
+      />
+    ) : (
+      <PlaceOverview
+        place={place}
+        mediaPermissions={mediaPermissions}
+        availability={<PlaceAvailabilityControls place={place} canPublish={canPublish} canManageOrdering={canEdit} />}
+      />
+    );
 
   return (
     <>
@@ -652,7 +669,12 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
         }
         actions={
           !isEditing && canEdit ? (
-            <Button onClick={() => setIsEditing(true)}>
+            <Button
+              onClick={() => {
+                setActiveTab('detail');
+                setIsEditing(true);
+              }}
+            >
               <PencilIcon aria-hidden />
               Edit profile
             </Button>
@@ -664,25 +686,33 @@ function PlaceManagementPage({ placeId, platformContext = false, listSearch }: P
           </span>
         }
       />
-      {isEditing && canEdit ? (
-        <PlaceProfileForm
-          key={place.updatedAt}
-          place={place}
-          onCancel={() => setIsEditing(false)}
-          onSaved={() => setIsEditing(false)}
-        />
+      {platformContext ? (
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className='p-2'>
+            <TabsTrigger value='detail'>Detail</TabsTrigger>
+            <TabsTrigger value='schedule'>Schedule</TabsTrigger>
+            <TabsTrigger value='dining-tables'>Dining Tables</TabsTrigger>
+            <TabsTrigger value='menu-categories'>Menu Categories</TabsTrigger>
+            {memberPermissions.canRead && <TabsTrigger value='members'>Members</TabsTrigger>}
+          </TabsList>
+          <TabsContent value='detail'>{profileSection}</TabsContent>
+          <TabsContent value='schedule'>
+            <BusinessHoursPanel placeId={place.id} timezone={place.timezone} canEdit={canEdit} />
+          </TabsContent>
+          <TabsContent value='dining-tables'>
+            <DiningTablesPanel placeId={place.id} permissions={diningTablePermissions} />
+          </TabsContent>
+          <TabsContent value='menu-categories'>
+            <MenuCategoriesPanel placeId={place.id} permissions={menuCategoryPermissions} />
+          </TabsContent>
+          {memberPermissions.canRead && (
+            <TabsContent value='members'>
+              <MembersPanel placeId={place.id} permissions={memberPermissions} />
+            </TabsContent>
+          )}
+        </Tabs>
       ) : (
-        <PlaceOverview
-          place={place}
-          mediaPermissions={mediaPermissions}
-          availability={<PlaceAvailabilityControls place={place} canPublish={canPublish} canManageOrdering={canEdit} />}
-        />
-      )}
-      {platformContext && <BusinessHoursPanel placeId={place.id} timezone={place.timezone} canEdit={canEdit} />}
-      {platformContext && <DiningTablesPanel placeId={place.id} permissions={diningTablePermissions} />}
-      {platformContext && <MenuCategoriesPanel placeId={place.id} permissions={menuCategoryPermissions} />}
-      {platformContext && memberPermissions.canRead && (
-        <MembersPanel placeId={place.id} permissions={memberPermissions} />
+        profileSection
       )}
       {platformContext && (
         <Button asChild variant='outline'>
